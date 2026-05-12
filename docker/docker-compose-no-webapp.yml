@@ -1,0 +1,38 @@
+name: cosmo42-dev
+
+services:
+  cosmo42-dev-mariadb:
+    container_name: cosmo42-dev-mariadb
+    image: mariadb:11.8.5
+    platform: linux/amd64
+    ports:
+      - "33006:3306"
+    command:
+      - --default-authentication-plugin=mysql_native_password
+    environment:
+      - MARIADB_DATABASE=cosmo42
+      - MARIADB_USER=cosmo42
+      - MARIADB_PASSWORD=changeme
+      - MARIADB_RANDOM_ROOT_PASSWORD=yes
+    volumes:
+      - cosmo42-mariadb-volume:/var/lib/mysql
+      - ./init_db.sql:/docker-entrypoint-initdb.d/init_db.sql
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "mariadb-admin",
+          "ping",
+          "-h",
+          "127.0.0.1",
+          "-ucosmo42",
+          "-pchangeme",
+        ]
+      timeout: 20s
+      retries: 3
+      interval: 10s
+    restart: unless-stopped
+
+volumes:
+  cosmo42-mariadb-volume:
+    name: cosmo42-mariadb-data
