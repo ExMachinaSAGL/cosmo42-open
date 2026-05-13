@@ -8,13 +8,16 @@ import ch.exmachina.cosmo42.services.chat.ChatService;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.codec.ServerSentEvent;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 import reactor.core.publisher.Flux;
 
@@ -34,8 +37,14 @@ public class ChatController {
     }
 
     @GetMapping(value = "/history")
-    public List<ChatMessageDTO> getHistory(@RequestParam  String conversationId) {
+    public List<ChatMessageDTO> getConversationHistory(@RequestParam String conversationId) {
         return chatService.getHistory(conversationId);
+    }
+
+    @DeleteMapping(value = "/history")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void deleteConversationHistory(@RequestParam String conversationId) {
+        chatService.deleteHistory(conversationId);
     }
 
 }
