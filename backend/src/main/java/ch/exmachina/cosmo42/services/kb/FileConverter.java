@@ -10,6 +10,7 @@ import org.apache.pdfbox.rendering.ImageType;
 import org.apache.pdfbox.rendering.PDFRenderer;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
+import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.reactive.function.client.WebClient;
 
 import javax.imageio.ImageIO;
@@ -37,6 +38,21 @@ public class FileConverter {
                 .retrieve()
                 .bodyToMono(byte[].class)
                 .block();
+    }
+
+    public byte[] convertSupportedFileToPdf(MultipartFile file) throws IOException {
+        byte[] pdfBytes;
+        String originalFilename = file.getOriginalFilename().toLowerCase();
+
+        if (originalFilename.endsWith(".docx") || originalFilename.endsWith(".xlsx")) {
+            log.info("Converting docx/xlsx to PDF");
+            pdfBytes = convertOfficeDocToPdf(file.getBytes(), file.getName());
+        } else if (originalFilename.endsWith(".pdf")) {
+            pdfBytes = file.getBytes();
+        } else {
+            throw new IllegalArgumentException("Unsupported file type: " + file.getName());
+        }
+        return pdfBytes;
     }
 
     public List<byte[]> convertPdfToImages(byte[] pdfBytes) throws IOException {

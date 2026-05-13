@@ -77,19 +77,10 @@ public class KBDocumentChunker {
 
     public List<DocumentPage> extractRawChunks(MultipartFile file) throws IOException {
 
-        byte[] pdfBytes;
-        String originalFilename = file.getOriginalFilename().toLowerCase();
-
-        if (originalFilename.endsWith(".docx") || originalFilename.endsWith(".xlsx")) {
-            log.info("Converting docx/xlsx to PDF");
-            pdfBytes = fileConverter.convertOfficeDocToPdf(file.getBytes(), file.getName());
-        } else if (originalFilename.endsWith(".pdf")) {
-            pdfBytes = file.getBytes();
-        } else {
-            throw new IllegalArgumentException("Unsupported file type: " + file.getName());
-        }
-
-        List<Media> mediaList = fileConverter.convertPdfToImages(pdfBytes).stream()
+        byte[] pdf = fileConverter.convertSupportedFileToPdf(file);
+        List<byte[]> images = fileConverter.convertPdfToImages(pdf);
+        
+        List<Media> mediaList = images.stream()
                 .map(imgBytes -> new Media(MimeTypeUtils.IMAGE_PNG, new ByteArrayResource(imgBytes)))
                 .toList();
 
