@@ -673,7 +673,10 @@ h2 {
 
 .kb-action-button {
   color: #2563eb; /* text-blue-600 */
-  transition-property: color, background-color, border-color, text-decoration-color, fill, stroke, opacity, box-shadow, transform, filter, backdrop-filter; /* transition-colors */
+  background-color: none;
+  border: none;
+  background: none;
+  transition-property: color, fill, stroke, opacity, transform, filter, backdrop-filter; /* transition-colors */
   transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1); /* transition-colors */
   transition-duration: 150ms; /* transition-colors */
 }
