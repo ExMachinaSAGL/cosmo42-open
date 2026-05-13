@@ -4,6 +4,7 @@ import ch.exmachina.cosmo42.dto.ChatEventType;
 import ch.exmachina.cosmo42.dto.ChatResponseDTO;
 import ch.exmachina.cosmo42.dto.ChatRequestDTO;
 import ch.exmachina.cosmo42.services.chat.processors.ConversationProcessor;
+import ch.exmachina.cosmo42.services.chat.processors.TitleProcessor;
 import ch.exmachina.cosmo42.services.chat.processors.UuidProcessor;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
@@ -25,6 +26,7 @@ import java.util.UUID;
 public class ChatService {
 
     UuidProcessor uuidProcessor;
+    TitleProcessor titleProcessor;
     ConversationProcessor conversationProcessor;
 
     public Flux<ServerSentEvent<ChatResponseDTO>> processChat(ChatRequestDTO request) {
@@ -48,6 +50,7 @@ public class ChatService {
 
         List<Flux<ServerSentEvent<ChatResponseDTO>>> fluxes = new ArrayList<>();
         fluxes.add(uuidProcessor.process(context));
+        fluxes.add(titleProcessor.process(context));
         fluxes.add(conversationProcessor.process(context));
 
         Flux<ServerSentEvent<ChatResponseDTO>> processes = Flux.merge(fluxes)
