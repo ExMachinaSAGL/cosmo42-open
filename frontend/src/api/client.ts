@@ -1,7 +1,9 @@
-const BASE_URL = 'http://localhost:8080/api/v1/kb';
+const API_BASE_URL = 'http://localhost:8080/api/v1';
+const KB_BASE_URL = `${API_BASE_URL}/kb`;
+const CHAT_BASE_URL = `${API_BASE_URL}/chat`;
 
-async function apiFetch(endpoint: string, options: RequestInit = {}) {
-    const response = await fetch(`${BASE_URL}${endpoint}`, {
+async function apiFetch(baseUrl: string, endpoint: string, options: RequestInit = {}) {
+    const response = await fetch(`${baseUrl}${endpoint}`, {
         ...options,
         headers: {
             'Content-Type': 'application/json',
@@ -15,13 +17,12 @@ async function apiFetch(endpoint: string, options: RequestInit = {}) {
     return response.json();
 }
 
-// TODO
-
-export const fetchDocuments = () => apiFetch('/documents');
-export const deleteDocument = (id: string) => apiFetch(`/documents/${id}`, { method: 'DELETE' });
+// Knowledge Base API
+export const fetchDocuments = () => apiFetch(KB_BASE_URL, '/documents');
+export const deleteDocument = (id: string) => apiFetch(KB_BASE_URL, `/documents/${id}`, { method: 'DELETE' });
 
 export const downloadDocument = (id: string, fileName: string) => {
-    fetch(`${BASE_URL}/documents/${id}/download`)
+    fetch(`${KB_BASE_URL}/documents/${id}/download`)
         .then(response => {
             if (!response.ok) throw new Error("Failed to download file");
             return response.blob();
@@ -40,9 +41,16 @@ export const downloadDocument = (id: string, fileName: string) => {
         .catch(err => console.error("Error downloading file", err));
 };
 
-// Nota: per l'upload di file (FormData), il Content-Type NON deve essere impostato a application/json,
-// il browser deve impostarlo automaticamente per includere il boundary.
-export const uploadDocument = (data: FormData) => fetch(`${BASE_URL}/documents`, {
+export const uploadDocument = (data: FormData) => fetch(`${KB_BASE_URL}/documents`, {
     method: 'POST',
     body: data
 }).then(res => res.json());
+
+// Chat API
+export const fetchChatHistory = (chatId: string) => apiFetch(CHAT_BASE_URL, `/history/${chatId}/messages`);
+
+export const sendChatMessage = (messageData: any) => fetch(`${CHAT_BASE_URL}/stream`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(messageData)
+});

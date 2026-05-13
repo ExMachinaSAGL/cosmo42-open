@@ -1,11 +1,13 @@
-import { NavLink } from 'react-router-dom';
+import { NavLink, useNavigate } from 'react-router-dom';
 import { Database, MessageSquare, Plus, PanelLeftClose, MoreVertical, Edit2, Trash2 } from 'lucide-react';
 import { useState, useEffect } from 'react';
+import toast from 'react-hot-toast';
 import logo from '../assets/Cosmo42logo_128x128.jpg';
 
 export function Sidebar() {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
+  const navigate = useNavigate();
 
   useEffect(() => {
     const handleClickOutside = () => setOpenMenuId(null);
@@ -17,6 +19,11 @@ export function Sidebar() {
     e.preventDefault();
     e.stopPropagation();
     setOpenMenuId(openMenuId === id ? null : id);
+  };
+
+  const handleNewChat = () => {
+    navigate('/');
+    toast.success('Started a new chat');
   };
 
   return (
@@ -48,13 +55,13 @@ export function Sidebar() {
         <div>
           <div className={`sidebar-section-header ${isCollapsed ? 'justify-center' : ''}`}>
             {isCollapsed ? (
-              <button className="sidebar-new-chat-button" title="New Chat">
+              <button onClick={handleNewChat} className="sidebar-new-chat-button" title="New Chat">
                 <MessageSquare size={16}/>
               </button>
             ) : (
               <>
                 <h2 className="sidebar-section-title">Chats</h2>
-                <button className="sidebar-new-chat-button" title="New Chat">
+                <button onClick={handleNewChat} className="sidebar-new-chat-button" title="New Chat">
                   <Plus size={16}/>
                 </button>
               </>
@@ -63,7 +70,7 @@ export function Sidebar() {
           {!isCollapsed && (
             <ul className="sidebar-nav-list">
               <li className="sidebar-nav-item-container">
-                <NavLink to="/" className={({ isActive }) => `sidebar-nav-link ${isActive ? 'active' : ''}`} title="Progetto X...">
+                <NavLink to="/chat/1" className={({ isActive }) => `sidebar-nav-link ${isActive ? 'active' : ''}`} title="Progetto X...">
                   <span className="sidebar-nav-item-text">Progetto X...</span>
                 </NavLink>
 
@@ -77,10 +84,16 @@ export function Sidebar() {
                   </button>
                   {openMenuId === 'proj-1' && (
                     <div className="sidebar-item-menu" onClick={e => e.stopPropagation()}>
-                      <button className="sidebar-menu-btn" onClick={() => setOpenMenuId(null)}>
+                      <button className="sidebar-menu-btn" onClick={() => {
+                        setOpenMenuId(null);
+                        toast.success('Chat renamed');
+                      }}>
                         <Edit2 size={14} /> Rename
                       </button>
-                      <button className="sidebar-menu-btn delete" onClick={() => setOpenMenuId(null)}>
+                      <button className="sidebar-menu-btn delete" onClick={() => {
+                        setOpenMenuId(null);
+                        toast.success('Chat deleted');
+                      }}>
                         <Trash2 size={14} /> Delete
                       </button>
                     </div>
