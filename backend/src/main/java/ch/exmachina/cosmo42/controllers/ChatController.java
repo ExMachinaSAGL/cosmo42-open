@@ -1,5 +1,6 @@
 package ch.exmachina.cosmo42.controllers;
 
+import ch.exmachina.cosmo42.dto.ChatMessageDTO;
 import ch.exmachina.cosmo42.dto.ChatRequestDTO;
 import ch.exmachina.cosmo42.dto.ChatResponseDTO;
 import ch.exmachina.cosmo42.entities.ChatMessage;
@@ -33,7 +34,7 @@ public class ChatController {
     }
 
     @GetMapping(value = "/history")
-    public List<ChatMessage> getHistory(@RequestParam  String conversationId) {
+    public List<ChatMessageDTO> getHistory(@RequestParam  String conversationId) {
         return chatService.getHistory(conversationId);
     }
 

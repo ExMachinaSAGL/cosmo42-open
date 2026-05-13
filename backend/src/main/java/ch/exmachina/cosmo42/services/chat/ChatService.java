@@ -1,6 +1,7 @@
 package ch.exmachina.cosmo42.services.chat;
 
 import ch.exmachina.cosmo42.dto.ChatEventType;
+import ch.exmachina.cosmo42.dto.ChatMessageDTO;
 import ch.exmachina.cosmo42.dto.ChatResponseDTO;
 import ch.exmachina.cosmo42.dto.ChatRequestDTO;
 import ch.exmachina.cosmo42.entities.ChatMessage;
@@ -76,8 +77,14 @@ public class ChatService {
         return Flux.merge(eventSink.asFlux(), processes);
     }
 
-    public List<ChatMessage> getHistory(String conversationId) {
-        return chatHistoryRepository.findByConversationId(conversationId);
+    public List<ChatMessageDTO> getHistory(String conversationId) {
+        return chatHistoryRepository.findByConversationId(conversationId).stream().map(
+                chatMessage -> ChatMessageDTO.builder()
+                        .content(chatMessage.getContent())
+                        .timestamp(chatMessage.getTimestamp())
+                        .type(chatMessage.getType())
+                        .build()
+        ).toList();
     }
 
 }
