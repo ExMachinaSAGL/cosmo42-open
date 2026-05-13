@@ -1,4 +1,4 @@
-package ch.exmachina.cosmo42.controllers;
+package ch.exmachina.cosmo42.utils;
 
 import org.apache.tika.detect.Detector;
 import org.apache.tika.io.TikaInputStream;
@@ -11,15 +11,14 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
 
-public class ControllerUtils {
-
-    final static String MIME_PDF = "application/pdf";
-    final static String MIME_DOCX = "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
-    final static String MIME_XSLX = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+public class MimeTypeUtils {
 
     public static boolean isSupportedMimeType(MultipartFile file) {
-        String mimeType = getMimeType(file);
-        return mimeType.equals(MIME_PDF) || mimeType.equals(MIME_DOCX) || mimeType.equals(MIME_XSLX);
+        return SupportedMimeTypes.isSupported(getMimeType(file));
+    }
+
+    public static boolean isMimeType(MultipartFile file, SupportedMimeTypes mimeType) {
+        return mimeType.getContentType().equals(getMimeType(file));
     }
 
     private static String getMimeType(MultipartFile file) {
