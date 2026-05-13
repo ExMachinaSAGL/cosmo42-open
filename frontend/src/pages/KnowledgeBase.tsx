@@ -5,9 +5,6 @@ import { fetchDocuments, uploadDocument, deleteDocument, downloadDocument } from
 interface Document {
   uuid: string;
   name: string;
-  size: string;
-  date: string;
-  status: string;
 }
 
 export function KnowledgeBase() {
@@ -124,10 +121,7 @@ export function KnowledgeBase() {
             <thead className="kb-table-header">
             <tr>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">File Name</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Size</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-              <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+              <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider w-24" style={{ textAlign: 'right' }}>Actions</th>
             </tr>
             </thead>
             <tbody className="kb-table-body">
@@ -138,15 +132,6 @@ export function KnowledgeBase() {
                     <FileText className="kb-file-icon" />
                     <span className="kb-table-cell file-name">{doc.name}</span>
                   </div>
-                </td>
-                <td className="kb-table-cell">{doc.date}</td>
-                <td className="kb-table-cell">{doc.size}</td>
-                <td className="kb-table-cell">
-                    <span className={`kb-status-badge ${
-                      doc.status === 'Indexed' || doc.status === 'Indicizzato' ? 'indexed' : 'processing'
-                    }`}>
-                      {doc.status === 'Indicizzato' ? 'Indexed' : doc.status}
-                    </span>
                 </td>
                 <td className="kb-table-cell kb-actions-cell">
                   <button 

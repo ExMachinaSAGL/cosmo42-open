@@ -592,7 +592,7 @@ h2 {
 .kb-table {
   min-width: 100%;
   border-collapse: collapse;
-  table-layout: fixed; /* Added for consistent column width */
+  table-layout: auto; /* Updated from fixed */
 }
 
 .kb-table-header {
