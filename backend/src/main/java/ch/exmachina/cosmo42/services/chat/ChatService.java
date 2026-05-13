@@ -12,9 +12,11 @@ import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.codec.ServerSentEvent;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.server.ResponseStatusException;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Sinks;
 
@@ -90,6 +92,10 @@ public class ChatService {
 
     @Transactional
     public void deleteHistory(String conversationId) {
+        List<ChatMessage> history = chatHistoryRepository.findByConversationId(conversationId);
+        if(history.isEmpty()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST);
+        }
         chatHistoryRepository.deleteByConversationId(conversationId);
     }
 }
