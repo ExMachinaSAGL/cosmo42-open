@@ -57,7 +57,7 @@ public class KBDocumentService {
     @Transactional
     public DocumentDTO saveKBDocument(MultipartFile file) {
         try {
-            List<DocumentPage> chunks = kbDocumentChunker.extractRawChunks(file.getBytes());
+            List<DocumentPage> chunks = kbDocumentChunker.extractRawChunks(file);
 
             FileReference fileReference = fileService.save(file);
             KBDocument kbDocument = new KBDocument();

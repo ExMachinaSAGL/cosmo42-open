@@ -1,5 +1,6 @@
 package ch.exmachina.cosmo42.controllers;
 
+import ch.exmachina.cosmo42.utils.MimeTypeUtils;
 import ch.exmachina.cosmo42.dto.DocumentDTO;
 import ch.exmachina.cosmo42.services.KBDocumentService;
 import lombok.AccessLevel;
@@ -34,7 +35,7 @@ public class KBDocumentsController {
         if (file.isEmpty()) {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Empty file.");
         }
-        if( ControllerUtils.isPdfSignatureValid(file) ){
+        if (MimeTypeUtils.isSupportedMimeType(file)) {
             return ResponseEntity.ok(kbDocumentService.saveKBDocument(file));
         }
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Only PDF files are supported.");
