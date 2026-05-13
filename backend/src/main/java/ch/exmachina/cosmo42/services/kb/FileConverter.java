@@ -1,11 +1,16 @@
 package ch.exmachina.cosmo42.services.kb;
 
+import lombok.AccessLevel;
+import lombok.RequiredArgsConstructor;
+import lombok.experimental.FieldDefaults;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.pdfbox.Loader;
 import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.rendering.ImageType;
 import org.apache.pdfbox.rendering.PDFRenderer;
+import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
+import org.springframework.web.reactive.function.client.WebClient;
 
 import javax.imageio.ImageIO;
 import java.awt.*;
@@ -17,7 +22,22 @@ import java.util.List;
 
 @Component
 @Slf4j
-public class FileToImageConverter {
+@FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
+@RequiredArgsConstructor
+public class FileConverter {
+
+    WebClient libreofficeWebClient;
+
+    public byte[] convertOfficeDocToPdf(byte[] fileBytes, String filename) {
+        return libreofficeWebClient.post()
+                .uri("/convert")
+                .header("X-Filename", filename)
+                .contentType(MediaType.APPLICATION_OCTET_STREAM)
+                .bodyValue(fileBytes)
+                .retrieve()
+                .bodyToMono(byte[].class)
+                .block();
+    }
 
     public List<byte[]> convertPdfToImages(byte[] pdfBytes) throws IOException {
         return convertPdfToImages(pdfBytes, 300f, 4096);

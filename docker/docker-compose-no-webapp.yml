@@ -33,6 +33,13 @@ services:
       interval: 10s
     restart: unless-stopped
 
+  cosmo42-dev-libreoffice:
+    container_name: cosmo42-dev-libreoffice
+    image: exm/cosmo42-libreoffice:0.0.1
+    ports:
+      - "3000:3000"
+    restart: unless-stopped
+
 volumes:
   cosmo42-mariadb-volume:
     name: cosmo42-mariadb-data

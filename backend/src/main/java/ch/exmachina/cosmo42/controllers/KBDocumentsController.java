@@ -34,7 +34,7 @@ public class KBDocumentsController {
         if (file.isEmpty()) {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Empty file.");
         }
-        if( ControllerUtils.isPdfSignatureValid(file) ){
+        if (ControllerUtils.isSupportedMimeType(file)) {
             return ResponseEntity.ok(kbDocumentService.saveKBDocument(file));
         }
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Only PDF files are supported.");
