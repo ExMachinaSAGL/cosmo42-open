@@ -1,11 +1,19 @@
 package ch.exmachina.cosmo42.services.kb;
 
+import ch.exmachina.cosmo42.utils.MimeTypeUtils;
+import ch.exmachina.cosmo42.utils.SupportedMimeTypes;
+import lombok.AccessLevel;
+import lombok.RequiredArgsConstructor;
+import lombok.experimental.FieldDefaults;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.pdfbox.Loader;
 import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.rendering.ImageType;
 import org.apache.pdfbox.rendering.PDFRenderer;
+import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
+import org.springframework.web.client.RestClient;
+import org.springframework.web.multipart.MultipartFile;
 
 import javax.imageio.ImageIO;
 import java.awt.*;
@@ -17,7 +25,39 @@ import java.util.List;
 
 @Component
 @Slf4j
-public class FileToImageConverter {
+@FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
+@RequiredArgsConstructor
+public class FileConverter {
+
+    RestClient libreofficeRestClient;
+
+    private byte[] convertOfficeFileToPdf(byte[] fileBytes, String filename) {
+        return libreofficeRestClient.post()
+                .uri("/convert")
+                .header("X-Filename", filename)
+                .contentType(MediaType.APPLICATION_OCTET_STREAM)
+                .body(fileBytes)
+                .retrieve()
+                .body(byte[].class)
+                ;
+    }
+
+    public byte[] convertSupportedFileToPdf(MultipartFile file) throws IOException {
+        byte[] pdfBytes;
+        boolean isDocx = MimeTypeUtils.isMimeType(file, SupportedMimeTypes.MIME_DOCX);
+        boolean isXslx = MimeTypeUtils.isMimeType(file, SupportedMimeTypes.MIME_XSLX);
+        boolean isPdf = MimeTypeUtils.isMimeType(file, SupportedMimeTypes.MIME_PDF);
+
+        if (isDocx || isXslx) {
+            log.info("Converting docx/xlsx to PDF");
+            pdfBytes = convertOfficeFileToPdf(file.getBytes(), file.getName());
+        } else if (isPdf) {
+            pdfBytes = file.getBytes();
+        } else {
+            throw new IllegalArgumentException("Unsupported file type: " + file.getName());
+        }
+        return pdfBytes;
+    }
 
     public List<byte[]> convertPdfToImages(byte[] pdfBytes) throws IOException {
         return convertPdfToImages(pdfBytes, 300f, 4096);

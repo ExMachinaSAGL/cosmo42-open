@@ -14,6 +14,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.ByteArrayResource;
 import org.springframework.stereotype.Service;
 import org.springframework.util.MimeTypeUtils;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -25,7 +26,7 @@ import java.util.concurrent.*;
 @Slf4j
 public class KBDocumentChunker {
 
-    FileToImageConverter fileToImageConverter;
+    FileConverter fileConverter;
     ChatModel chatModel;
     OpenAiChatOptions.Builder chunkerModelOptionsBuilder;
     ExecutorService executorService;
@@ -50,11 +51,11 @@ public class KBDocumentChunker {
             - The 'summary' field is STRICTLY for 'table' and 'image' chunks. For 'text' chunks, the 'summary' field MUST be null.
             """;
 
-    public KBDocumentChunker(FileToImageConverter fileToImageConverter,
+    public KBDocumentChunker(FileConverter fileConverter,
                              ChatModel chatModel,
                              OpenAiChatOptions.Builder chunkerModelOptionsBuilder,
                              @Value("${cosmo42.chunking.pool.size:4}") int poolSize) {
-        this.fileToImageConverter = fileToImageConverter;
+        this.fileConverter = fileConverter;
         this.chatModel = chatModel;
         this.chunkerModelOptionsBuilder = chunkerModelOptionsBuilder;
         log.info("KBDocumentChunker pool size: {}", poolSize);
@@ -74,9 +75,12 @@ public class KBDocumentChunker {
         }
     }
 
-    public List<DocumentPage> extractRawChunks(byte[] pdfBytes) throws IOException {
+    public List<DocumentPage> extractRawChunks(MultipartFile file) throws IOException {
 
-        List<Media> mediaList = fileToImageConverter.convertPdfToImages(pdfBytes).stream()
+        byte[] pdf = fileConverter.convertSupportedFileToPdf(file);
+        List<byte[]> images = fileConverter.convertPdfToImages(pdf);
+        
+        List<Media> mediaList = images.stream()
                 .map(imgBytes -> new Media(MimeTypeUtils.IMAGE_PNG, new ByteArrayResource(imgBytes)))
                 .toList();
 
