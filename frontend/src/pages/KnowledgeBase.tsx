@@ -1,45 +1,138 @@
-import { UploadCloud, FileText, Download, Trash2 } from 'lucide-react';
+import { UploadCloud, FileText, Download, Trash2, Loader2 } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
+import { fetchDocuments, uploadDocument, deleteDocument, downloadDocument } from '../api/client';
 
-// Dati mockati per i documenti
-const MOCK_DOCUMENTS = [
-  { id: '1', name: 'Manuale_Utente_v2.pdf', size: '2.4 MB', date: '2026-05-10', status: 'Indicizzato' },
-  { id: '2', name: 'Policy_Aziendale_2026.docx', size: '1.1 MB', date: '2026-05-11', status: 'Indicizzato' },
-  { id: '3', name: 'Report_Q1_Finanza.xlsx', size: '4.7 MB', date: '2026-05-12', status: 'In elaborazione...' },
-];
+interface Document {
+  uuid: string;
+  name: string;
+  size: string;
+  date: string;
+  status: string;
+}
 
 export function KnowledgeBase() {
+  const [documents, setDocuments] = useState<Document[]>([]);
+  const [isUploading, setIsUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const loadDocuments = () => {
+    fetchDocuments().then(setDocuments);
+  };
+
+  useEffect(() => {
+    loadDocuments();
+  }, []);
+
+  const handleFileUpload = async (file: File) => {
+    setIsUploading(true);
+    const formData = new FormData();
+    formData.append('file', file);
+    try {
+      await uploadDocument(formData);
+      loadDocuments(); // Refresh the list
+    } catch (error) {
+      console.error("Error uploading file:", error);
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
+  const handleUploadClick = () => {
+    if (!isUploading) {
+      fileInputRef.current?.click();
+    }
+  };
+
+  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      handleFileUpload(file);
+    }
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
+
+  const handleDragOver = (event: React.DragEvent<HTMLDivElement>) => {
+    event.preventDefault();
+  };
+
+  const handleDrop = (event: React.DragEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    if (isUploading) return;
+    const file = event.dataTransfer.files?.[0];
+    if (file) {
+      handleFileUpload(file);
+    }
+  };
+
+  const handleDelete = async (uuid: string) => {
+    try {
+      await deleteDocument(uuid);
+      loadDocuments();
+    } catch (error) {
+      console.error("Error deleting document:", error);
+    }
+  };
+
+  const handleDownload = (uuid: string, fileName: string) => {
+    downloadDocument(uuid, fileName);
+  };
+
   return (
     <div className="kb-container">
       <div className="kb-content-wrapper">
 
-        {/* Intestazione */}
+        {/* Header */}
         <div className="kb-header-section">
           <h1 className="kb-title">Knowledge Base</h1>
-          <p className="kb-subtitle">Gestisci i documenti su cui l'IA baserà le sue risposte.</p>
+          <p className="kb-subtitle">Manage the documents your AI will base its answers on.</p>
         </div>
 
-        {/* Zona di Upload */}
-        <div className="kb-upload-zone">
-          <UploadCloud className="kb-upload-icon" />
-          <h3 className="kb-upload-title">Clicca o trascina qui i tuoi file</h3>
-          <p className="kb-upload-subtitle">Supporta PDF, DOCX, TXT e CSV (Max 50MB)</p>
+        {/* Upload Zone */}
+        <div
+          className={`kb-upload-zone ${isUploading ? 'cursor-not-allowed opacity-75' : ''}`}
+          onClick={handleUploadClick}
+          onDragOver={handleDragOver}
+          onDrop={handleDrop}
+        >
+          {isUploading ? (
+            <div className="flex flex-col items-center justify-center">
+              <Loader2 className="kb-upload-icon animate-spin" />
+              <h3 className="kb-upload-title">Uploading...</h3>
+            </div>
+          ) : (
+            <>
+              <UploadCloud className="kb-upload-icon" />
+              <h3 className="kb-upload-title">Click or drag your files here</h3>
+              <p className="kb-upload-subtitle">Supports PDF (Max 50MB)</p>
+            </>
+          )}
+          <input
+            type="file"
+            ref={fileInputRef}
+            onChange={handleFileChange}
+            style={{ display: 'none' }}
+            accept=".pdf"
+            disabled={isUploading}
+          />
         </div>
 
-        {/* Tabella Documenti */}
+        {/* Documents Table */}
         <div className="kb-table-container">
           <table className="kb-table">
             <thead className="kb-table-header">
             <tr>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Nome File</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Data</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Dimensione</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Stato</th>
-              <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Azioni</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">File Name</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Size</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+              <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
             </tr>
             </thead>
             <tbody className="kb-table-body">
-            {MOCK_DOCUMENTS.map((doc) => (
-              <tr key={doc.id} className="kb-table-row">
+            {documents.map((doc) => (
+              <tr key={doc.uuid} className="kb-table-row">
                 <td className="kb-table-cell">
                   <div className="flex items-center">
                     <FileText className="kb-file-icon" />
@@ -50,16 +143,24 @@ export function KnowledgeBase() {
                 <td className="kb-table-cell">{doc.size}</td>
                 <td className="kb-table-cell">
                     <span className={`kb-status-badge ${
-                      doc.status === 'Indicizzato' ? 'indexed' : 'processing'
+                      doc.status === 'Indexed' || doc.status === 'Indicizzato' ? 'indexed' : 'processing'
                     }`}>
-                      {doc.status}
+                      {doc.status === 'Indicizzato' ? 'Indexed' : doc.status}
                     </span>
                 </td>
                 <td className="kb-table-cell kb-actions-cell">
-                  <button className="kb-action-button" title="Scarica">
+                  <button 
+                    className="kb-action-button" 
+                    title="Download"
+                    onClick={() => handleDownload(doc.uuid, doc.name)}
+                  >
                     <Download className="kb-action-button-icon" />
                   </button>
-                  <button className="kb-action-button delete" title="Elimina">
+                  <button 
+                    className="kb-action-button delete" 
+                    title="Delete"
+                    onClick={() => handleDelete(doc.uuid)}
+                  >
                     <Trash2 className="kb-action-button-icon" />
                   </button>
                 </td>
