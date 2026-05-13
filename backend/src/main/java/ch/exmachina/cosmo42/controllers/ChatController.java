@@ -3,7 +3,6 @@ package ch.exmachina.cosmo42.controllers;
 import ch.exmachina.cosmo42.dto.ChatMessageDTO;
 import ch.exmachina.cosmo42.dto.ChatRequestDTO;
 import ch.exmachina.cosmo42.dto.ChatResponseDTO;
-import ch.exmachina.cosmo42.entities.ChatMessage;
 import ch.exmachina.cosmo42.services.chat.ChatService;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
@@ -19,7 +18,6 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
-import org.springframework.web.server.ResponseStatusException;
 import reactor.core.publisher.Flux;
 
 import java.util.List;

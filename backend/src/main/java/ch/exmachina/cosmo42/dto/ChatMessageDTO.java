@@ -8,8 +8,6 @@ import lombok.Getter;
 import lombok.Setter;
 import lombok.experimental.FieldDefaults;
 
-import java.time.LocalDateTime;
-
 @FieldDefaults(level = AccessLevel.PRIVATE)
 @Getter
 @Setter
@@ -18,7 +16,6 @@ import java.time.LocalDateTime;
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public class ChatMessageDTO {
 
-    LocalDateTime timestamp;
     String type;
     String content;
 

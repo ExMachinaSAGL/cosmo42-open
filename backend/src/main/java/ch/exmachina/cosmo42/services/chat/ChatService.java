@@ -4,14 +4,14 @@ import ch.exmachina.cosmo42.dto.ChatEventType;
 import ch.exmachina.cosmo42.dto.ChatMessageDTO;
 import ch.exmachina.cosmo42.dto.ChatResponseDTO;
 import ch.exmachina.cosmo42.dto.ChatRequestDTO;
-import ch.exmachina.cosmo42.entities.ChatMessage;
-import ch.exmachina.cosmo42.repositories.ChatHistoryRepository;
 import ch.exmachina.cosmo42.services.chat.processors.ConversationProcessor;
 import ch.exmachina.cosmo42.services.chat.processors.UuidProcessor;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.ai.chat.memory.repository.jdbc.JdbcChatMemoryRepository;
+import org.springframework.ai.chat.messages.Message;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.codec.ServerSentEvent;
 import org.springframework.stereotype.Service;
@@ -32,7 +32,7 @@ public class ChatService {
 
     UuidProcessor uuidProcessor;
     ConversationProcessor conversationProcessor;
-    ChatHistoryRepository chatHistoryRepository;
+    JdbcChatMemoryRepository chatMemoryRepository;
 
     public Flux<ServerSentEvent<ChatResponseDTO>> processChat(ChatRequestDTO request) {
         String chatUuid = request.uuid() != null ? request.uuid() : UUID.randomUUID().toString();
@@ -81,21 +81,20 @@ public class ChatService {
     }
 
     public List<ChatMessageDTO> getHistory(String conversationId) {
-        return chatHistoryRepository.findByConversationId(conversationId).stream().map(
+        return chatMemoryRepository.findByConversationId(conversationId).stream().map(
                 chatMessage -> ChatMessageDTO.builder()
-                        .content(chatMessage.getContent())
-                        .timestamp(chatMessage.getTimestamp())
-                        .type(chatMessage.getType())
+                        .content(chatMessage.getText())
+                        .type(chatMessage.getMessageType().toString())
                         .build()
         ).toList();
     }
 
     @Transactional
     public void deleteHistory(String conversationId) {
-        List<ChatMessage> history = chatHistoryRepository.findByConversationId(conversationId);
+        List<Message> history = chatMemoryRepository.findByConversationId(conversationId);
         if(history.isEmpty()) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST);
         }
-        chatHistoryRepository.deleteByConversationId(conversationId);
+        chatMemoryRepository.deleteByConversationId(conversationId);
     }
 }
