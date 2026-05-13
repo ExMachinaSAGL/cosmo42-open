@@ -29,7 +29,7 @@ public class FileConverter {
 
     WebClient libreofficeWebClient;
 
-    public byte[] convertOfficeDocToPdf(byte[] fileBytes, String filename) {
+    private byte[] convertOfficeFileToPdf(byte[] fileBytes, String filename) {
         return libreofficeWebClient.post()
                 .uri("/convert")
                 .header("X-Filename", filename)
@@ -46,7 +46,7 @@ public class FileConverter {
 
         if (originalFilename.endsWith(".docx") || originalFilename.endsWith(".xlsx")) {
             log.info("Converting docx/xlsx to PDF");
-            pdfBytes = convertOfficeDocToPdf(file.getBytes(), file.getName());
+            pdfBytes = convertOfficeFileToPdf(file.getBytes(), file.getName());
         } else if (originalFilename.endsWith(".pdf")) {
             pdfBytes = file.getBytes();
         } else {
