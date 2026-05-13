@@ -3,6 +3,8 @@ package ch.exmachina.cosmo42.services.chat;
 import ch.exmachina.cosmo42.dto.ChatEventType;
 import ch.exmachina.cosmo42.dto.ChatResponseDTO;
 import ch.exmachina.cosmo42.dto.ChatRequestDTO;
+import ch.exmachina.cosmo42.entities.ChatMessage;
+import ch.exmachina.cosmo42.repositories.ChatHistoryRepository;
 import ch.exmachina.cosmo42.services.chat.processors.ConversationProcessor;
 import ch.exmachina.cosmo42.services.chat.processors.UuidProcessor;
 import lombok.AccessLevel;
@@ -26,6 +28,7 @@ public class ChatService {
 
     UuidProcessor uuidProcessor;
     ConversationProcessor conversationProcessor;
+    ChatHistoryRepository chatHistoryRepository;
 
     public Flux<ServerSentEvent<ChatResponseDTO>> processChat(ChatRequestDTO request) {
         String chatUuid = request.uuid() != null ? request.uuid() : UUID.randomUUID().toString();
@@ -71,6 +74,10 @@ public class ChatService {
                 .onErrorComplete();
 
         return Flux.merge(eventSink.asFlux(), processes);
+    }
+
+    public List<ChatMessage> getHistory(String conversationId) {
+        return chatHistoryRepository.findByConversationId(conversationId);
     }
 
 }
