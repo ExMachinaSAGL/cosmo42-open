@@ -2,7 +2,13 @@ package ch.exmachina.cosmo42.controllers;
 
 import ch.exmachina.cosmo42.utils.MimeTypeUtils;
 import ch.exmachina.cosmo42.dto.DocumentDTO;
+import ch.exmachina.cosmo42.dto.JobAcceptedDTO;
 import ch.exmachina.cosmo42.services.KBDocumentService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
@@ -21,27 +27,39 @@ import java.util.UUID;
 @RequestMapping("/api/v1/kb/documents")
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 @RequiredArgsConstructor
+@Tag(name = "Knowledge Base", description = "Document management")
 public class KBDocumentsController {
 
     KBDocumentService kbDocumentService;
 
     @GetMapping
+    @Operation(summary = "Document list")
     public List<DocumentDTO> getDocuments() {
         return kbDocumentService.listAllKBDocuments();
     }
 
-    @PostMapping
+    @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @Operation(
+            summary = "Upload a document",
+            description = "Starts async ingestion. Returns immediately a jobUuid used to check the progress.",
+            responses = {
+                    @ApiResponse(responseCode = "202", description = "Job started",
+                            content = @Content(schema = @Schema(implementation = JobAcceptedDTO.class))),
+                    @ApiResponse(responseCode = "400", description = "Empty file or unsupported format")
+            }
+    )
     public ResponseEntity<?> uploadDocument(@RequestParam("file") MultipartFile file) {
         if (file.isEmpty()) {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Empty file.");
         }
-        if (MimeTypeUtils.isSupportedMimeType(file)) {
-            return ResponseEntity.ok(kbDocumentService.saveKBDocument(file));
+        if (!MimeTypeUtils.isSupportedMimeType(file)) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Only PDF, DOCX, and XLSX files are supported.");
         }
-        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Only PDF files are supported.");
+        return ResponseEntity.accepted().body(kbDocumentService.enqueueKBDocument(file));
     }
 
     @GetMapping("/{uuid}/download")
+    @Operation(summary = "Download the original document file")
     public ResponseEntity<ByteArrayResource> downloadDocument(@PathVariable UUID uuid) {
         DocumentDTO dto = kbDocumentService.loadKBDocument(uuid.toString());
         HttpHeaders headers = new HttpHeaders();
@@ -55,6 +73,7 @@ public class KBDocumentsController {
 
     @DeleteMapping("/{uuid}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
+    @Operation(summary = "Delete a document and all its chunks")
     public void deleteDocument(@PathVariable UUID uuid) {
         kbDocumentService.deleteKBDocument(uuid.toString());
     }

@@ -42,6 +42,18 @@ public class FileConverter {
                 ;
     }
 
+    public byte[] convertSupportedFileToPdfFromBytes(byte[] rawBytes, String originalFileName) throws IOException {
+        String lower = originalFileName.toLowerCase();
+        if (lower.endsWith(".docx") || lower.endsWith(".xlsx")) {
+            log.info("Converting docx/xlsx to PDF from raw bytes");
+            return convertOfficeFileToPdf(rawBytes, originalFileName);
+        } else if (lower.endsWith(".pdf")) {
+            return rawBytes;
+        } else {
+            throw new IllegalArgumentException("Unsupported file type: " + originalFileName);
+        }
+    }
+
     public byte[] convertSupportedFileToPdf(MultipartFile file) throws IOException {
         byte[] pdfBytes;
         boolean isDocx = MimeTypeUtils.isMimeType(file, SupportedMimeTypes.MIME_DOCX);
