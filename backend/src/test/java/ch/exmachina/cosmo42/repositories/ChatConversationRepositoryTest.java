@@ -46,12 +46,12 @@ class ChatConversationRepositoryTest extends AbstractIntegrationTest {
         LocalDateTime now = LocalDateTime.now();
         for (int i = 0; i < 5; i++) {
             ChatConversation c = newConversation("Chat " + i);
-            c.setCreatedAt(now.minusHours(1));
+            c.setCreatedAt(now.minusMinutes(i));
             c.setUpdatedAt(now.minusMinutes(i));
             repository.save(c);
         }
 
-        var page = repository.findAllByOrderByUpdatedAtDesc(PageRequest.of(0, 3));
+        var page = repository.findAllByOrderByCreatedAtDesc(PageRequest.of(0, 3));
 
         assertThat(page.getContent()).hasSize(3);
         assertThat(page.getContent().get(0).getTitle()).isEqualTo("Chat 0");

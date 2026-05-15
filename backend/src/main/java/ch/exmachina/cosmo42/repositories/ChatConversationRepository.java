@@ -19,6 +19,7 @@ public interface ChatConversationRepository extends JpaRepository<ChatConversati
     Optional<ChatConversation> findByUuid(String uuid);
 
     Page<ChatConversation> findAllByOrderByUpdatedAtDesc(Pageable pageable);
+    Page<ChatConversation> findAllByOrderByCreatedAtDesc(Pageable pageable);
 
     @Modifying(clearAutomatically = true)
     @Transactional
