@@ -35,7 +35,11 @@ services:
 
   cosmo42-dev-libreoffice:
     container_name: cosmo42-dev-libreoffice
+    build:
+      context: ./libreoffice
+      dockerfile: Dockerfile
     image: exm/cosmo42-libreoffice:0.0.1
+    pull_policy: never
     ports:
       - "3000:3000"
     restart: unless-stopped
