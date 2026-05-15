@@ -3,6 +3,7 @@ package ch.exmachina.cosmo42.controllers;
 import ch.exmachina.cosmo42.dto.ChatRequestDTO;
 import ch.exmachina.cosmo42.dto.ChatResponseDTO;
 import ch.exmachina.cosmo42.services.chat.ChatService;
+import jakarta.validation.Valid;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
@@ -23,7 +24,7 @@ public class ChatController {
     ChatService chatService;
 
     @PostMapping(value = "/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
-    public Flux<ServerSentEvent<ChatResponseDTO>> chatStream(@RequestBody ChatRequestDTO chatRequestDTO) {
+    public Flux<ServerSentEvent<ChatResponseDTO>> chatStream(@Valid @RequestBody ChatRequestDTO chatRequestDTO) {
         return chatService.processChat(chatRequestDTO);
     }
 

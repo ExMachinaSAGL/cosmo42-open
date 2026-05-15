@@ -4,10 +4,12 @@ import ch.exmachina.cosmo42.dto.ChatEventType;
 import ch.exmachina.cosmo42.dto.ChatResponseDTO;
 import ch.exmachina.cosmo42.services.chat.ChatAttribute;
 import ch.exmachina.cosmo42.services.chat.ChatContext;
+import ch.exmachina.cosmo42.services.chat.ChatConversationService;
 import ch.exmachina.cosmo42.services.chat.TitleGeneratorAdvisor;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.ai.chat.prompt.Prompt;
@@ -21,44 +23,44 @@ import reactor.core.scheduler.Schedulers;
 @Service
 @RequiredArgsConstructor
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
+@Slf4j
 public class TitleProcessor implements ChatProcessor {
 
     ChatModel chatModel;
-    OpenAiChatOptions.Builder chatModelOptionsBuilder;
+    OpenAiChatOptions.Builder titleModelOptionsBuilder;
     TitleGeneratorAdvisor titleGeneratorAdvisor;
+    ChatConversationService chatConversationService;
 
     @Override
     public Flux<ServerSentEvent<ChatResponseDTO>> process(ChatContext context) {
-        ChatClient titleGenerationClient = ChatClient.builder(chatModel)
-                .defaultOptions(chatModelOptionsBuilder)
-                .defaultAdvisors(titleGeneratorAdvisor)
-                .build();
-
         if (!context.isNewChat()) {
             return Flux.empty();
         }
 
+        ChatClient titleGenerationClient = ChatClient.builder(chatModel)
+                .defaultOptions(titleModelOptionsBuilder)
+                .defaultAdvisors(titleGeneratorAdvisor)
+                .build();
+
+        String uuid = context.getChatUuid();
+
         return Mono.fromCallable(() -> titleGenerationClient
                         .prompt(new Prompt(context.getRequest().message()))
-                        .advisors(spec -> spec.param(ChatAttribute.SINK.name(), context.getEventSink())
-                        )
+                        .advisors(spec -> spec.param(ChatAttribute.SINK.name(), context.getEventSink()))
                         .call()
-                        .chatResponse()
-                ).subscribeOn(Schedulers.boundedElastic())
-                .map(chatResponse -> {
-                    String title = "Senza titolo";
-                    if (chatResponse.getResult() != null) {
-                        title = chatResponse.getResult().getOutput().getText();
-                    }
-                    title = title != null ? title : "Senza titolo";
-
-                    return ServerSentEvent.<ChatResponseDTO>builder()
-                            .data(ChatResponseDTO.builder()
-                                    .type(ChatEventType.TITLE)
-                                    .data(title)
-                                    .build())
-                            .build();
-                })
-                .flux();
+                        .content())
+                .subscribeOn(Schedulers.boundedElastic())
+                .doOnNext(raw -> chatConversationService.persistGeneratedTitle(uuid, raw))
+                .map(raw -> ServerSentEvent.<ChatResponseDTO>builder()
+                        .data(ChatResponseDTO.builder()
+                                .type(ChatEventType.TITLE)
+                                .data(raw)
+                                .build())
+                        .build())
+                .flux()
+                .onErrorResume(err -> {
+                    log.warn("Title generation failed for uuid={}", uuid, err);
+                    return Flux.empty();
+                });
     }
 }

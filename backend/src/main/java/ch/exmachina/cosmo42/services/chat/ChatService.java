@@ -28,14 +28,20 @@ public class ChatService {
     UuidProcessor uuidProcessor;
     TitleProcessor titleProcessor;
     ConversationProcessor conversationProcessor;
+    ChatConversationService chatConversationService;
 
     public Flux<ServerSentEvent<ChatResponseDTO>> processChat(ChatRequestDTO request) {
-        String chatUuid = request.uuid() != null ? request.uuid() : UUID.randomUUID().toString();
+        boolean isNewChat = request.uuid() == null;
+        String chatUuid = isNewChat ? UUID.randomUUID().toString() : request.uuid();
+
+        if (isNewChat) {
+            chatConversationService.createIfAbsent(chatUuid);
+        }
 
         Sinks.Many<ServerSentEvent<ChatResponseDTO>> eventSink = Sinks.many().multicast().onBackpressureBuffer();
 
         ChatContext context = ChatContext.builder()
-                .newChat(request.uuid() == null)
+                .newChat(isNewChat)
                 .request(request)
                 .chatUuid(chatUuid)
                 .eventSink(eventSink)
