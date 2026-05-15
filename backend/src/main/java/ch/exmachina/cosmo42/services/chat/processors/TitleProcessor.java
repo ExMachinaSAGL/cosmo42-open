@@ -11,6 +11,7 @@ import lombok.experimental.FieldDefaults;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.ai.chat.prompt.Prompt;
+import org.springframework.ai.openai.OpenAiChatOptions;
 import org.springframework.http.codec.ServerSentEvent;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
@@ -23,11 +24,13 @@ import reactor.core.scheduler.Schedulers;
 public class TitleProcessor implements ChatProcessor {
 
     ChatModel chatModel;
+    OpenAiChatOptions.Builder chatModelOptionsBuilder;
     TitleGeneratorAdvisor titleGeneratorAdvisor;
 
     @Override
     public Flux<ServerSentEvent<ChatResponseDTO>> process(ChatContext context) {
         ChatClient titleGenerationClient = ChatClient.builder(chatModel)
+                .defaultOptions(chatModelOptionsBuilder)
                 .defaultAdvisors(titleGeneratorAdvisor)
                 .build();
 
