@@ -2,9 +2,9 @@ package ch.exmachina.cosmo42.services.chat.processors;
 
 import ch.exmachina.cosmo42.dto.ChatEventType;
 import ch.exmachina.cosmo42.dto.ChatResponseDTO;
-import ch.exmachina.cosmo42.services.TitleGeneratorAdvisor;
 import ch.exmachina.cosmo42.services.chat.ChatAttribute;
 import ch.exmachina.cosmo42.services.chat.ChatContext;
+import ch.exmachina.cosmo42.services.chat.TitleGeneratorAdvisor;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
