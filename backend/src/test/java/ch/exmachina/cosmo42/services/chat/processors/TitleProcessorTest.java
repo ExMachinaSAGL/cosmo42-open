@@ -31,6 +31,7 @@ class TitleProcessorTest {
     OpenAiChatOptions.Builder titleOptionsBuilder;
     TitleGeneratorAdvisor advisor;
     ChatConversationService conversationService;
+    ch.exmachina.cosmo42.services.chat.TitleSanitizer titleSanitizer;
     TitleProcessor processor;
 
     @BeforeEach
@@ -41,7 +42,8 @@ class TitleProcessorTest {
         advisor = new TitleGeneratorAdvisor();
         advisor.setPromptTemplate("Title for: %s");
         conversationService = mock(ChatConversationService.class);
-        processor = new TitleProcessor(chatModel, titleOptionsBuilder, advisor, conversationService);
+        titleSanitizer = new ch.exmachina.cosmo42.services.chat.TitleSanitizer();
+        processor = new TitleProcessor(chatModel, titleOptionsBuilder, advisor, conversationService, titleSanitizer);
     }
 
     @Test
@@ -106,9 +108,9 @@ class TitleProcessorTest {
     }
 
     @Test
-    void newChatPersistsRawTitleBeforeSanitization() {
+    void newChatEmitsSanitizedTitle() {
         when(chatModel.call(any(Prompt.class))).thenReturn(new ChatResponse(
-                java.util.List.of(new Generation(new AssistantMessage("\"Quoted\"")))));
+                java.util.List.of(new Generation(new AssistantMessage("Title: \"Quoted\"\nextra")))));
 
         ChatContext ctx = ChatContext.builder()
                 .newChat(true)
@@ -117,11 +119,31 @@ class TitleProcessorTest {
                 .eventSink(Sinks.many().multicast().onBackpressureBuffer())
                 .build();
 
-        StepVerifier.create(processor.process(ctx)).expectNextCount(1).verifyComplete();
+        StepVerifier.create(processor.process(ctx))
+                .assertNext(sse -> org.assertj.core.api.Assertions.assertThat(sse.data().getData())
+                        .isEqualTo("Quoted"))
+                .verifyComplete();
 
         ArgumentCaptor<String> raw = ArgumentCaptor.forClass(String.class);
         verify(conversationService).persistGeneratedTitle(eq("u-2"), raw.capture());
-        org.assertj.core.api.Assertions.assertThat(raw.getValue()).isEqualTo("\"Quoted\"");
+        org.assertj.core.api.Assertions.assertThat(raw.getValue()).isEqualTo("Title: \"Quoted\"\nextra");
+    }
+
+    @Test
+    void newChatSkipsTitleEventWhenSanitizedTitleIsBlank() {
+        when(chatModel.call(any(Prompt.class))).thenReturn(new ChatResponse(
+                java.util.List.of(new Generation(new AssistantMessage("   ")))));
+
+        ChatContext ctx = ChatContext.builder()
+                .newChat(true)
+                .chatUuid("u-blank")
+                .request(new ChatRequestDTO(null, "q"))
+                .eventSink(Sinks.many().multicast().onBackpressureBuffer())
+                .build();
+
+        StepVerifier.create(processor.process(ctx)).verifyComplete();
+
+        verify(conversationService).persistGeneratedTitle("u-blank", "   ");
     }
 
     @Test

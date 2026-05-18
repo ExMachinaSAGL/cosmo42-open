@@ -6,6 +6,7 @@ import org.springframework.ai.chat.messages.AssistantMessage;
 import org.springframework.ai.chat.messages.UserMessage;
 
 import java.time.LocalDateTime;
+import java.util.Arrays;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -49,7 +50,13 @@ class ChatConversationMapperTest {
         var msg = mapper.toMessage(new UserMessage("hi"));
         assertThat(msg.role()).isEqualTo("user");
         assertThat(msg.content()).isEqualTo("hi");
-        assertThat(msg.timestamp()).isNull();
+    }
+
+    @Test
+    void chatMessageDtoDoesNotExposeUnavailableTimestamp() {
+        assertThat(Arrays.stream(ch.exmachina.cosmo42.dto.ChatMessageDTO.class.getRecordComponents())
+                .map(java.lang.reflect.RecordComponent::getName))
+                .containsExactly("role", "content");
     }
 
     @Test

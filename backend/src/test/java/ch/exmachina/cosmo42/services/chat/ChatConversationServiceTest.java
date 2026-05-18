@@ -101,43 +101,65 @@ class ChatConversationServiceTest {
     void persistGeneratedTitleUpdatesWhenLlmReturnsValidText() {
         when(repository.updateTitleByUuid(eq("u-1"), eq("Clean Title"), eq(NOW))).thenReturn(1);
 
-        service.persistGeneratedTitle("u-1", "  Title: \"Clean Title\"  \n stuff");
+        var persisted = service.persistGeneratedTitle("u-1", "  Title: \"Clean Title\"  \n stuff");
 
         verify(repository).updateTitleByUuid("u-1", "Clean Title", NOW);
+        assertThat(persisted).contains("Clean Title");
     }
 
     @Test
     void persistGeneratedTitleNoOpOnBlankInput() {
-        service.persistGeneratedTitle("u-1", "   ");
+        var persisted = service.persistGeneratedTitle("u-1", "   ");
 
         verify(repository, never()).updateTitleByUuid(anyString(), anyString(), any());
+        assertThat(persisted).isEmpty();
     }
 
     @Test
     void persistGeneratedTitleNoOpOnNullInput() {
-        service.persistGeneratedTitle("u-1", null);
+        var persisted = service.persistGeneratedTitle("u-1", null);
 
         verify(repository, never()).updateTitleByUuid(anyString(), anyString(), any());
+        assertThat(persisted).isEmpty();
     }
 
     @Test
     void persistGeneratedTitleLogsAndReturnsWhenUuidUnknown() {
         when(repository.updateTitleByUuid(anyString(), anyString(), any())).thenReturn(0);
 
-        service.persistGeneratedTitle("u-missing", "Some Title");
+        var persisted = service.persistGeneratedTitle("u-missing", "Some Title");
 
         verify(repository).updateTitleByUuid("u-missing", "Some Title", NOW);
+        assertThat(persisted).isEmpty();
     }
 
     @Test
     void listDelegatesToRepository() {
         var pageable = org.springframework.data.domain.PageRequest.of(0, 10);
         var page = new org.springframework.data.domain.PageImpl<ChatConversation>(java.util.List.of());
-        when(repository.findAllByOrderByCreatedAtDesc(pageable)).thenReturn(page);
+        when(repository.findAllByOrderByUpdatedAtDesc(pageable)).thenReturn(page);
 
         var result = service.list(pageable);
 
         assertThat(result).isSameAs(page);
+    }
+
+    @Test
+    void markActiveUpdatesConversationTimestamp() {
+        when(repository.updateActivityByUuid("u-1", NOW)).thenReturn(1);
+
+        service.markActive("u-1");
+
+        verify(repository).updateActivityByUuid("u-1", NOW);
+    }
+
+    @Test
+    void markActiveThrowsNotFoundWhenUuidUnknown() {
+        when(repository.updateActivityByUuid("missing", NOW)).thenReturn(0);
+
+        org.junit.jupiter.api.Assertions.assertThrows(
+                ch.exmachina.cosmo42.exceptions.ChatConversationNotFoundException.class,
+                () -> service.markActive("missing"));
     }
 
     @Test
@@ -223,6 +245,14 @@ class ChatConversationServiceTest {
                 .contains("How do I deploy?");
         verify(repository).updateTitleByUuid("u-1", "Deploy Question", NOW);
         assertThat(result).isSameAs(c);
+    }
+
+    @Test
+    void regenerateTitleDoesNotDeclareTransactionAroundModelCall() throws NoSuchMethodException {
+        assertThat(ChatConversationService.class
+                .getDeclaredMethod("regenerateTitle", String.class)
+                .isAnnotationPresent(org.springframework.transaction.annotation.Transactional.class))
+                .isFalse();
     }
 
     @Test

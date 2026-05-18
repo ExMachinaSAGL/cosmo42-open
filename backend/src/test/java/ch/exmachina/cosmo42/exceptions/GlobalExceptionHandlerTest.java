@@ -28,7 +28,7 @@ class GlobalExceptionHandlerTest {
     }
 
     @Test
-    void illegalArgumentMapsTo400() throws Exception {
+    void invalidChatTitleMapsTo400() throws Exception {
         mockMvc.perform(get("/__test/bad-request"))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.error").value("bad_request"))
@@ -36,7 +36,7 @@ class GlobalExceptionHandlerTest {
     }
 
     @Test
-    void illegalStateMapsTo409() throws Exception {
+    void chatConversationHasNoUserMessageMapsTo409() throws Exception {
         mockMvc.perform(get("/__test/conflict"))
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.error").value("conflict"))
@@ -53,12 +53,12 @@ class GlobalExceptionHandlerTest {
 
         @GetMapping(value = "/bad-request", produces = MediaType.APPLICATION_JSON_VALUE)
         public String bad() {
-            throw new IllegalArgumentException("nope");
+            throw new InvalidChatTitleException("nope");
         }
 
         @GetMapping(value = "/conflict", produces = MediaType.APPLICATION_JSON_VALUE)
         public String conflict() {
-            throw new IllegalStateException("bad state");
+            throw new ChatConversationHasNoUserMessageException("bad state");
         }
     }
 }

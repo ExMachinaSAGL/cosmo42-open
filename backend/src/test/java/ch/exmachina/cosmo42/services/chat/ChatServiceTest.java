@@ -46,10 +46,10 @@ class ChatServiceTest {
     }
 
     @Test
-    void existingChatDoesNotTriggerCreateIfAbsent() {
+    void existingChatEnsuresConversationRowExists() {
         chatService.processChat(new ChatRequestDTO("existing-uuid", "hello"))
                 .blockLast();
 
-        verify(conversationService, never()).createIfAbsent(any());
+        verify(conversationService).createIfAbsent("existing-uuid");
     }
 }

@@ -113,7 +113,8 @@ class ChatConversationControllerTest {
 
     @Test
     void postRegenerateReturns409WhenNoUserMessage() throws Exception {
-        when(service.regenerateTitle("u-1")).thenThrow(new IllegalStateException("no user msg"));
+        when(service.regenerateTitle("u-1")).thenThrow(
+                new ch.exmachina.cosmo42.exceptions.ChatConversationHasNoUserMessageException("no user msg"));
 
         mockMvc.perform(post("/api/v1/chat/u-1/title:regenerate"))
                 .andExpect(status().isConflict());

@@ -42,16 +42,16 @@ class ChatConversationRepositoryTest extends AbstractIntegrationTest {
     }
 
     @Test
-    void findAllByOrderByCreatedAtDescPaginates() {
+    void findAllByOrderByUpdatedAtDescPaginates() {
         LocalDateTime now = LocalDateTime.now();
         for (int i = 0; i < 5; i++) {
             ChatConversation c = newConversation("Chat " + i);
-            c.setCreatedAt(now.minusMinutes(i));
+            c.setCreatedAt(now.minusHours(1));
             c.setUpdatedAt(now.minusMinutes(i));
             repository.save(c);
         }
 
-        var page = repository.findAllByOrderByCreatedAtDesc(PageRequest.of(0, 3));
+        var page = repository.findAllByOrderByUpdatedAtDesc(PageRequest.of(0, 3));
 
         assertThat(page.getContent()).hasSize(3);
         assertThat(page.getContent().get(0).getTitle()).isEqualTo("Chat 0");
@@ -81,6 +81,20 @@ class ChatConversationRepositoryTest extends AbstractIntegrationTest {
             LocalDateTime.now());
 
         assertThat(updated).isEqualTo(0);
+    }
+
+    @Test
+    void updateActivityByUuidUpdatesTimestampOnly() {
+        ChatConversation c = newConversation("Still titled");
+        repository.save(c);
+        LocalDateTime newTs = LocalDateTime.now().plusHours(1);
+
+        int updated = repository.updateActivityByUuid(c.getUuid(), newTs);
+
+        assertThat(updated).isEqualTo(1);
+        var refreshed = repository.findByUuid(c.getUuid()).orElseThrow();
+        assertThat(refreshed.getTitle()).isEqualTo("Still titled");
+        assertThat(refreshed.getUpdatedAt()).isEqualToIgnoringNanos(newTs);
     }
 
     @Test
