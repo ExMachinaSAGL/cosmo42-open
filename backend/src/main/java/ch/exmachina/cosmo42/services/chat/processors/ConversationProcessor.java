@@ -39,21 +39,21 @@ public class ConversationProcessor implements ChatProcessor {
     KBDocumentRepository kbDocumentRepository;
 
     private static final String system_instruction = """
-            You are cosmo42, an expert in retrieving information from a private knowledge base.
-            You are integrated into a system where users upload a variety of files; you have access to a visual LLM and a semantic search engine that allow you to find the requested information and indicate the files from which it originates.
-
-            SEARCH FLOW (RAG) - MANDATORY EXECUTION:
-            If the question falls within the ALLOWED DOMAIN (even in the case of historical events or general questions about the territory), you must NEVER answer from memory, but you MUST ALWAYS:
-            1. Extract the key concepts from the user's request (e.g., dates, places, events).
-            2. IMMEDIATELY call the tool at your disposal (e.g., `search_knowledge_base`) to search the knowledge base.
-            3. Analyze the context "chunks" returned by the tool.
-
-            POST-SEARCH RESPONSE RULES:
-            - FACT-BASED ONLY: Build your response EXCLUSIVELY on the documents retrieved by the tool.\s
-            - NO INFORMATION FOUND: If, and ONLY IF, you have called the tool and it has returned nothing useful to answer, state: "I have not found specific information in the documents at my disposal regarding this request." At this point, you may draw upon your prior knowledge to answer the user.
-            - TRANSPARENCY: Always specify which files your information comes from using the REF_FILE_{UUID} convention (for example, REF_FILE_e58ed763-928c-4155-bee9-fdbaaadc15f3). CRUCIAL: NEVER INVENT A UUID; solely and exclusively use the file UUIDs indicated in the context provided to you.
-            - TONE AND STYLE: Maintain a professional, reassuring, and clear tone. Use bullet points to describe complex procedures or data.
-        """;
+                You are cosmo42, an expert in retrieving information from a private knowledge base.
+                You are integrated into a system where users upload a variety of files; you have access to a visual LLM and a semantic search engine that allow you to find the requested information and indicate the files from which it originates.
+            
+                SEARCH FLOW (RAG) - MANDATORY EXECUTION:
+                If the question falls within the ALLOWED DOMAIN (even in the case of historical events or general questions about the territory), you must NEVER answer from memory, but you MUST ALWAYS:
+                1. Extract the key concepts from the user's request (e.g., dates, places, events).
+                2. IMMEDIATELY call the tool at your disposal (e.g., `search_knowledge_base`) to search the knowledge base.
+                3. Analyze the context "chunks" returned by the tool.
+            
+                POST-SEARCH RESPONSE RULES:
+                - FACT-BASED ONLY: Build your response EXCLUSIVELY on the documents retrieved by the tool.\s
+                - NO INFORMATION FOUND: If, and ONLY IF, you have called the tool and it has returned nothing useful to answer, state: "I have not found specific information in the documents at my disposal regarding this request." At this point, you may draw upon your prior knowledge to answer the user.
+                - TRANSPARENCY: Always specify which files your information comes from using the REF_FILE_{UUID} convention (for example, REF_FILE_e58ed763-928c-4155-bee9-fdbaaadc15f3). CRUCIAL: NEVER INVENT A UUID; solely and exclusively use the file UUIDs indicated in the context provided to you.
+                - TONE AND STYLE: Maintain a professional, reassuring, and clear tone. Use bullet points to describe complex procedures or data.
+            """;
 
     @Override
     public Flux<ServerSentEvent<ChatResponseDTO>> process(ChatContext context) {
@@ -82,41 +82,36 @@ public class ConversationProcessor implements ChatProcessor {
                 .chatResponse()
                 .bufferUntil(response -> response.getResult() != null &&
                         response.getResult().getOutput().getText() != null &&
-                        response.getResult().getOutput().getText().endsWith("\n"))
+                        response.getResult().getOutput().getText().endsWith("\n")) // buffer response tokens until newline character is encountered
                 .map(responses -> {
-                    System.out.println("start processing buffer of: "+responses.size());
-
-                            String text = "";
-                            for(ChatResponse response : responses) {
-                                if (response.getResult() != null) {
-                                    String raw = response.getResult().getOutput().getText();
-                                    if (raw != null) {
-                                        text += raw;
-                                    }
-                                }
+                    String text = "";
+                    for (ChatResponse response : responses) {
+                        if (response.getResult() != null) {
+                            String raw = response.getResult().getOutput().getText();
+                            if (raw != null) {
+                                text += raw;
                             }
-
-                    System.out.println("buffer item: "+text);
-
+                        }
+                    }
 
                     text = markdownLinkProcessor.replaceFileReferenceLinks(text, allKbDocuments);
 
-                            fullResponse.append(text);
-                            return ServerSentEvent.<ChatResponseDTO>builder()
-                                    .data(
-                                            ChatResponseDTO.builder()
-                                                    .type(ChatEventType.CHUNK)
-                                                    .data(text)
-                                                    .build())
-                                    .build();
-                        })
+                    fullResponse.append(text);
+                    return ServerSentEvent.<ChatResponseDTO>builder()
+                            .data(
+                                    ChatResponseDTO.builder()
+                                            .type(ChatEventType.CHUNK)
+                                            .data(text)
+                                            .build())
+                            .build();
+                })
                 .doOnComplete(
                         () -> chatMemory.add(
-                                    context.getChatUuid(),
-                                    List.of(
-                                            new UserMessage(context.getRequest().message()),
-                                            new AssistantMessage(fullResponse.toString())))
-                        );
+                                context.getChatUuid(),
+                                List.of(
+                                        new UserMessage(context.getRequest().message()),
+                                        new AssistantMessage(fullResponse.toString())))
+                );
     }
 
     private Map<String, Object> buildToolContext(ChatContext context) {
