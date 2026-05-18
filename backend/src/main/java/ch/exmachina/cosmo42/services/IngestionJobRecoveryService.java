@@ -4,13 +4,10 @@ import ch.exmachina.cosmo42.entities.IngestionJob;
 import ch.exmachina.cosmo42.entities.IngestionJobStatus;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.boot.context.event.ApplicationReadyEvent;
-import org.springframework.context.event.EventListener;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
-import java.util.concurrent.atomic.AtomicBoolean;
 
 @Component
 @Slf4j
@@ -24,18 +21,10 @@ public class IngestionJobRecoveryService {
 
     private final IngestionJobService ingestionJobService;
     private final KBDocumentIngestionProcessor ingestionProcessor;
-    private final AtomicBoolean recovered = new AtomicBoolean(false);
-
-    @EventListener(ApplicationReadyEvent.class)
-    public void onApplicationReady() {
-        if (!recovered.compareAndSet(false, true)) return;
-        recoverInterruptedJobs();
-    }
 
     @Scheduled(fixedDelayString = "${cosmo42.ingestion.recovery.interval-ms:300000}",
                initialDelayString = "${cosmo42.ingestion.recovery.interval-ms:300000}")
     public void scheduledRecovery() {
-        if (!recovered.get()) return;
         recoverInterruptedJobs();
     }
 

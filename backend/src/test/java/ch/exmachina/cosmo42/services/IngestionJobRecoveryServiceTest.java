@@ -24,12 +24,12 @@ class IngestionJobRecoveryServiceTest extends BaseTest {
     IngestionJobRecoveryService recoveryService;
 
     @Test
-    void onApplicationReady_requeueStuckJobs() {
+    void scheduledRecovery_requeueStuckJobs() {
         IngestionJob job1 = jobWithUuid("uuid-1");
         IngestionJob job2 = jobWithUuid("uuid-2");
         when(ingestionJobService.findByStatuses(anyList())).thenReturn(List.of(job1, job2));
 
-        recoveryService.onApplicationReady();
+        recoveryService.scheduledRecovery();
 
         verify(ingestionProcessor).processAsync("uuid-1");
         verify(ingestionProcessor).processAsync("uuid-2");
@@ -37,45 +37,23 @@ class IngestionJobRecoveryServiceTest extends BaseTest {
     }
 
     @Test
-    void onApplicationReady_isIdempotent_secondCallIgnored() {
+    void scheduledRecovery_noStuckJobs_noRequeue() {
         when(ingestionJobService.findByStatuses(anyList())).thenReturn(List.of());
 
-        recoveryService.onApplicationReady();
-        recoveryService.onApplicationReady();
-
-        verify(ingestionJobService, times(1)).findByStatuses(anyList());
-    }
-
-    @Test
-    void onApplicationReady_noStuckJobs_noRequeue() {
-        when(ingestionJobService.findByStatuses(anyList())).thenReturn(List.of());
-
-        recoveryService.onApplicationReady();
+        recoveryService.scheduledRecovery();
 
         verifyNoInteractions(ingestionProcessor);
     }
 
     @Test
-    void scheduledRecovery_beforeFirstStartup_isNoOp() {
-        recoveryService.scheduledRecovery();
-
-        verifyNoInteractions(ingestionJobService);
-    }
-
-    @Test
-    void scheduledRecovery_afterStartup_recoversStuckJobs() {
-        when(ingestionJobService.findByStatuses(anyList())).thenReturn(List.of());
-        recoveryService.onApplicationReady();
-
-        IngestionJob job = jobWithUuid("uuid-3");
+    void scheduledRecovery_requeuesCorrectStatuses() {
         when(ingestionJobService.findByStatuses(List.of(
                 IngestionJobStatus.PENDING, IngestionJobStatus.PROCESSING, IngestionJobStatus.INTERRUPTED)))
-                .thenReturn(List.of(job));
+                .thenReturn(List.of(jobWithUuid("uuid-3")));
 
         recoveryService.scheduledRecovery();
 
         verify(ingestionProcessor).processAsync("uuid-3");
-        verify(ingestionJobService, never()).markInterrupted(anyString());
     }
 
     private IngestionJob jobWithUuid(String uuid) {
