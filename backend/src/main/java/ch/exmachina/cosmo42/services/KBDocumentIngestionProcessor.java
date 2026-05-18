@@ -12,7 +12,9 @@ import ch.exmachina.cosmo42.services.kb.KBDocumentChunker;
 import ch.exmachina.cosmo42.services.kb.schema.Chunk;
 import ch.exmachina.cosmo42.services.kb.schema.DocumentPage;
 import lombok.AccessLevel;
+import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
+import lombok.experimental.NonFinal;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.embedding.EmbeddingModel;
 import org.springframework.ai.embedding.EmbeddingRequest;
@@ -28,6 +30,7 @@ import java.util.*;
 @Service
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 @Slf4j
+@RequiredArgsConstructor
 public class KBDocumentIngestionProcessor {
 
     IngestionJobService ingestionJobService;
@@ -38,27 +41,9 @@ public class KBDocumentIngestionProcessor {
     KBDocumentChunkRepository kbDocumentChunkRepository;
     EmbeddingModel embeddingModel;
     OpenAiEmbeddingOptions embeddingModelOptions;
+    @NonFinal
+    @Value("${cosmo42.ingestion.max-page-attempts:3}")
     int maxPageAttempts;
-
-    public KBDocumentIngestionProcessor(IngestionJobService ingestionJobService,
-                                        KBDocumentChunker kbDocumentChunker,
-                                        FileConverter fileConverter,
-                                        FileService fileService,
-                                        KBDocumentRepository kbDocumentRepository,
-                                        KBDocumentChunkRepository kbDocumentChunkRepository,
-                                        EmbeddingModel embeddingModel,
-                                        OpenAiEmbeddingOptions embeddingModelOptions,
-                                        @Value("${cosmo42.ingestion.max-page-attempts:3}") int maxPageAttempts) {
-        this.ingestionJobService = ingestionJobService;
-        this.kbDocumentChunker = kbDocumentChunker;
-        this.fileConverter = fileConverter;
-        this.fileService = fileService;
-        this.kbDocumentRepository = kbDocumentRepository;
-        this.kbDocumentChunkRepository = kbDocumentChunkRepository;
-        this.embeddingModel = embeddingModel;
-        this.embeddingModelOptions = embeddingModelOptions;
-        this.maxPageAttempts = maxPageAttempts;
-    }
 
     @Async("ingestionExecutor")
     public void processAsync(String jobUuid) {

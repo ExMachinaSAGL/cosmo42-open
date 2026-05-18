@@ -2,6 +2,7 @@ package ch.exmachina.cosmo42.services;
 
 import ch.exmachina.cosmo42.dto.JobStatusDTO;
 import ch.exmachina.cosmo42.entities.*;
+import ch.exmachina.cosmo42.mappers.IngestionJobMapper;
 import ch.exmachina.cosmo42.repositories.IngestionJobPageRepository;
 import ch.exmachina.cosmo42.repositories.IngestionJobRepository;
 import ch.exmachina.cosmo42.services.kb.schema.DocumentPage;
@@ -15,7 +16,11 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
-import java.util.*;
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Objects;
+import java.util.Optional;
+import java.util.Set;
 
 @Service
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
@@ -28,17 +33,11 @@ public class IngestionJobService {
     IngestionJobRepository ingestionJobRepository;
     IngestionJobPageRepository ingestionJobPageRepository;
     ObjectMapper objectMapper;
+    IngestionJobMapper ingestionJobMapper;
 
     @Transactional
     public IngestionJob createJob(String originalFileName, long fileSizeBytes, String storedFileUuid) {
-        IngestionJob job = new IngestionJob();
-        job.setUuid(UUID.randomUUID().toString());
-        job.setStatus(IngestionJobStatus.PENDING);
-        job.setOriginalFileName(originalFileName);
-        job.setFileSizeBytes(fileSizeBytes);
-        job.setStoredFileUuid(storedFileUuid);
-        job.setCreatedAt(LocalDateTime.now());
-        return ingestionJobRepository.save(job);
+        return ingestionJobRepository.save(ingestionJobMapper.toEntity(originalFileName, fileSizeBytes, storedFileUuid));
     }
 
     @Transactional
@@ -181,14 +180,7 @@ public class IngestionJobService {
     }
 
     public JobStatusDTO toStatusDTO(IngestionJob job) {
-        return JobStatusDTO.builder()
-                .jobUuid(job.getUuid())
-                .status(job.getStatus().name())
-                .progressPercent(calculateProgress(job))
-                .documentUuid(job.getStatus() == IngestionJobStatus.COMPLETED
-                        ? job.getKbDocumentUuid() : null)
-                .errorMessage(job.getErrorMessage())
-                .build();
+        return ingestionJobMapper.toStatusDTO(job, calculateProgress(job));
     }
 
     private int calculateProgress(IngestionJob job) {

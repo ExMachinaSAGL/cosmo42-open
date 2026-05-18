@@ -3,13 +3,14 @@ package ch.exmachina.cosmo42.services;
 import ch.exmachina.cosmo42.BaseTest;
 import ch.exmachina.cosmo42.dto.JobStatusDTO;
 import ch.exmachina.cosmo42.entities.*;
+import ch.exmachina.cosmo42.mappers.IngestionJobMapper;
 import ch.exmachina.cosmo42.repositories.IngestionJobPageRepository;
 import ch.exmachina.cosmo42.repositories.IngestionJobRepository;
 import ch.exmachina.cosmo42.services.kb.schema.DocumentPage;
 import tools.jackson.core.JacksonException;
 import tools.jackson.databind.ObjectMapper;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
 
 import java.util.List;
@@ -28,8 +29,17 @@ class IngestionJobServiceTest extends BaseTest {
     @Mock
     ObjectMapper objectMapper;
 
-    @InjectMocks
     IngestionJobService service;
+
+    @BeforeEach
+    void setUp() {
+        service = new IngestionJobService(
+                ingestionJobRepository,
+                ingestionJobPageRepository,
+                objectMapper,
+                new IngestionJobMapper()
+        );
+    }
 
     @Test
     void createJob_setsAllFieldsWithPendingStatus() {
