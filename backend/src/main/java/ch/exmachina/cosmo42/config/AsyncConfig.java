@@ -14,7 +14,7 @@ import java.util.concurrent.Executor;
 @EnableScheduling
 public class AsyncConfig {
 
-    @Bean(name = "ingestionExecutor")
+    @Bean
     public Executor ingestionExecutor(
             @Value("${cosmo42.ingestion.executor.core-pool-size:2}") int corePoolSize,
             @Value("${cosmo42.ingestion.executor.max-pool-size:4}") int maxPoolSize,
