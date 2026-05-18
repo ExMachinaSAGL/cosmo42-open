@@ -1,11 +1,11 @@
 package ch.exmachina.cosmo42.services.kb;
 
+import ch.exmachina.cosmo42.utils.MimeTypeUtils;
+import ch.exmachina.cosmo42.utils.SupportedMimeTypes;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
 import lombok.extern.slf4j.Slf4j;
-import ch.exmachina.cosmo42.utils.SupportedMimeTypes;
-import org.apache.tika.Tika;
 import org.apache.pdfbox.Loader;
 import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.rendering.ImageType;
@@ -28,7 +28,6 @@ import java.util.List;
 @RequiredArgsConstructor
 public class FileConverter {
 
-    Tika tika = new Tika();
     RestClient libreofficeRestClient;
 
     private byte[] convertOfficeFileToPdf(byte[] fileBytes, String filename) {
@@ -38,18 +37,17 @@ public class FileConverter {
                 .contentType(MediaType.APPLICATION_OCTET_STREAM)
                 .body(fileBytes)
                 .retrieve()
-                .body(byte[].class)
-                ;
+                .body(byte[].class);
     }
 
-    public byte[] convertSupportedFileToPdfFromBytes(byte[] rawBytes, String originalFileName) throws IOException {
-        String mimeType = tika.detect(rawBytes, originalFileName);
+    public byte[] convertSupportedFileToPdfFromBytes(byte[] rawBytes, String originalFileName) {
+        String mimeType = MimeTypeUtils.getMimeType(rawBytes, originalFileName);
         log.info("Detected mime type {} for file {}", mimeType, originalFileName);
-        if (SupportedMimeTypes.MIME_DOCX.getContentType().equals(mimeType)
-                || SupportedMimeTypes.MIME_XSLX.getContentType().equals(mimeType)) {
+        if (SupportedMimeTypes.MIME_DOCX.matches(mimeType)
+                || SupportedMimeTypes.MIME_XSLX.matches(mimeType)) {
             log.info("Converting docx/xlsx to PDF from raw bytes");
             return convertOfficeFileToPdf(rawBytes, originalFileName);
-        } else if (SupportedMimeTypes.MIME_PDF.getContentType().equals(mimeType)) {
+        } else if (SupportedMimeTypes.MIME_PDF.matches(mimeType)) {
             return rawBytes;
         } else {
             throw new IllegalArgumentException("Unsupported file type: " + originalFileName + " (" + mimeType + ")");

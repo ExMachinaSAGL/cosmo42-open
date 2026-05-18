@@ -10,6 +10,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -84,6 +85,82 @@ class IngestionJobControllerIT extends BaseIT {
                 .uri("/api/v1/kb/jobs/non-existent-uuid")
                 .exchange()
                 .expectStatus().isNotFound();
+    }
+
+    // --- list endpoint tests ---
+
+    @Test
+    void listJobs_noFilter_returnsAllJobs() {
+        save(pendingJob("a.pdf"));
+        IngestionJob completed = pendingJob("b.pdf");
+        completed.setStatus(IngestionJobStatus.COMPLETED);
+        completed.setKbDocumentUuid("kb-uuid");
+        completed.setCompletedAt(LocalDateTime.now());
+        save(completed);
+
+        List<JobStatusDTO> result = webTestClient.get()
+                .uri("/api/v1/kb/jobs")
+                .exchange()
+                .expectStatus().isOk()
+                .expectBodyList(JobStatusDTO.class)
+                .returnResult().getResponseBody();
+
+        assertThat(result).hasSize(2);
+        assertThat(result).extracting(JobStatusDTO::getStatus)
+                .containsExactlyInAnyOrder("PENDING", "COMPLETED");
+    }
+
+    @Test
+    void listJobs_filterByStatus_returnsOnlyMatchingJobs() {
+        save(pendingJob("a.pdf"));
+        IngestionJob failed = pendingJob("b.pdf");
+        failed.setStatus(IngestionJobStatus.FAILED);
+        failed.setErrorMessage("boom");
+        save(failed);
+
+        List<JobStatusDTO> result = webTestClient.get()
+                .uri("/api/v1/kb/jobs?status=FAILED")
+                .exchange()
+                .expectStatus().isOk()
+                .expectBodyList(JobStatusDTO.class)
+                .returnResult().getResponseBody();
+
+        assertThat(result).hasSize(1);
+        assertThat(result.getFirst().getStatus()).isEqualTo("FAILED");
+    }
+
+    @Test
+    void listJobs_emptyTable_returnsEmptyList() {
+        webTestClient.get()
+                .uri("/api/v1/kb/jobs")
+                .exchange()
+                .expectStatus().isOk()
+                .expectBodyList(JobStatusDTO.class)
+                .hasSize(0);
+    }
+
+    @Test
+    void listJobs_filterByMultipleStatuses_returnsMatchingJobs() {
+        save(pendingJob("a.pdf"));
+        IngestionJob failed = pendingJob("b.pdf");
+        failed.setStatus(IngestionJobStatus.FAILED);
+        save(failed);
+        IngestionJob completed = pendingJob("c.pdf");
+        completed.setStatus(IngestionJobStatus.COMPLETED);
+        completed.setKbDocumentUuid("kb-uuid");
+        completed.setCompletedAt(LocalDateTime.now());
+        save(completed);
+
+        List<JobStatusDTO> result = webTestClient.get()
+                .uri("/api/v1/kb/jobs?status=PENDING&status=FAILED")
+                .exchange()
+                .expectStatus().isOk()
+                .expectBodyList(JobStatusDTO.class)
+                .returnResult().getResponseBody();
+
+        assertThat(result).hasSize(2);
+        assertThat(result).extracting(JobStatusDTO::getStatus)
+                .containsExactlyInAnyOrder("PENDING", "FAILED");
     }
 
     // --- helpers ---

@@ -22,15 +22,11 @@ public interface IngestionJobPageRepository extends JpaRepository<IngestionJobPa
 
     long countByJobAndStatus(IngestionJob job, IngestionJobPageStatus status);
 
-    @Query("SELECT p.pageIndex FROM IngestionJobPage p WHERE p.job = :job AND p.status = :status")
-    List<Integer> findPageIndicesByJobAndStatus(@Param("job") IngestionJob job,
-                                                @Param("status") IngestionJobPageStatus status);
-
     @Query("""
             SELECT p.pageIndex FROM IngestionJobPage p
              WHERE p.job = :job
-               AND (p.status = ch.exmachina.cosmo42.entities.IngestionJobPageStatus.PENDING
-                    OR (p.status = ch.exmachina.cosmo42.entities.IngestionJobPageStatus.FAILED
+               AND (p.status = IngestionJobPageStatus.PENDING
+                    OR (p.status = IngestionJobPageStatus.FAILED
                         AND p.attemptCount < :maxAttempts))
             """)
     List<Integer> findRetryablePageIndices(@Param("job") IngestionJob job,
@@ -39,7 +35,7 @@ public interface IngestionJobPageRepository extends JpaRepository<IngestionJobPa
     @Query("""
             SELECT COUNT(p) FROM IngestionJobPage p
              WHERE p.job = :job
-               AND p.status = ch.exmachina.cosmo42.entities.IngestionJobPageStatus.FAILED
+               AND p.status = IngestionJobPageStatus.FAILED
                AND p.attemptCount >= :maxAttempts
             """)
     long countExhaustedFailures(@Param("job") IngestionJob job,

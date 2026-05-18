@@ -172,6 +172,14 @@ public class IngestionJobService {
         return ingestionJobRepository.findByStatusIn(statuses);
     }
 
+    @Transactional(readOnly = true)
+    public List<JobStatusDTO> listJobs(List<IngestionJobStatus> statuses) {
+        List<IngestionJob> jobs = (statuses == null || statuses.isEmpty())
+                ? ingestionJobRepository.findAll()
+                : ingestionJobRepository.findByStatusIn(statuses);
+        return jobs.stream().map(this::toStatusDTO).toList();
+    }
+
     public JobStatusDTO toStatusDTO(IngestionJob job) {
         return JobStatusDTO.builder()
                 .jobUuid(job.getUuid())

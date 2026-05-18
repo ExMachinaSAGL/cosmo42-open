@@ -46,22 +46,4 @@ class FileConverterTest {
                 + "trailer<<>>\nstartxref\n0\n%%EOF").getBytes();
     }
 
-    private byte[] docxHeader() throws IOException {
-        // Build a minimal docx (zip with [Content_Types].xml referencing wordprocessingml).
-        java.io.ByteArrayOutputStream bos = new java.io.ByteArrayOutputStream();
-        try (java.util.zip.ZipOutputStream zos = new java.util.zip.ZipOutputStream(bos)) {
-            java.util.zip.ZipEntry entry = new java.util.zip.ZipEntry("[Content_Types].xml");
-            zos.putNextEntry(entry);
-            zos.write(("<?xml version=\"1.0\"?>"
-                    + "<Types xmlns=\"http://schemas.openxmlformats.org/package/2006/content-types\">"
-                    + "<Override PartName=\"/word/document.xml\" "
-                    + "ContentType=\"application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml\"/>"
-                    + "</Types>").getBytes());
-            zos.closeEntry();
-            zos.putNextEntry(new java.util.zip.ZipEntry("word/document.xml"));
-            zos.write("<w:document/>".getBytes());
-            zos.closeEntry();
-        }
-        return bos.toByteArray();
-    }
 }

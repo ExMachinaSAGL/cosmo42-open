@@ -1,6 +1,7 @@
 package ch.exmachina.cosmo42.controllers;
 
 import ch.exmachina.cosmo42.dto.JobStatusDTO;
+import ch.exmachina.cosmo42.entities.IngestionJobStatus;
 import ch.exmachina.cosmo42.services.IngestionJobService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
@@ -9,10 +10,9 @@ import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
 
 @RestController
 @RequestMapping("/api/v1/kb/jobs")
@@ -22,6 +22,18 @@ import org.springframework.web.bind.annotation.RestController;
 public class IngestionJobController {
 
     IngestionJobService ingestionJobService;
+
+    @GetMapping
+    @Operation(
+            summary = "List all ingestion jobs",
+            responses = {
+                    @ApiResponse(responseCode = "200", description = "List of jobs, optionally filtered by status")
+            }
+    )
+    public ResponseEntity<List<JobStatusDTO>> listJobs(
+            @RequestParam(required = false) List<IngestionJobStatus> status) {
+        return ResponseEntity.ok(ingestionJobService.listJobs(status));
+    }
 
     @GetMapping("/{uuid}")
     @Operation(
