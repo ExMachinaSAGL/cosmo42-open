@@ -39,7 +39,7 @@ public class ChatController {
         return conversationMapper.toDetail(bundle.conversation(), bundle.messages());
     }
 
-    @PatchMapping("/{uuid}")
+    @PatchMapping("/{uuid}/title")
     public ChatConversationListItemDTO rename(
             @PathVariable String uuid,
             @Valid @RequestBody ChatTitleUpdateDTO body
