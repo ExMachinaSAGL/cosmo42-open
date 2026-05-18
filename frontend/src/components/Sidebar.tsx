@@ -3,16 +3,32 @@ import { Database, MessageSquare, Plus, PanelLeftClose, MoreVertical, Edit2, Tra
 import { useState, useEffect } from 'react';
 import toast from 'react-hot-toast';
 import logo from '../assets/Cosmo42logo_128x128.jpg';
+import { fetchChatList, renameChat, deleteChat } from '../api/client';
+import { ChatConversationListItemDTO, Page } from '../types/chat';
 
 export function Sidebar() {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
+  const [chats, setChats] = useState<ChatConversationListItemDTO[]>([]);
   const navigate = useNavigate();
 
   useEffect(() => {
     const handleClickOutside = () => setOpenMenuId(null);
     document.addEventListener('click', handleClickOutside);
     return () => document.removeEventListener('click', handleClickOutside);
+  }, []);
+
+  useEffect(() => {
+    fetchChatList()
+      .then((data: Page<ChatConversationListItemDTO>) => {
+        if (data && data.content) {
+          setChats(data.content);
+        }
+      })
+      .catch((error) => {
+        console.error('Failed to fetch chat list:', error);
+        toast.error('Failed to load chats');
+      });
   }, []);
 
   const toggleMenu = (e: React.MouseEvent, id: string) => {
@@ -24,6 +40,35 @@ export function Sidebar() {
   const handleNewChat = () => {
     navigate('/');
     toast.success('Started a new chat');
+  };
+
+  const handleRenameChat = async (chatId: string, currentTitle: string) => {
+    setOpenMenuId(null);
+    const newTitle = window.prompt('Enter new chat title:', currentTitle);
+    if (!newTitle || newTitle.trim() === '' || newTitle === currentTitle) return;
+
+    try {
+      const updatedChat = await renameChat(chatId, newTitle);
+      setChats(chats.map(chat => chat.uuid === chatId ? updatedChat : chat));
+      toast.success('Chat renamed');
+    } catch (error) {
+      console.error('Failed to rename chat:', error);
+      toast.error('Failed to rename chat');
+    }
+  };
+
+  const handleDeleteChat = async (chatId: string) => {
+    setOpenMenuId(null);
+    if (!window.confirm('Are you sure you want to delete this chat?')) return;
+
+    try {
+      await deleteChat(chatId);
+      setChats(chats.filter(chat => chat.uuid !== chatId));
+      toast.success('Chat deleted');
+    } catch (error) {
+      console.error('Failed to delete chat:', error);
+      toast.error('Failed to delete chat');
+    }
   };
 
   return (
@@ -69,38 +114,33 @@ export function Sidebar() {
           </div>
           {!isCollapsed && (
             <ul className="sidebar-nav-list">
-              <li className="sidebar-nav-item-container">
-                <NavLink to="/chat/1" className={({ isActive }) => `sidebar-nav-link ${isActive ? 'active' : ''}`} title="Progetto X...">
-                  <span className="sidebar-nav-item-text">Progetto X...</span>
-                </NavLink>
+              {chats.map(chat => (
+                <li key={chat.uuid} className="sidebar-nav-item-container">
+                  <NavLink to={`/chat/${chat.uuid}`} className={({ isActive }) => `sidebar-nav-link ${isActive ? 'active' : ''}`} title={chat.title}>
+                    <span className="sidebar-nav-item-text">{chat.title}</span>
+                  </NavLink>
 
-                <div className="sidebar-item-actions">
-                  <button 
-                    onClick={(e) => toggleMenu(e, 'proj-1')} 
-                    className="sidebar-action-btn"
-                    title="Opzioni"
-                  >
-                    <MoreVertical size={16} />
-                  </button>
-                  {openMenuId === 'proj-1' && (
-                    <div className="sidebar-item-menu" onClick={e => e.stopPropagation()}>
-                      <button className="sidebar-menu-btn" onClick={() => {
-                        setOpenMenuId(null);
-                        toast.success('Chat renamed');
-                      }}>
-                        <Edit2 size={14} /> Rename
-                      </button>
-                      <button className="sidebar-menu-btn delete" onClick={() => {
-                        setOpenMenuId(null);
-                        toast.success('Chat deleted');
-                      }}>
-                        <Trash2 size={14} /> Delete
-                      </button>
-                    </div>
-                  )}
-                </div>
-              </li>
-
+                  <div className="sidebar-item-actions">
+                    <button 
+                      onClick={(e) => toggleMenu(e, chat.uuid)} 
+                      className="sidebar-action-btn"
+                      title="Opzioni"
+                    >
+                      <MoreVertical size={16} />
+                    </button>
+                    {openMenuId === chat.uuid && (
+                      <div className="sidebar-item-menu" onClick={e => e.stopPropagation()}>
+                        <button className="sidebar-menu-btn" onClick={() => handleRenameChat(chat.uuid, chat.title)}>
+                          <Edit2 size={14} /> Rename
+                        </button>
+                        <button className="sidebar-menu-btn delete" onClick={() => handleDeleteChat(chat.uuid)}>
+                          <Trash2 size={14} /> Delete
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                </li>
+              ))}
             </ul>
           )}
         </div>

@@ -54,3 +54,14 @@ export const sendChatMessage = (messageData: any) => fetch(`${CHAT_BASE_URL}/str
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(messageData)
 });
+
+export const fetchChatList = () => apiFetch(CHAT_BASE_URL, '');
+
+export const renameChat = (chatId: string, title: string) => apiFetch(CHAT_BASE_URL, `/${chatId}/title`, {
+    method: 'PATCH',
+    body: JSON.stringify({ title })
+});
+
+export const deleteChat = (chatId: string) => apiFetch(CHAT_BASE_URL, `/${chatId}`, {
+    method: 'DELETE'
+});
