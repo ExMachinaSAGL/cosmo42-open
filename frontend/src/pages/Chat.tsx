@@ -348,6 +348,7 @@ export function Chat() {
               type="submit"
               disabled={!inputValue.trim() || isStreaming}
               className="chat-send-button"
+              aria-label="Send"
             >
               {isStreaming ? <Loader2 size={18} className="animate-spin" /> : <Send size={18} />}
             </button>
