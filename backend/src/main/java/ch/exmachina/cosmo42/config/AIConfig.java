@@ -59,4 +59,5 @@ public class AIConfig {
                 .maxMessages(25)
                 .build();
     }
+
 }
