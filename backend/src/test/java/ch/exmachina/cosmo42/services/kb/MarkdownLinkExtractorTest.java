@@ -108,6 +108,21 @@ class MarkdownLinkProcessorTest {
         assertEquals(expectedMessageChunk, newMessageChunk);
     }
 
+    @Test
+    public void replaceExactFilename_oneInstance() {
+
+        allKBDocument = List.of(
+                buildKBDocument("f9da77ff-1111-4c5f-898f-0e3e1232f255", "file-name 1.doc")
+        );
+
+        String messageChunk = "bla bla file-name 1.doc bla bla [file-name 1.doc]";
+        String newMessageChunk = markdownLinkProcessor.replaceFileReferenceLinks(messageChunk, allKBDocument);
+
+        String expectedLink = "[file-name 1.doc](/api/v1/kb/documents/f9da77ff-1111-4c5f-898f-0e3e1232f255/download)";
+        String expectedMessageChunk = "bla bla "+expectedLink+" bla bla [file-name 1.doc]";
+        assertEquals(expectedMessageChunk, newMessageChunk);
+    }
+
 
     private KBDocument buildKBDocument(String uuid, String fileName) {
         KBDocument kbDocument = new KBDocument();
