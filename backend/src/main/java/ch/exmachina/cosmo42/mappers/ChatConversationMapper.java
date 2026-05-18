@@ -34,8 +34,7 @@ public class ChatConversationMapper {
     public ChatMessageDTO toMessage(Message m) {
         return new ChatMessageDTO(
                 m.getMessageType().getValue(),
-                m.getText(),
-                null
+                m.getText()
         );
     }
 }

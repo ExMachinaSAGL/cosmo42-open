@@ -1,7 +1,9 @@
 package ch.exmachina.cosmo42.services.chat;
 
 import ch.exmachina.cosmo42.entities.ChatConversation;
+import ch.exmachina.cosmo42.exceptions.ChatConversationHasNoUserMessageException;
 import ch.exmachina.cosmo42.exceptions.ChatConversationNotFoundException;
+import ch.exmachina.cosmo42.exceptions.InvalidChatTitleException;
 import ch.exmachina.cosmo42.repositories.ChatConversationRepository;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.client.ChatClient;
@@ -20,6 +22,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Clock;
 import java.time.LocalDateTime;
+import java.util.Optional;
 
 @Service
 @Slf4j
@@ -73,26 +76,35 @@ public class ChatConversationService {
     }
 
     @Transactional
-    public void persistGeneratedTitle(String uuid, String rawTitle) {
+    public Optional<String> persistGeneratedTitle(String uuid, String rawTitle) {
         log.debug("Persisting generated title uuid={} rawTitleLength={}",
                 uuid,
                 rawTitle == null ? 0 : rawTitle.length());
         var sanitized = titleSanitizer.sanitize(rawTitle);
         if (sanitized.isEmpty()) {
             log.debug("Skipping title persistence for uuid={} (blank after sanitization)", uuid);
-            return;
+            return Optional.empty();
         }
         int rows = repository.updateTitleByUuid(uuid, sanitized.get(), LocalDateTime.now(clock));
         if (rows == 0) {
             log.warn("Title write missed for uuid={} (row not found)", uuid);
-            return;
+            return Optional.empty();
         }
         log.info("Generated title persisted uuid={} title='{}'", uuid, sanitized.get());
+        return sanitized;
     }
 
     @Transactional(readOnly = true)
     public Page<ChatConversation> list(Pageable pageable) {
-        return repository.findAllByOrderByCreatedAtDesc(pageable);
+        return repository.findAllByOrderByUpdatedAtDesc(pageable);
+    }
+
+    @Transactional
+    public void markActive(String uuid) {
+        int rows = repository.updateActivityByUuid(uuid, LocalDateTime.now(clock));
+        if (rows == 0) {
+            throw new ChatConversationNotFoundException(uuid);
+        }
     }
 
     @Transactional(readOnly = true)
@@ -105,7 +117,7 @@ public class ChatConversationService {
     @Transactional
     public ChatConversation rename(String uuid, String newTitle) {
         String sanitized = titleSanitizer.sanitize(newTitle)
-                .orElseThrow(() -> new IllegalArgumentException(
+                .orElseThrow(() -> new InvalidChatTitleException(
                         "Title is empty after sanitization"));
         int rows = repository.updateTitleByUuid(uuid, sanitized, LocalDateTime.now(clock));
         if (rows == 0) {
@@ -115,7 +127,6 @@ public class ChatConversationService {
                 .orElseThrow(() -> new ChatConversationNotFoundException(uuid));
     }
 
-    @Transactional
     public ChatConversation regenerateTitle(String uuid) {
         log.info("Title regeneration requested uuid={}", uuid);
         repository.findByUuid(uuid)
@@ -125,7 +136,7 @@ public class ChatConversationService {
                 .filter(m -> m.getMessageType() == MessageType.USER)
                 .map(Message::getText)
                 .findFirst()
-                .orElseThrow(() -> new IllegalStateException(
+                .orElseThrow(() -> new ChatConversationHasNoUserMessageException(
                         "No user message found for chat " + uuid));
 
         ChatClient client = ChatClient.builder(chatModel)

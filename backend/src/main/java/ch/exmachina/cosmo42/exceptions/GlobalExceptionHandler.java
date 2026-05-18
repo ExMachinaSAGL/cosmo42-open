@@ -20,14 +20,14 @@ public class GlobalExceptionHandler {
                 .body(body("not_found", ex.getMessage()));
     }
 
-    @ExceptionHandler(IllegalArgumentException.class)
-    public ResponseEntity<Map<String, Object>> handleBadArg(IllegalArgumentException ex) {
+    @ExceptionHandler(InvalidChatTitleException.class)
+    public ResponseEntity<Map<String, Object>> handleBadArg(InvalidChatTitleException ex) {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                 .body(body("bad_request", ex.getMessage()));
     }
 
-    @ExceptionHandler(IllegalStateException.class)
-    public ResponseEntity<Map<String, Object>> handleConflict(IllegalStateException ex) {
+    @ExceptionHandler(ChatConversationHasNoUserMessageException.class)
+    public ResponseEntity<Map<String, Object>> handleConflict(ChatConversationHasNoUserMessageException ex) {
         return ResponseEntity.status(HttpStatus.CONFLICT)
                 .body(body("conflict", ex.getMessage()));
     }

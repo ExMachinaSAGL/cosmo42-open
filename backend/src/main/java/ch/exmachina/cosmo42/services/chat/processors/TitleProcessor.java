@@ -2,10 +2,7 @@ package ch.exmachina.cosmo42.services.chat.processors;
 
 import ch.exmachina.cosmo42.dto.ChatEventType;
 import ch.exmachina.cosmo42.dto.ChatResponseDTO;
-import ch.exmachina.cosmo42.services.chat.ChatAttribute;
-import ch.exmachina.cosmo42.services.chat.ChatContext;
-import ch.exmachina.cosmo42.services.chat.ChatConversationService;
-import ch.exmachina.cosmo42.services.chat.TitleGeneratorAdvisor;
+import ch.exmachina.cosmo42.services.chat.*;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
@@ -30,6 +27,7 @@ public class TitleProcessor implements ChatProcessor {
     OpenAiChatOptions.Builder titleModelOptionsBuilder;
     TitleGeneratorAdvisor titleGeneratorAdvisor;
     ChatConversationService chatConversationService;
+    TitleSanitizer titleSanitizer;
 
     @Override
     public Flux<ServerSentEvent<ChatResponseDTO>> process(ChatContext context) {
@@ -56,17 +54,18 @@ public class TitleProcessor implements ChatProcessor {
                         .call()
                         .content())
                 .subscribeOn(Schedulers.boundedElastic())
-                .doOnNext(raw -> {
+                .flatMap(raw -> {
                     log.info("Title generation succeeded uuid={} titleLength={} titlePreview='{}'",
                             uuid,
                             raw == null ? 0 : raw.length(),
                             preview(raw));
                     chatConversationService.persistGeneratedTitle(uuid, raw);
+                    return Mono.justOrEmpty(titleSanitizer.sanitize(raw));
                 })
-                .map(raw -> ServerSentEvent.<ChatResponseDTO>builder()
+                .map(title -> ServerSentEvent.<ChatResponseDTO>builder()
                         .data(ChatResponseDTO.builder()
                                 .type(ChatEventType.TITLE)
-                                .data(raw)
+                                .data(title)
                                 .build())
                         .build())
                 .flux()

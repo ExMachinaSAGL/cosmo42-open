@@ -4,6 +4,6 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 
 public record ChatRequestDTO(
-        String uuid,
+        @Size(max = 36) String uuid,
         @NotBlank @Size(max = 8000) String message
 ) {}

@@ -6,7 +6,7 @@ CREATE TABLE chat_conversation (
     updated_at DATETIME(6)  NOT NULL,
     PRIMARY KEY (id),
     CONSTRAINT uq_chat_conversation_uuid UNIQUE (uuid),
-    INDEX idx_chat_conversation_created_at (created_at)
+    INDEX idx_chat_conversation_updated_at (updated_at)
 );
 
 INSERT INTO chat_conversation (uuid, title, created_at, updated_at)

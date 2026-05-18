@@ -1,8 +1,8 @@
 package ch.exmachina.cosmo42.services.chat;
 
 import ch.exmachina.cosmo42.dto.ChatEventType;
-import ch.exmachina.cosmo42.dto.ChatResponseDTO;
 import ch.exmachina.cosmo42.dto.ChatRequestDTO;
+import ch.exmachina.cosmo42.dto.ChatResponseDTO;
 import ch.exmachina.cosmo42.services.chat.processors.ConversationProcessor;
 import ch.exmachina.cosmo42.services.chat.processors.TitleProcessor;
 import ch.exmachina.cosmo42.services.chat.processors.UuidProcessor;
@@ -34,9 +34,8 @@ public class ChatService {
         boolean isNewChat = request.uuid() == null;
         String chatUuid = isNewChat ? UUID.randomUUID().toString() : request.uuid();
 
-        if (isNewChat) {
-            chatConversationService.createIfAbsent(chatUuid);
-        }
+        chatConversationService.createIfAbsent(chatUuid);
+        chatConversationService.markActive(chatUuid);
 
         Sinks.Many<ServerSentEvent<ChatResponseDTO>> eventSink = Sinks.many().multicast().onBackpressureBuffer();
 
