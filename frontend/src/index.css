@@ -74,10 +74,14 @@ h2 {
 
 /* Utilities */
 @keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
   to {
     transform: rotate(360deg);
   }
 }
+
 .animate-spin {
   animation: spin 1s linear infinite;
 }
@@ -517,7 +521,7 @@ h2 {
 }
 
 .kb-content-wrapper {
-  max-width: 64rem; /* max-w-5xl */
+  max-w: 64rem; /* max-w-5xl */
   margin-left: auto;
   margin-right: auto;
 }

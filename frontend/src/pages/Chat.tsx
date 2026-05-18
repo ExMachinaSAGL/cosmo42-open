@@ -1,10 +1,12 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams } from 'react-router-dom';
-import { Send, User, Bot } from 'lucide-react';
+import { Send, User, Bot, Loader2 } from 'lucide-react';
 import toast from 'react-hot-toast';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import { fetchChatHistory, sendChatMessage } from '../api/client';
 
-type EventType = 'status' | 'chunk' | 'complete' | 'error' | 'metadata';
+type EventType = 'UUID' | 'TITLE' | 'STATUS' | 'CHUNK' | 'COMPLETED' | 'ERROR';
 
 export interface ChatMessageItem {
   id?: string | number;
@@ -16,7 +18,7 @@ export interface ChatMessageItem {
 
 interface StreamEvent {
   type: EventType;
-  data: any;
+  data?: any;
 }
 
 export function Chat() {
@@ -123,8 +125,8 @@ export function Chat() {
     const lines = chunk.split('\n');
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i].trim();
-      if (line.startsWith('data: ')) {
-        const dataContent = line.substring(6); // Remove "data: "
+      if (line.startsWith('data:')) {
+        const dataContent = line.replace(/^data:\s*/, '');
         if (dataContent.trim()) {
           try {
             const event: StreamEvent = JSON.parse(dataContent);
@@ -133,6 +135,16 @@ export function Chat() {
             console.error('Error parsing JSON:', e, 'Content:', dataContent);
           }
         }
+      } else if (line.startsWith('{')) {
+        // Fallback in case the raw JSON is streamed without data: prefix
+        try {
+          const event: StreamEvent = JSON.parse(line);
+          if (event.type) {
+            events.push(event);
+          }
+        } catch (e) {
+          // ignore parsing error for non-JSON lines
+        }
       }
     }
     return events;
@@ -140,16 +152,19 @@ export function Chat() {
 
   const handleStreamEvent = useCallback((event: StreamEvent) => {
     switch (event.type) {
-      case 'metadata':
-        if (event.data.chat_uuid) {
-          setCurrentChatUUID(event.data.chat_uuid);
-        }
-        if (event.data.chat_title) {
-          setChatTitle(event.data.chat_title);
+      case 'UUID':
+        if (event.data) {
+          setCurrentChatUUID(event.data);
         }
         break;
 
-      case 'status':
+      case 'TITLE':
+        if (event.data) {
+          setChatTitle(event.data);
+        }
+        break;
+
+      case 'STATUS':
         setMessages(prev => {
           const lastMessage = prev[prev.length - 1];
           if (lastMessage?.source === 'ai') {
@@ -166,7 +181,7 @@ export function Chat() {
         });
         break;
 
-      case 'chunk':
+      case 'CHUNK':
         clearStatusQueue();
         setMessages(prev => {
           const lastMessage = prev[prev.length - 1];
@@ -187,7 +202,7 @@ export function Chat() {
         });
         break;
 
-      case 'complete':
+      case 'COMPLETED':
         clearStatusQueue();
         setMessages(prev => {
           const lastMessage = prev[prev.length - 1];
@@ -201,7 +216,7 @@ export function Chat() {
         setIsStreaming(false);
         break;
 
-      case 'error':
+      case 'ERROR':
         clearStatusQueue();
         setIsStreaming(false);
         toast.error("Error: " + event.data);
@@ -298,7 +313,17 @@ export function Chat() {
                 {/* Message bubble */}
                 <div className={`chat-message-bubble ${msg.source === 'user' ? 'user' : 'assistant'}`}>
                   {msg.status && <p className="chat-message-status" style={{ fontStyle: 'italic', fontSize: '0.8em', color: '#888', marginBottom: '4px' }}>{msg.status}...</p>}
-                  {msg.content && <p className="chat-message-content" style={{ whiteSpace: 'pre-wrap' }}>{msg.content}</p>}
+                  {msg.content && (
+                    <div className="chat-message-content">
+                      {msg.source === 'ai' ? (
+                        <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                          {msg.content}
+                        </ReactMarkdown>
+                      ) : (
+                        <p style={{ whiteSpace: 'pre-wrap' }}>{msg.content}</p>
+                      )}
+                    </div>
+                  )}
                 </div>
               </div>
             ))
@@ -324,7 +349,7 @@ export function Chat() {
               disabled={!inputValue.trim() || isStreaming}
               className="chat-send-button"
             >
-              <Send size={18} />
+              {isStreaming ? <Loader2 size={18} className="animate-spin" /> : <Send size={18} />}
             </button>
           </form>
           <div className="chat-disclaimer-container">
