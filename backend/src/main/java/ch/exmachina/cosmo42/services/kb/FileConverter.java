@@ -1,11 +1,11 @@
 package ch.exmachina.cosmo42.services.kb;
 
-import ch.exmachina.cosmo42.utils.MimeTypeUtils;
-import ch.exmachina.cosmo42.utils.SupportedMimeTypes;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
 import lombok.extern.slf4j.Slf4j;
+import ch.exmachina.cosmo42.utils.SupportedMimeTypes;
+import org.apache.tika.Tika;
 import org.apache.pdfbox.Loader;
 import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.rendering.ImageType;
@@ -13,7 +13,6 @@ import org.apache.pdfbox.rendering.PDFRenderer;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
-import org.springframework.web.multipart.MultipartFile;
 
 import javax.imageio.ImageIO;
 import java.awt.*;
@@ -29,6 +28,7 @@ import java.util.List;
 @RequiredArgsConstructor
 public class FileConverter {
 
+    Tika tika = new Tika();
     RestClient libreofficeRestClient;
 
     private byte[] convertOfficeFileToPdf(byte[] fileBytes, String filename) {
@@ -43,32 +43,17 @@ public class FileConverter {
     }
 
     public byte[] convertSupportedFileToPdfFromBytes(byte[] rawBytes, String originalFileName) throws IOException {
-        String lower = originalFileName.toLowerCase();
-        if (lower.endsWith(".docx") || lower.endsWith(".xlsx")) {
+        String mimeType = tika.detect(rawBytes, originalFileName);
+        log.info("Detected mime type {} for file {}", mimeType, originalFileName);
+        if (SupportedMimeTypes.MIME_DOCX.getContentType().equals(mimeType)
+                || SupportedMimeTypes.MIME_XSLX.getContentType().equals(mimeType)) {
             log.info("Converting docx/xlsx to PDF from raw bytes");
             return convertOfficeFileToPdf(rawBytes, originalFileName);
-        } else if (lower.endsWith(".pdf")) {
+        } else if (SupportedMimeTypes.MIME_PDF.getContentType().equals(mimeType)) {
             return rawBytes;
         } else {
-            throw new IllegalArgumentException("Unsupported file type: " + originalFileName);
+            throw new IllegalArgumentException("Unsupported file type: " + originalFileName + " (" + mimeType + ")");
         }
-    }
-
-    public byte[] convertSupportedFileToPdf(MultipartFile file) throws IOException {
-        byte[] pdfBytes;
-        boolean isDocx = MimeTypeUtils.isMimeType(file, SupportedMimeTypes.MIME_DOCX);
-        boolean isXslx = MimeTypeUtils.isMimeType(file, SupportedMimeTypes.MIME_XSLX);
-        boolean isPdf = MimeTypeUtils.isMimeType(file, SupportedMimeTypes.MIME_PDF);
-
-        if (isDocx || isXslx) {
-            log.info("Converting docx/xlsx to PDF");
-            pdfBytes = convertOfficeFileToPdf(file.getBytes(), file.getName());
-        } else if (isPdf) {
-            pdfBytes = file.getBytes();
-        } else {
-            throw new IllegalArgumentException("Unsupported file type: " + file.getName());
-        }
-        return pdfBytes;
     }
 
     public List<byte[]> convertPdfToImages(byte[] pdfBytes) throws IOException {

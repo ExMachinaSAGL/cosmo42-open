@@ -4,6 +4,7 @@ import ch.exmachina.cosmo42.dto.DocumentDTO;
 import ch.exmachina.cosmo42.dto.JobAcceptedDTO;
 import ch.exmachina.cosmo42.entities.KBDocument;
 import ch.exmachina.cosmo42.entities.IngestionJob;
+import ch.exmachina.cosmo42.exceptions.FileSaveException;
 import ch.exmachina.cosmo42.exceptions.KBDocumentNotFoundException;
 import ch.exmachina.cosmo42.mappers.KBDocumentMapper;
 import ch.exmachina.cosmo42.repositories.KBDocumentChunkRepository;
@@ -51,8 +52,8 @@ public class KBDocumentService {
             ingestionProcessor.processAsync(job.getUuid());
             return new JobAcceptedDTO(job.getUuid());
         } catch (IOException e) {
-            log.error("Errore salvataggio file per ingestion", e);
-            throw new RuntimeException("Impossibile salvare il file", e);
+            log.error("Error saving file for ingestion", e);
+            throw new FileSaveException();
         }
     }
 

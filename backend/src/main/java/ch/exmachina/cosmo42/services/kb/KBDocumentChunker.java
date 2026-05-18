@@ -14,18 +14,16 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.ByteArrayResource;
 import org.springframework.stereotype.Service;
 import org.springframework.util.MimeTypeUtils;
-import org.springframework.web.multipart.MultipartFile;
 
-import java.io.IOException;
 import java.util.*;
 import java.util.concurrent.*;
+import java.util.stream.IntStream;
 
 @Service
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 @Slf4j
 public class KBDocumentChunker {
 
-    FileConverter fileConverter;
     ChatModel chatModel;
     OpenAiChatOptions.Builder chunkerModelOptionsBuilder;
     ExecutorService executorService;
@@ -33,11 +31,11 @@ public class KBDocumentChunker {
     private static final String CHUNKER_PROMPT = """
             You are an expert document analysis and data extraction AI.
             Analyze the provided single document page and extract its content into logical, self-contained chunks.
-            
+
             CRITICAL RULES:
             1. Process the page strictly from top to bottom.
             2. EXCLUSIONS: You MUST ignore document headers, footers, logos, page numbers, and recurring technical marginalia. Do not extract them.
-            
+
             EXTRACTION:
             - Text: Group text by semantic completeness. Prioritize logic over visual whitespace.
               - HEADINGS: NEVER extract a heading or title alone. Always merge it with the paragraph that immediately follows.
@@ -45,16 +43,14 @@ public class KBDocumentChunker {
             - Cut-offs: If a paragraph is cut off at the very bottom of the page, extract what you see and set 'continuesOnNextPage' to true.
             - Tables: Extract as Markdown, prepend the title, and provide a context summary. Ignore empty trailing rows.
             - Images: Provide a detailed descriptive text summary.
-            
+
             SCHEMA INSTRUCTIONS:
             - The 'summary' field is STRICTLY for 'table' and 'image' chunks. For 'text' chunks, the 'summary' field MUST be null.
             """;
 
-    public KBDocumentChunker(FileConverter fileConverter,
-                             ChatModel chatModel,
+    public KBDocumentChunker(ChatModel chatModel,
                              OpenAiChatOptions.Builder chunkerModelOptionsBuilder,
                              @Value("${cosmo42.chunking.pool.size:4}") int poolSize) {
-        this.fileConverter = fileConverter;
         this.chatModel = chatModel;
         this.chunkerModelOptionsBuilder = chunkerModelOptionsBuilder;
         log.info("KBDocumentChunker pool size: {}", poolSize);
@@ -74,205 +70,97 @@ public class KBDocumentChunker {
         }
     }
 
-    public byte[] convertToPdf(MultipartFile file) throws IOException {
-        return fileConverter.convertSupportedFileToPdf(file);
-    }
+    public Map<Integer, DocumentPage> processPages(List<byte[]> pageImages, Set<Integer> indicesToProcess) {
+        Set<Integer> targetIndices = indicesToProcess == null
+                ? new LinkedHashSet<>(IntStream.range(0, pageImages.size()).boxed().toList())
+                : indicesToProcess;
 
-    public byte[] convertToPdfFromBytes(byte[] rawBytes, String originalFileName) throws IOException {
-        return fileConverter.convertSupportedFileToPdfFromBytes(rawBytes, originalFileName);
-    }
+        ChatClient chatClient = buildChatClient();
+        int totalPages = pageImages.size();
 
-    public List<byte[]> convertToPageImages(byte[] pdfBytes) throws IOException {
-        return fileConverter.convertPdfToImages(pdfBytes);
-    }
-
-    public Map<Integer, DocumentPage> processPages(List<byte[]> pageImages, Set<Integer> skipPageIndices) {
-        List<Media> mediaList = pageImages.stream()
-                .map(imgBytes -> new Media(MimeTypeUtils.IMAGE_PNG, new ByteArrayResource(imgBytes)))
-                .toList();
-
-        ChatClient chatClient = ChatClient.builder(chatModel)
-                .defaultOptions(chunkerModelOptionsBuilder)
-                .defaultSystem(CHUNKER_PROMPT)
-                .build();
-
-        List<Future<PageResult>> futures = new ArrayList<>();
-        List<Integer> submittedIndices = new ArrayList<>();
-
-        for (int i = 0; i < mediaList.size(); i++) {
-            if (skipPageIndices.contains(i)) {
-                log.info("Page {}/{} already processed, skipping.", i + 1, mediaList.size());
-                futures.add(null);
-                continue;
-            }
-            final int pageIndex = i;
-            final Media currentPage = mediaList.get(i);
-            Future<PageResult> future = executorService.submit(() -> {
-                try {
-                    log.info("Chunking page {}/{} of the document.", pageIndex + 1, mediaList.size());
-                    DocumentPage extractedPage = chatClient.prompt()
-                            .user(u -> u.text("Extract the chunks for the attached page.").media(currentPage))
-                            .call()
-                            .entity(DocumentPage.class);
-                    if (extractedPage == null) {
-                        log.error("Null response from LLM for page {}. Skipping.", pageIndex + 1);
-                        return new PageResult(pageIndex, null);
-                    }
-                    return new PageResult(pageIndex, extractedPage);
-                } catch (Exception e) {
-                    log.error("Failed to extract chunks for page {}. Skipping.", pageIndex + 1, e);
-                    return new PageResult(pageIndex, null);
-                }
-            });
-            futures.add(future);
-            submittedIndices.add(i);
+        Map<Integer, Future<DocumentPage>> futures = new LinkedHashMap<>();
+        for (Integer pageIndex : targetIndices) {
+            if (pageIndex < 0 || pageIndex >= totalPages) continue;
+            Media media = new Media(MimeTypeUtils.IMAGE_PNG, new ByteArrayResource(pageImages.get(pageIndex)));
+            futures.put(pageIndex, executorService.submit(() -> chunkSinglePage(chatClient, media, pageIndex, totalPages)));
         }
 
         Map<Integer, DocumentPage> results = new LinkedHashMap<>();
-        for (int i = 0; i < futures.size(); i++) {
-            Future<PageResult> future = futures.get(i);
-            if (future == null) continue;
+        for (Map.Entry<Integer, Future<DocumentPage>> entry : futures.entrySet()) {
+            int pageIndex = entry.getKey();
             try {
-                PageResult result = future.get();
-                results.put(result.pageIndex, result.page);
-            } catch (InterruptedException | ExecutionException e) {
-                log.error("Failed to get result for page {}", i + 1, e);
-                results.put(i, null);
-                if (e instanceof InterruptedException) {
-                    Thread.currentThread().interrupt();
-                }
+                results.put(pageIndex, entry.getValue().get());
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                results.put(pageIndex, null);
+            } catch (ExecutionException e) {
+                log.error("Failed to get result for page {}", pageIndex + 1, e);
+                results.put(pageIndex, null);
             }
         }
         return results;
     }
 
+    private ChatClient buildChatClient() {
+        return ChatClient.builder(chatModel)
+                .defaultOptions(chunkerModelOptionsBuilder)
+                .defaultSystem(CHUNKER_PROMPT)
+                .build();
+    }
+
+    private DocumentPage chunkSinglePage(ChatClient chatClient, Media media, int pageIndex, int totalPages) {
+        try {
+            log.info("Chunking page {}/{} of the document.", pageIndex + 1, totalPages);
+            DocumentPage extracted = chatClient.prompt()
+                    .user(u -> u.text("Extract the chunks for the attached page.").media(media))
+                    .call()
+                    .entity(DocumentPage.class);
+            if (extracted == null) {
+                log.error("Null response from LLM for page {}. Skipping.", pageIndex + 1);
+            }
+            return extracted;
+        } catch (Exception e) {
+            log.error("Failed to extract chunks for page {}. Skipping.", pageIndex + 1, e);
+            return null;
+        }
+    }
+
     public List<DocumentPage> mergePages(List<DocumentPage> orderedPages) {
         List<DocumentPage> merged = new ArrayList<>();
-        Chunk pendingCutoffChunk = null;
-        for (DocumentPage extractedPage : orderedPages) {
-            if (extractedPage == null) continue;
-            boolean removeFirst = false;
-            for (Chunk newChunk : extractedPage.getChunks()) {
-                if (pendingCutoffChunk != null && pendingCutoffChunk.getType().equals(newChunk.getType())) {
-                    String mergedContent = pendingCutoffChunk.getContent() + " " + newChunk.getContent();
-                    String summary = pendingCutoffChunk.getSummary();
-                    if (summary != null) {
-                        if (newChunk.getSummary() != null) summary += " " + newChunk.getSummary();
-                    } else {
-                        summary = newChunk.getSummary();
+        Chunk pendingCutoff = null;
+
+        for (DocumentPage source : orderedPages) {
+            if (source == null || source.getChunks() == null) continue;
+
+            List<Chunk> outChunks = new ArrayList<>(source.getChunks().size());
+            for (Chunk srcChunk : source.getChunks()) {
+                Chunk copy = copyChunk(srcChunk);
+                if (pendingCutoff != null && Objects.equals(pendingCutoff.getType(), copy.getType())) {
+                    pendingCutoff.setContent(pendingCutoff.getContent() + " " + copy.getContent());
+                    pendingCutoff.setSummary(joinSummaries(pendingCutoff.getSummary(), copy.getSummary()));
+                    pendingCutoff.setContinuesOnNextPage(copy.getContinuesOnNextPage());
+                    if (!Boolean.TRUE.equals(pendingCutoff.getContinuesOnNextPage())) {
+                        pendingCutoff = null;
                     }
-                    pendingCutoffChunk.setContent(mergedContent);
-                    pendingCutoffChunk.setSummary(summary);
-                    pendingCutoffChunk.setContinuesOnNextPage(newChunk.getContinuesOnNextPage());
-                    removeFirst = true;
-                    if (!pendingCutoffChunk.getContinuesOnNextPage()) pendingCutoffChunk = null;
                 } else {
-                    if (newChunk.getContinuesOnNextPage()) pendingCutoffChunk = newChunk;
+                    outChunks.add(copy);
+                    if (Boolean.TRUE.equals(copy.getContinuesOnNextPage())) {
+                        pendingCutoff = copy;
+                    }
                 }
             }
-            if (removeFirst) extractedPage.getChunks().removeFirst();
-            merged.add(extractedPage);
+            merged.add(new DocumentPage(outChunks));
         }
         return merged;
     }
 
-    public List<DocumentPage> extractRawChunks(MultipartFile file) throws IOException {
-
-        byte[] pdf = fileConverter.convertSupportedFileToPdf(file);
-        List<byte[]> images = fileConverter.convertPdfToImages(pdf);
-        
-        List<Media> mediaList = images.stream()
-                .map(imgBytes -> new Media(MimeTypeUtils.IMAGE_PNG, new ByteArrayResource(imgBytes)))
-                .toList();
-
-        ChatClient chatClient = ChatClient.builder(chatModel)
-                .defaultOptions(chunkerModelOptionsBuilder)
-                .defaultSystem(CHUNKER_PROMPT)
-                .build();
-
-        List<Future<PageResult>> futures = new ArrayList<>();
-        for (int i = 0; i < mediaList.size(); i++) {
-            final int pageIndex = i;
-            final Media currentPage = mediaList.get(i);
-            Future<PageResult> future = executorService.submit(() -> {
-                try {
-                    log.info("Chunking page {}/{} of the document.", pageIndex + 1, mediaList.size());
-                    DocumentPage extractedPage = chatClient.prompt()
-                            .user(u -> u
-                                    .text("Extract the chunks for the attached page.")
-                                    .media(currentPage))
-                            .call()
-                            .entity(DocumentPage.class);
-                    if (extractedPage == null) {
-                        log.error("Null response from LLM extracting chunks for page {} of the document. Skipping page.", pageIndex + 1);
-                        return new PageResult(pageIndex, null);
-                    }
-                    return new PageResult(pageIndex, extractedPage);
-                } catch (Exception e) {
-                    log.error("Failed to extract chunks for page {} of the document. Skipping page.", pageIndex + 1, e);
-                    return new PageResult(pageIndex, null);
-                }
-            });
-            futures.add(future);
-        }
-
-
-        List<DocumentPage> allExtractedPages = new ArrayList<>();
-        Chunk pendingCutoffChunk = null;
-        for (int i = 0; i < futures.size(); i++) {
-            try {
-                PageResult result = futures.get(i).get();
-                if (result.page == null) {
-                    continue;
-                }
-                DocumentPage extractedPage = result.page;
-                boolean removeFirst = false;
-                for (Chunk newChunk : extractedPage.getChunks()) {
-                    if (pendingCutoffChunk != null && pendingCutoffChunk.getType().equals(newChunk.getType())) {
-                        String mergedContent = pendingCutoffChunk.getContent() + " " + newChunk.getContent();
-                        String summary = pendingCutoffChunk.getSummary();
-                        if (summary != null) {
-                            if (newChunk.getSummary() != null) {
-                                summary += " " + newChunk.getSummary();
-                            }
-                        } else {
-                            summary = newChunk.getSummary();
-                        }
-                        pendingCutoffChunk.setContent(mergedContent);
-                        pendingCutoffChunk.setSummary(summary);
-                        pendingCutoffChunk.setContinuesOnNextPage(newChunk.getContinuesOnNextPage());
-                        removeFirst = true;
-                        if (!pendingCutoffChunk.getContinuesOnNextPage()) {
-                            pendingCutoffChunk = null;
-                        }
-                    } else {
-                        if (newChunk.getContinuesOnNextPage()) {
-                            pendingCutoffChunk = newChunk;
-                        }
-                    }
-                }
-                if (removeFirst) {
-                    extractedPage.getChunks().removeFirst();
-                }
-                allExtractedPages.add(extractedPage);
-            } catch (InterruptedException | ExecutionException e) {
-                log.error("Failed to get result for page {}", i + 1, e);
-                if (e instanceof InterruptedException) {
-                    Thread.currentThread().interrupt();
-                }
-            }
-        }
-        log.info("Chunking done.");
-        return allExtractedPages;
+    private Chunk copyChunk(Chunk c) {
+        return new Chunk(c.getType(), c.getContent(), c.getSummary(), c.getContinuesOnNextPage());
     }
 
-    private static class PageResult {
-        final int pageIndex;
-        final DocumentPage page;
-
-        PageResult(int pageIndex, DocumentPage page) {
-            this.pageIndex = pageIndex;
-            this.page = page;
-        }
+    private String joinSummaries(String left, String right) {
+        if (left == null) return right;
+        if (right == null) return left;
+        return left + " " + right;
     }
 }

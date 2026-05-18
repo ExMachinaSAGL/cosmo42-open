@@ -2,9 +2,10 @@ package ch.exmachina.cosmo42.services;
 
 import ch.exmachina.cosmo42.entities.IngestionJob;
 import ch.exmachina.cosmo42.entities.IngestionJobStatus;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.context.ApplicationListener;
-import org.springframework.context.event.ContextRefreshedEvent;
+import org.springframework.boot.context.event.ApplicationReadyEvent;
+import org.springframework.context.event.EventListener;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
@@ -13,20 +14,20 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
 @Component
 @Slf4j
-public class IngestionJobRecoveryService implements ApplicationListener<ContextRefreshedEvent> {
+@RequiredArgsConstructor
+public class IngestionJobRecoveryService {
+
+    private static final List<IngestionJobStatus> STUCK_STATUSES = List.of(
+            IngestionJobStatus.PENDING,
+            IngestionJobStatus.PROCESSING,
+            IngestionJobStatus.INTERRUPTED);
 
     private final IngestionJobService ingestionJobService;
     private final KBDocumentIngestionProcessor ingestionProcessor;
     private final AtomicBoolean recovered = new AtomicBoolean(false);
 
-    public IngestionJobRecoveryService(IngestionJobService ingestionJobService,
-                                       KBDocumentIngestionProcessor ingestionProcessor) {
-        this.ingestionJobService = ingestionJobService;
-        this.ingestionProcessor = ingestionProcessor;
-    }
-
-    @Override
-    public void onApplicationEvent(ContextRefreshedEvent event) {
+    @EventListener(ApplicationReadyEvent.class)
+    public void onApplicationReady() {
         if (!recovered.compareAndSet(false, true)) return;
         recoverInterruptedJobs();
     }
@@ -39,17 +40,15 @@ public class IngestionJobRecoveryService implements ApplicationListener<ContextR
     }
 
     private void recoverInterruptedJobs() {
-        List<IngestionJob> stuckJobs = ingestionJobService.findByStatuses(
-                List.of(IngestionJobStatus.PENDING, IngestionJobStatus.PROCESSING, IngestionJobStatus.INTERRUPTED));
+        List<IngestionJob> stuckJobs = ingestionJobService.findByStatuses(STUCK_STATUSES);
 
         if (stuckJobs.isEmpty()) {
-            log.info("No interrupted ingestion jobs found on startup.");
+            log.info("No interrupted ingestion jobs found.");
             return;
         }
 
-        log.warn("Found {} interrupted ingestion job(s) on startup. Re-queuing for resume.", stuckJobs.size());
+        log.warn("Found {} interrupted ingestion job(s). Re-queuing for resume.", stuckJobs.size());
         for (IngestionJob job : stuckJobs) {
-            ingestionJobService.markInterrupted(job.getUuid());
             ingestionProcessor.processAsync(job.getUuid());
         }
     }

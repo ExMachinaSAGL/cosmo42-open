@@ -46,4 +46,7 @@ public class IngestionJob extends BaseEntity {
 
     @Column(columnDefinition = "TEXT")
     String errorMessage;
+
+    @Column(nullable = false)
+    Boolean chunksEmbedded = false;
 }

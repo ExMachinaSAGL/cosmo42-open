@@ -19,6 +19,7 @@ import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.util.List;
 import java.util.UUID;
@@ -48,12 +49,13 @@ public class KBDocumentsController {
                     @ApiResponse(responseCode = "400", description = "Empty file or unsupported format")
             }
     )
-    public ResponseEntity<?> uploadDocument(@RequestParam("file") MultipartFile file) {
+    public ResponseEntity<JobAcceptedDTO> uploadDocument(@RequestParam("file") MultipartFile file) {
         if (file.isEmpty()) {
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Empty file.");
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Empty file.");
         }
         if (!MimeTypeUtils.isSupportedMimeType(file)) {
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Only PDF, DOCX, and XLSX files are supported.");
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "Only PDF, DOCX, and XLSX files are supported.");
         }
         return ResponseEntity.accepted().body(kbDocumentService.enqueueKBDocument(file));
     }

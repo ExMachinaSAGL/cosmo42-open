@@ -22,6 +22,9 @@ public class IngestionJobPage extends BaseEntity {
     @Enumerated(EnumType.STRING)
     IngestionJobPageStatus status;
 
+    @Column(nullable = false)
+    Integer attemptCount = 0;
+
     @Column(columnDefinition = "LONGTEXT")
     String chunksJson;
 }
