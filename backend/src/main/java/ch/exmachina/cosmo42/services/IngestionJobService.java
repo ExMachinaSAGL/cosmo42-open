@@ -42,7 +42,7 @@ public class IngestionJobService {
 
     @Transactional
     public void markProcessing(String jobUuid) {
-        IngestionJob job = loadOrThrow(jobUuid);
+        IngestionJob job = ingestionJobRepository.findByUuid(jobUuid).orElseThrow();
         job.setStatus(IngestionJobStatus.PROCESSING);
         job.setStartedAt(LocalDateTime.now());
         ingestionJobRepository.save(job);
@@ -50,14 +50,14 @@ public class IngestionJobService {
 
     @Transactional
     public void markInterrupted(String jobUuid) {
-        IngestionJob job = loadOrThrow(jobUuid);
+        IngestionJob job = ingestionJobRepository.findByUuid(jobUuid).orElseThrow();
         job.setStatus(IngestionJobStatus.INTERRUPTED);
         ingestionJobRepository.save(job);
     }
 
     @Transactional
     public void markCompleted(String jobUuid) {
-        IngestionJob job = loadOrThrow(jobUuid);
+        IngestionJob job = ingestionJobRepository.findByUuid(jobUuid).orElseThrow();
         job.setStatus(IngestionJobStatus.COMPLETED);
         job.setCompletedAt(LocalDateTime.now());
         ingestionJobRepository.save(job);
@@ -68,7 +68,7 @@ public class IngestionJobService {
         String truncated = errorMessage != null
                 ? errorMessage.substring(0, Math.min(errorMessage.length(), ERROR_MESSAGE_MAX_LENGTH))
                 : null;
-        IngestionJob job = loadOrThrow(jobUuid);
+        IngestionJob job = ingestionJobRepository.findByUuid(jobUuid).orElseThrow();
         job.setStatus(IngestionJobStatus.FAILED);
         job.setErrorMessage(truncated);
         ingestionJobRepository.save(job);
@@ -76,14 +76,14 @@ public class IngestionJobService {
 
     @Transactional
     public void markChunksEmbedded(String jobUuid) {
-        IngestionJob job = loadOrThrow(jobUuid);
+        IngestionJob job = ingestionJobRepository.findByUuid(jobUuid).orElseThrow();
         job.setChunksEmbedded(true);
         ingestionJobRepository.save(job);
     }
 
     @Transactional
     public void setTotalPages(String jobUuid, int totalPages) {
-        IngestionJob job = loadOrThrow(jobUuid);
+        IngestionJob job = ingestionJobRepository.findByUuid(jobUuid).orElseThrow();
         job.setTotalPages(totalPages);
         ingestionJobRepository.save(job);
         for (int i = 0; i < totalPages; i++) {
@@ -100,13 +100,9 @@ public class IngestionJobService {
 
     @Transactional
     public void setKbDocumentUuid(String jobUuid, String kbDocumentUuid) {
-        IngestionJob job = loadOrThrow(jobUuid);
+        IngestionJob job = ingestionJobRepository.findByUuid(jobUuid).orElseThrow();
         job.setKbDocumentUuid(kbDocumentUuid);
         ingestionJobRepository.save(job);
-    }
-
-    private IngestionJob loadOrThrow(String jobUuid) {
-        return ingestionJobRepository.findByUuid(jobUuid).orElseThrow();
     }
 
     @Transactional
