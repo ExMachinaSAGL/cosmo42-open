@@ -74,6 +74,9 @@ public class ChatConversationService {
 
     @Transactional
     public void persistGeneratedTitle(String uuid, String rawTitle) {
+        log.debug("Persisting generated title uuid={} rawTitleLength={}",
+                uuid,
+                rawTitle == null ? 0 : rawTitle.length());
         var sanitized = titleSanitizer.sanitize(rawTitle);
         if (sanitized.isEmpty()) {
             log.debug("Skipping title persistence for uuid={} (blank after sanitization)", uuid);
@@ -82,7 +85,9 @@ public class ChatConversationService {
         int rows = repository.updateTitleByUuid(uuid, sanitized.get(), LocalDateTime.now(clock));
         if (rows == 0) {
             log.warn("Title write missed for uuid={} (row not found)", uuid);
+            return;
         }
+        log.info("Generated title persisted uuid={} title='{}'", uuid, sanitized.get());
     }
 
     @Transactional(readOnly = true)
@@ -112,6 +117,7 @@ public class ChatConversationService {
 
     @Transactional
     public ChatConversation regenerateTitle(String uuid) {
+        log.info("Title regeneration requested uuid={}", uuid);
         repository.findByUuid(uuid)
                 .orElseThrow(() -> new ChatConversationNotFoundException(uuid));
 
@@ -130,6 +136,10 @@ public class ChatConversationService {
         String raw = client.prompt(new Prompt(firstUserMessage))
                 .call()
                 .content();
+
+        log.info("Title regeneration succeeded uuid={} titleLength={}",
+                uuid,
+                raw == null ? 0 : raw.length());
 
         persistGeneratedTitle(uuid, raw);
 

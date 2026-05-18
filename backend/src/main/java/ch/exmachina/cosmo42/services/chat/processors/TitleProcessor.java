@@ -43,14 +43,26 @@ public class TitleProcessor implements ChatProcessor {
                 .build();
 
         String uuid = context.getChatUuid();
+        String message = context.getRequest().message();
+        log.info("Title generation requested uuid={} messageLength={}", uuid, message.length());
+        log.debug("Title generation context uuid={} hasEventSink={} messagePreview='{}'",
+                uuid,
+                context.getEventSink() != null,
+                preview(message));
 
         return Mono.fromCallable(() -> titleGenerationClient
-                        .prompt(new Prompt(context.getRequest().message()))
+                        .prompt(new Prompt(message))
                         .advisors(spec -> spec.param(ChatAttribute.SINK.name(), context.getEventSink()))
                         .call()
                         .content())
                 .subscribeOn(Schedulers.boundedElastic())
-                .doOnNext(raw -> chatConversationService.persistGeneratedTitle(uuid, raw))
+                .doOnNext(raw -> {
+                    log.info("Title generation succeeded uuid={} titleLength={} titlePreview='{}'",
+                            uuid,
+                            raw == null ? 0 : raw.length(),
+                            preview(raw));
+                    chatConversationService.persistGeneratedTitle(uuid, raw);
+                })
                 .map(raw -> ServerSentEvent.<ChatResponseDTO>builder()
                         .data(ChatResponseDTO.builder()
                                 .type(ChatEventType.TITLE)
@@ -62,5 +74,16 @@ public class TitleProcessor implements ChatProcessor {
                     log.warn("Title generation failed for uuid={}", uuid, err);
                     return Flux.empty();
                 });
+    }
+
+    private String preview(String text) {
+        if (text == null) {
+            return "";
+        }
+        String normalized = text.replaceAll("\\s+", " ").trim();
+        if (normalized.length() <= 80) {
+            return normalized;
+        }
+        return normalized.substring(0, 77) + "...";
     }
 }

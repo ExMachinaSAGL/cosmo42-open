@@ -11,8 +11,6 @@ import lombok.experimental.FieldDefaults;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.client.advisor.MessageChatMemoryAdvisor;
 import org.springframework.ai.chat.memory.ChatMemory;
-import org.springframework.ai.chat.messages.AssistantMessage;
-import org.springframework.ai.chat.messages.UserMessage;
 import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.ai.openai.OpenAiChatOptions;
 import org.springframework.http.codec.ServerSentEvent;
@@ -20,7 +18,6 @@ import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
 
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 
 @Service
@@ -67,7 +64,6 @@ public class ConversationProcessor implements ChatProcessor {
                 .advisors(chatMemoryAdvisor)
                 .advisors(a -> a.param(ChatMemory.CONVERSATION_ID, context.getChatUuid()));
 
-        StringBuilder fullResponse = new StringBuilder();
         return promptRequest
                 .toolContext(buildToolContext(context))
                 .stream()
@@ -79,7 +75,6 @@ public class ConversationProcessor implements ChatProcessor {
                                 String raw = response.getResult().getOutput().getText();
                                 if (raw != null) {
                                     text = raw; // Assign raw content to text here
-                                    fullResponse.append(raw);
                                 }
                             }
                             return ServerSentEvent.<ChatResponseDTO>builder()
@@ -89,14 +84,7 @@ public class ConversationProcessor implements ChatProcessor {
                                                     .data(text)
                                                     .build())
                                     .build();
-                        })
-                .doOnComplete(
-                        () -> chatMemory.add(
-                                    context.getChatUuid(),
-                                    List.of(
-                                            new UserMessage(context.getRequest().message()),
-                                            new AssistantMessage(fullResponse.toString())))
-                        );
+                        });
     }
 
     private Map<String, Object> buildToolContext(ChatContext context) {
