@@ -72,6 +72,8 @@ class ChatStreamE2ETest extends AbstractIntegrationTest {
             var all = repository.findAll();
             assertThat(all).hasSize(1);
             assertThat(all.get(0).getTitle()).isEqualTo("Deploy Question");
+            assertThat(countMessages(all.get(0).getUuid(), "USER")).isEqualTo(1);
+            assertThat(countMessages(all.get(0).getUuid(), "ASSISTANT")).isEqualTo(1);
         });
     }
 
@@ -96,5 +98,13 @@ class ChatStreamE2ETest extends AbstractIntegrationTest {
             assertThat(all).hasSize(1);
             assertThat(all.get(0).getTitle()).isNull();
         });
+    }
+
+    private Integer countMessages(String uuid, String type) {
+        return jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM SPRING_AI_CHAT_MEMORY WHERE conversation_id = ? AND type = ?",
+                Integer.class,
+                uuid,
+                type);
     }
 }
