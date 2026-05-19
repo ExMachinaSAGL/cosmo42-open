@@ -23,9 +23,14 @@ import reactor.core.scheduler.Schedulers;
 @Slf4j
 public class TitleProcessor implements ChatProcessor {
 
+    private static final String TITLE_SYSTEM_INSTRUCTION = """
+            Generate a concise conversation title (max 5 words) for the user message.
+            Reply with ONLY the title, no extra text.
+            Use the same language as the user message.
+            """;
+
     ChatModel chatModel;
     OpenAiChatOptions.Builder titleModelOptionsBuilder;
-    TitleGeneratorAdvisor titleGeneratorAdvisor;
     ChatConversationService chatConversationService;
     TitleSanitizer titleSanitizer;
 
@@ -35,11 +40,6 @@ public class TitleProcessor implements ChatProcessor {
             return Flux.empty();
         }
 
-        ChatClient titleGenerationClient = ChatClient.builder(chatModel)
-                .defaultOptions(titleModelOptionsBuilder)
-                .defaultAdvisors(titleGeneratorAdvisor)
-                .build();
-
         String uuid = context.getChatUuid();
         String message = context.getRequest().message();
         log.info("Title generation requested uuid={} messageLength={}", uuid, message.length());
@@ -48,11 +48,14 @@ public class TitleProcessor implements ChatProcessor {
                 context.getEventSink() != null,
                 preview(message));
 
-        return Mono.fromCallable(() -> titleGenerationClient
-                        .prompt(new Prompt(message))
-                        .advisors(spec -> spec.param(ChatAttribute.SINK.name(), context.getEventSink()))
-                        .call()
-                        .content())
+        emitStatus(context, "Generating a title...");
+
+        ChatClient client = ChatClient.builder(chatModel)
+                .defaultOptions(titleModelOptionsBuilder)
+                .defaultSystem(TITLE_SYSTEM_INSTRUCTION)
+                .build();
+
+        return Mono.fromCallable(() -> client.prompt(new Prompt(message)).call().content())
                 .subscribeOn(Schedulers.boundedElastic())
                 .flatMap(raw -> {
                     log.info("Title generation succeeded uuid={} titleLength={} titlePreview='{}'",
@@ -73,6 +76,18 @@ public class TitleProcessor implements ChatProcessor {
                     log.warn("Title generation failed for uuid={}", uuid, err);
                     return Flux.empty();
                 });
+    }
+
+    private void emitStatus(ChatContext context, String text) {
+        var sink = context.getEventSink();
+        if (sink != null) {
+            sink.tryEmitNext(ServerSentEvent.<ChatResponseDTO>builder()
+                    .data(ChatResponseDTO.builder()
+                            .type(ChatEventType.STATUS)
+                            .data(text)
+                            .build())
+                    .build());
+        }
     }
 
     private String preview(String text) {

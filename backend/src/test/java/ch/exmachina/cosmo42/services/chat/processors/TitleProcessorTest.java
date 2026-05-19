@@ -2,9 +2,9 @@ package ch.exmachina.cosmo42.services.chat.processors;
 
 import ch.exmachina.cosmo42.dto.ChatEventType;
 import ch.exmachina.cosmo42.dto.ChatRequestDTO;
+import ch.exmachina.cosmo42.dto.ChatResponseDTO;
 import ch.exmachina.cosmo42.services.chat.ChatContext;
 import ch.exmachina.cosmo42.services.chat.ChatConversationService;
-import ch.exmachina.cosmo42.services.chat.TitleGeneratorAdvisor;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -17,9 +17,11 @@ import org.springframework.ai.chat.prompt.Prompt;
 import org.springframework.ai.openai.OpenAiChatOptions;
 import org.springframework.boot.test.system.CapturedOutput;
 import org.springframework.boot.test.system.OutputCaptureExtension;
+import org.springframework.http.codec.ServerSentEvent;
 import reactor.core.publisher.Sinks;
 import reactor.test.StepVerifier;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
@@ -29,7 +31,6 @@ class TitleProcessorTest {
 
     ChatModel chatModel;
     OpenAiChatOptions.Builder titleOptionsBuilder;
-    TitleGeneratorAdvisor advisor;
     ChatConversationService conversationService;
     ch.exmachina.cosmo42.services.chat.TitleSanitizer titleSanitizer;
     TitleProcessor processor;
@@ -39,10 +40,9 @@ class TitleProcessorTest {
         chatModel = mock(ChatModel.class);
         titleOptionsBuilder = OpenAiChatOptions.builder().model("test-model").maxTokens(32);
         when(chatModel.getDefaultOptions()).thenReturn(OpenAiChatOptions.builder().model("test-model").build());
-        advisor = new TitleGeneratorAdvisor();
         conversationService = mock(ChatConversationService.class);
         titleSanitizer = new ch.exmachina.cosmo42.services.chat.TitleSanitizer();
-        processor = new TitleProcessor(chatModel, titleOptionsBuilder, advisor, conversationService, titleSanitizer);
+        processor = new TitleProcessor(chatModel, titleOptionsBuilder, conversationService, titleSanitizer);
     }
 
     @Test
@@ -74,14 +74,77 @@ class TitleProcessorTest {
 
         StepVerifier.create(processor.process(ctx))
                 .assertNext(sse -> {
-                    org.assertj.core.api.Assertions.assertThat(sse.data().getType())
-                            .isEqualTo(ChatEventType.TITLE);
-                    org.assertj.core.api.Assertions.assertThat(sse.data().getData())
-                            .isEqualTo("My Title");
+                    assertThat(sse.data().getType()).isEqualTo(ChatEventType.TITLE);
+                    assertThat(sse.data().getData()).isEqualTo("My Title");
                 })
                 .verifyComplete();
 
         verify(conversationService).persistGeneratedTitle("u-1", "My Title");
+    }
+
+    @Test
+    void promptIncludesSystemInstructionAndUserMessage() {
+        when(chatModel.call(any(Prompt.class))).thenReturn(new ChatResponse(
+                java.util.List.of(new Generation(new AssistantMessage("My Title")))));
+
+        ChatContext ctx = ChatContext.builder()
+                .newChat(true)
+                .chatUuid("u-1")
+                .request(new ChatRequestDTO(null, "How do I deploy?"))
+                .eventSink(Sinks.many().multicast().onBackpressureBuffer())
+                .build();
+
+        StepVerifier.create(processor.process(ctx)).expectNextCount(1).verifyComplete();
+
+        ArgumentCaptor<Prompt> cap = ArgumentCaptor.forClass(Prompt.class);
+        verify(chatModel).call(cap.capture());
+        Prompt prompt = cap.getValue();
+        assertThat(prompt.getSystemMessage().getText())
+                .contains("concise conversation title")
+                .contains("max 5 words");
+        assertThat(prompt.getUserMessage().getText()).isEqualTo("How do I deploy?");
+    }
+
+    @Test
+    void newChatEmitsStatusEventBeforeLlmCall() {
+        when(chatModel.call(any(Prompt.class))).thenReturn(new ChatResponse(
+                java.util.List.of(new Generation(new AssistantMessage("My Title")))));
+
+        Sinks.Many<ServerSentEvent<ChatResponseDTO>> sink =
+                Sinks.many().multicast().onBackpressureBuffer();
+        ChatContext ctx = ChatContext.builder()
+                .newChat(true)
+                .chatUuid("u-1")
+                .request(new ChatRequestDTO(null, "q"))
+                .eventSink(sink)
+                .build();
+
+        processor.process(ctx).blockLast();
+        sink.tryEmitComplete();
+
+        StepVerifier.create(sink.asFlux())
+                .assertNext(sse -> {
+                    assertThat(sse.data().getType()).isEqualTo(ChatEventType.STATUS);
+                    assertThat(sse.data().getData()).isEqualTo("Generating a title...");
+                })
+                .verifyComplete();
+    }
+
+    @Test
+    void existingChatDoesNotEmitStatusEvent() {
+        Sinks.Many<ServerSentEvent<ChatResponseDTO>> sink =
+                Sinks.many().multicast().onBackpressureBuffer();
+        ChatContext ctx = ChatContext.builder()
+                .newChat(false)
+                .chatUuid("u-1")
+                .request(new ChatRequestDTO("u-1", "follow-up"))
+                .eventSink(sink)
+                .build();
+
+        processor.process(ctx).blockLast();
+        sink.tryEmitComplete();
+
+        StepVerifier.create(sink.asFlux()).verifyComplete();
     }
 
     @Test
@@ -100,7 +163,7 @@ class TitleProcessorTest {
                 .expectNextCount(1)
                 .verifyComplete();
 
-        org.assertj.core.api.Assertions.assertThat(output)
+        assertThat(output)
                 .contains("Title generation requested uuid=u-logs")
                 .contains("Title generation succeeded uuid=u-logs")
                 .contains("titleLength=8");
@@ -119,13 +182,12 @@ class TitleProcessorTest {
                 .build();
 
         StepVerifier.create(processor.process(ctx))
-                .assertNext(sse -> org.assertj.core.api.Assertions.assertThat(sse.data().getData())
-                        .isEqualTo("Quoted"))
+                .assertNext(sse -> assertThat(sse.data().getData()).isEqualTo("Quoted"))
                 .verifyComplete();
 
         ArgumentCaptor<String> raw = ArgumentCaptor.forClass(String.class);
         verify(conversationService).persistGeneratedTitle(eq("u-2"), raw.capture());
-        org.assertj.core.api.Assertions.assertThat(raw.getValue()).isEqualTo("Title: \"Quoted\"\nextra");
+        assertThat(raw.getValue()).isEqualTo("Title: \"Quoted\"\nextra");
     }
 
     @Test
