@@ -7,7 +7,6 @@ import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.springframework.ai.chat.memory.ChatMemory;
 import org.springframework.dao.DataIntegrityViolationException;
-import org.springframework.jdbc.core.JdbcTemplate;
 
 import java.time.Clock;
 import java.time.LocalDateTime;
@@ -24,7 +23,6 @@ class ChatConversationServiceTest {
 
     ChatConversationRepository repository;
     ChatMemory chatMemory;
-    JdbcTemplate jdbcTemplate;
     TitleSanitizer sanitizer;
     Clock fixedClock;
     ChatConversationService service;
@@ -35,11 +33,10 @@ class ChatConversationServiceTest {
     void setUp() {
         repository = mock(ChatConversationRepository.class);
         chatMemory = mock(ChatMemory.class);
-        jdbcTemplate = mock(JdbcTemplate.class);
         sanitizer = new TitleSanitizer();
         fixedClock = Clock.fixed(NOW.atZone(ZoneId.systemDefault()).toInstant(), ZoneId.systemDefault());
         service = new ChatConversationService(
-                repository, chatMemory, jdbcTemplate, sanitizer, fixedClock);
+                repository, chatMemory, sanitizer, fixedClock);
     }
 
     @Test
@@ -209,23 +206,24 @@ class ChatConversationServiceTest {
     }
 
     @Test
-    void deleteCascadesMessagesThenRow() {
+    void deleteRemovesRowThenClearsChatMemory() {
         when(repository.deleteByUuid("u-1")).thenReturn(1);
 
         service.delete("u-1");
 
-        var inOrder = org.mockito.Mockito.inOrder(jdbcTemplate, repository);
-        inOrder.verify(jdbcTemplate).update(
-                "DELETE FROM SPRING_AI_CHAT_MEMORY WHERE conversation_id = ?", "u-1");
+        var inOrder = org.mockito.Mockito.inOrder(repository, chatMemory);
         inOrder.verify(repository).deleteByUuid("u-1");
+        inOrder.verify(chatMemory).clear("u-1");
     }
 
     @Test
-    void deleteThrowsNotFoundWhenUuidUnknown() {
+    void deleteThrowsNotFoundWhenUuidUnknownAndDoesNotTouchChatMemory() {
         when(repository.deleteByUuid("missing")).thenReturn(0);
 
         org.junit.jupiter.api.Assertions.assertThrows(
                 ch.exmachina.cosmo42.exceptions.ChatConversationNotFoundException.class,
                 () -> service.delete("missing"));
+
+        verify(chatMemory, never()).clear(anyString());
     }
 }

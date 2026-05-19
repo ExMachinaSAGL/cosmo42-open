@@ -9,7 +9,6 @@ import org.springframework.ai.chat.memory.ChatMemory;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
-import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -23,19 +22,16 @@ public class ChatConversationService {
 
     private final ChatConversationRepository repository;
     private final ChatMemory chatMemory;
-    private final JdbcTemplate jdbcTemplate;
     private final TitleSanitizer titleSanitizer;
     private final Clock clock;
 
     public ChatConversationService(
             ChatConversationRepository repository,
             ChatMemory chatMemory,
-            JdbcTemplate jdbcTemplate,
             TitleSanitizer titleSanitizer,
             Clock clock) {
         this.repository = repository;
         this.chatMemory = chatMemory;
-        this.jdbcTemplate = jdbcTemplate;
         this.titleSanitizer = titleSanitizer;
         this.clock = clock;
     }
@@ -113,11 +109,10 @@ public class ChatConversationService {
 
     @Transactional
     public void delete(String uuid) {
-        jdbcTemplate.update(
-                "DELETE FROM SPRING_AI_CHAT_MEMORY WHERE conversation_id = ?", uuid);
         int rows = repository.deleteByUuid(uuid);
         if (rows == 0) {
             throw new ChatConversationNotFoundException(uuid);
         }
+        chatMemory.clear(uuid);
     }
 }
