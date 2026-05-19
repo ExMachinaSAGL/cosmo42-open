@@ -55,38 +55,32 @@ public class ConversationProcessor implements ChatProcessor {
                 .defaultTools(kbDocumentSimilaritySearchTool)
                 .build();
 
+        // MessageChatMemoryAdvisor.adviseStream() persists the user message (in before)
+        // and the aggregated assistant response (in after, via ChatClientMessageAggregator).
+        // No explicit chatMemory.add() needed at the end of the stream.
         MessageChatMemoryAdvisor chatMemoryAdvisor = MessageChatMemoryAdvisor.builder(chatMemory)
                 .order(20)
                 .build();
 
-        var promptRequest = chatClient.prompt()
+        return chatClient.prompt()
                 .user(context.getRequest().message())
                 .advisors(chatMemoryAdvisor)
-                .advisors(a -> a.param(ChatMemory.CONVERSATION_ID, context.getChatUuid()));
-
-        StringBuilder fullResponse = new StringBuilder();
-        return promptRequest
+                .advisors(a -> a.param(ChatMemory.CONVERSATION_ID, context.getChatUuid()))
                 .toolContext(buildToolContext(context))
                 .stream()
                 .chatResponse()
-                .map(
-                        response -> {
-                            String text = "";
-                            if (response.getResult() != null) {
-                                String raw = response.getResult().getOutput().getText();
-                                if (raw != null) {
-                                    text = raw; // Assign raw content to text here
-                                    fullResponse.append(raw);
-                                }
-                            }
-                            return ServerSentEvent.<ChatResponseDTO>builder()
-                                    .data(
-                                            ChatResponseDTO.builder()
-                                                    .type(ChatEventType.CHUNK)
-                                                    .data(text)
-                                                    .build())
-                                    .build();
-                        });
+                .map(response -> {
+                    String text = (response.getResult() != null
+                            && response.getResult().getOutput().getText() != null)
+                            ? response.getResult().getOutput().getText()
+                            : "";
+                    return ServerSentEvent.<ChatResponseDTO>builder()
+                            .data(ChatResponseDTO.builder()
+                                    .type(ChatEventType.CHUNK)
+                                    .data(text)
+                                    .build())
+                            .build();
+                });
     }
 
     private Map<String, Object> buildToolContext(ChatContext context) {
