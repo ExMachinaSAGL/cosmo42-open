@@ -75,7 +75,7 @@ class ChatConversationControllerTest {
     void patchRenamesTitle() throws Exception {
         when(service.rename(eq("u-1"), eq("New"))).thenReturn(conv("u-1", "New"));
 
-        mockMvc.perform(patch("/api/v1/chat/u-1")
+        mockMvc.perform(patch("/api/v1/chat/u-1/title")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"title\":\"New\"}"))
                 .andExpect(status().isOk())
@@ -84,7 +84,7 @@ class ChatConversationControllerTest {
 
     @Test
     void patchValidationFailsOnBlankTitle() throws Exception {
-        mockMvc.perform(patch("/api/v1/chat/u-1")
+        mockMvc.perform(patch("/api/v1/chat/u-1/title")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"title\":\"\"}"))
                 .andExpect(status().isBadRequest())
@@ -96,7 +96,7 @@ class ChatConversationControllerTest {
     @Test
     void patchValidationFailsOnTooLongTitle() throws Exception {
         String tooLong = "x".repeat(81);
-        mockMvc.perform(patch("/api/v1/chat/u-1")
+        mockMvc.perform(patch("/api/v1/chat/u-1/title")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"title\":\"" + tooLong + "\"}"))
                 .andExpect(status().isBadRequest());

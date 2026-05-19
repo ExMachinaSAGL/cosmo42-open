@@ -90,7 +90,7 @@ class ChatConversationCrudE2ETest extends AbstractIntegrationTest {
     void patchRenamesTitle() {
         seed("u-1", "Old Title", LocalDateTime.now());
 
-        client.patch().uri("/api/v1/chat/u-1")
+        client.patch().uri("/api/v1/chat/u-1/title")
                 .contentType(MediaType.APPLICATION_JSON)
                 .bodyValue("{\"title\":\"Brand New Title\"}")
                 .exchange()
