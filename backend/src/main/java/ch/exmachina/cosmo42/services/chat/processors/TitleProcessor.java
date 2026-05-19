@@ -48,7 +48,7 @@ public class TitleProcessor implements ChatProcessor {
                 context.getEventSink() != null,
                 preview(message));
 
-        emitStatus(context, "Generating a title...");
+        emitStatus(context, "Generating Chat Title...");
 
         ChatClient client = ChatClient.builder(chatModel)
                 .defaultOptions(titleModelOptionsBuilder)

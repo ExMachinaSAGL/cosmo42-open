@@ -125,7 +125,7 @@ class TitleProcessorTest {
         StepVerifier.create(sink.asFlux())
                 .assertNext(sse -> {
                     assertThat(sse.data().getType()).isEqualTo(ChatEventType.STATUS);
-                    assertThat(sse.data().getData()).isEqualTo("Generating a title...");
+                    assertThat(sse.data().getData()).isEqualTo("Generating Chat Title...");
                 })
                 .verifyComplete();
     }
