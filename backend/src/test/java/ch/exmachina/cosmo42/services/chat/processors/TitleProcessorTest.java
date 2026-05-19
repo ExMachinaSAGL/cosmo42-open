@@ -74,6 +74,7 @@ class TitleProcessorTest {
 
         StepVerifier.create(processor.process(ctx))
                 .assertNext(sse -> {
+                    assert sse.data() != null;
                     assertThat(sse.data().getType()).isEqualTo(ChatEventType.TITLE);
                     assertThat(sse.data().getData()).isEqualTo("My Title");
                 })
@@ -124,6 +125,7 @@ class TitleProcessorTest {
 
         StepVerifier.create(sink.asFlux())
                 .assertNext(sse -> {
+                    assert sse.data() != null;
                     assertThat(sse.data().getType()).isEqualTo(ChatEventType.STATUS);
                     assertThat(sse.data().getData()).isEqualTo("Generating Chat Title...");
                 })
@@ -182,7 +184,10 @@ class TitleProcessorTest {
                 .build();
 
         StepVerifier.create(processor.process(ctx))
-                .assertNext(sse -> assertThat(sse.data().getData()).isEqualTo("Quoted"))
+                .assertNext(sse -> {
+                    assert sse.data() != null;
+                    assertThat(sse.data().getData()).isEqualTo("Quoted");
+                })
                 .verifyComplete();
 
         ArgumentCaptor<String> raw = ArgumentCaptor.forClass(String.class);
