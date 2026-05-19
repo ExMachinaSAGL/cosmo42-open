@@ -22,7 +22,7 @@ public class MarkdownLinkProcessor{
         String refVariant2 = "(?i)REF_FILE_"+kbDocument.getFileName();
         String refVariant3 = "(?i)REF_FILE_"+kbDocument.getFileName().replaceAll(" ", "_");
         String refVariant4 = "(?i)REF_FILE_"+kbDocument.getFileName().replaceAll(" ", "_").replaceAll(".", "_");
-        String refVariant5 = MessageFormat.format("(?<=[^\\[])file-name 1.doc(?=[^\\]])", kbDocument.getFileName());
+        String refVariant5 = MessageFormat.format("(?<=[^\\[]){0}(?=[^\\]])", kbDocument.getFileName());
         result = result.replaceAll(refVariant1, targetLink);
         result = result.replaceAll(refVariant2, targetLink);
         result = result.replaceAll(refVariant3, targetLink);
