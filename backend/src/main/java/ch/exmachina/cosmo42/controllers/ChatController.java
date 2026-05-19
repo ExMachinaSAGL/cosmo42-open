@@ -1,17 +1,21 @@
 package ch.exmachina.cosmo42.controllers;
 
-import ch.exmachina.cosmo42.dto.ChatRequestDTO;
-import ch.exmachina.cosmo42.dto.ChatResponseDTO;
+import ch.exmachina.cosmo42.dto.*;
+import ch.exmachina.cosmo42.mappers.ChatConversationMapper;
+import ch.exmachina.cosmo42.services.chat.ChatConversationService;
+import ch.exmachina.cosmo42.services.chat.ChatConversationWithMessages;
 import ch.exmachina.cosmo42.services.chat.ChatService;
+import jakarta.validation.Valid;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.web.PageableDefault;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.codec.ServerSentEvent;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 import reactor.core.publisher.Flux;
 
 @RestController
@@ -21,9 +25,36 @@ import reactor.core.publisher.Flux;
 public class ChatController {
 
     ChatService chatService;
+    ChatConversationService conversationService;
+    ChatConversationMapper conversationMapper;
+
+    @GetMapping
+    public Page<ChatConversationListItemDTO> list(@PageableDefault(size = 20) Pageable pageable) {
+        return conversationService.list(pageable).map(conversationMapper::toListItem);
+    }
+
+    @GetMapping("/{uuid}")
+    public ChatConversationDTO get(@PathVariable String uuid) {
+        ChatConversationWithMessages bundle = conversationService.get(uuid);
+        return conversationMapper.toDetail(bundle.conversation(), bundle.messages());
+    }
+
+    @PatchMapping("/{uuid}/title")
+    public ChatConversationListItemDTO rename(
+            @PathVariable String uuid,
+            @Valid @RequestBody ChatTitleUpdateDTO body
+    ) {
+        return conversationMapper.toListItem(conversationService.rename(uuid, body.title()));
+    }
+
+    @DeleteMapping("/{uuid}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void delete(@PathVariable String uuid) {
+        conversationService.delete(uuid);
+    }
 
     @PostMapping(value = "/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
-    public Flux<ServerSentEvent<ChatResponseDTO>> chatStream(@RequestBody ChatRequestDTO chatRequestDTO) {
+    public Flux<ServerSentEvent<ChatResponseDTO>> chatStream(@Valid @RequestBody ChatRequestDTO chatRequestDTO) {
         return chatService.processChat(chatRequestDTO);
     }
 

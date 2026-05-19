@@ -37,6 +37,15 @@ public class AIConfig {
     }
 
     @Bean
+    public OpenAiChatOptions.Builder titleModelOptionsBuilder() {
+        return OpenAiChatOptions.builder()
+                .temperature(0.3)
+                .topP(0.9)
+                .maxTokens(32)
+                .model(llmModelName);
+    }
+
+    @Bean
     public OpenAiEmbeddingOptions embeddingModelOptions() {
         return OpenAiEmbeddingOptions.builder()
                 .model(embeddingModelName)
