@@ -26,12 +26,6 @@ public class GlobalExceptionHandler {
                 .body(body("bad_request", ex.getMessage()));
     }
 
-    @ExceptionHandler(ChatConversationHasNoUserMessageException.class)
-    public ResponseEntity<Map<String, Object>> handleConflict(ChatConversationHasNoUserMessageException ex) {
-        return ResponseEntity.status(HttpStatus.CONFLICT)
-                .body(body("conflict", ex.getMessage()));
-    }
-
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<Map<String, Object>> handleValidation(MethodArgumentNotValidException ex) {
         Map<String, String> fieldErrors = ex.getBindingResult().getFieldErrors().stream()

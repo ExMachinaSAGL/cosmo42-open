@@ -103,24 +103,6 @@ class ChatConversationControllerTest {
     }
 
     @Test
-    void postRegenerateReturnsUpdated() throws Exception {
-        when(service.regenerateTitle("u-1")).thenReturn(conv("u-1", "Regenerated"));
-
-        mockMvc.perform(post("/api/v1/chat/u-1/title:regenerate"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.title").value("Regenerated"));
-    }
-
-    @Test
-    void postRegenerateReturns409WhenNoUserMessage() throws Exception {
-        when(service.regenerateTitle("u-1")).thenThrow(
-                new ch.exmachina.cosmo42.exceptions.ChatConversationHasNoUserMessageException("no user msg"));
-
-        mockMvc.perform(post("/api/v1/chat/u-1/title:regenerate"))
-                .andExpect(status().isConflict());
-    }
-
-    @Test
     void deleteReturns204() throws Exception {
         doNothing().when(service).delete("u-1");
 

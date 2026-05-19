@@ -5,11 +5,7 @@ import ch.exmachina.cosmo42.entities.ChatConversation;
 import ch.exmachina.cosmo42.repositories.ChatConversationRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.springframework.ai.chat.messages.AssistantMessage;
 import org.springframework.ai.chat.model.ChatModel;
-import org.springframework.ai.chat.model.ChatResponse;
-import org.springframework.ai.chat.model.Generation;
-import org.springframework.ai.chat.prompt.Prompt;
 import org.springframework.ai.embedding.EmbeddingModel;
 import org.springframework.ai.openai.OpenAiChatOptions;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -22,11 +18,9 @@ import org.springframework.test.web.reactive.server.WebTestClient;
 
 import java.time.Duration;
 import java.time.LocalDateTime;
-import java.util.List;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
@@ -129,42 +123,4 @@ class ChatConversationCrudE2ETest extends AbstractIntegrationTest {
         assertThat(leftover).isEqualTo(0);
     }
 
-    @Test
-    void regenerateUsesFirstUserMessage() {
-        String uuid = UUID.randomUUID().toString();
-        seed(uuid, null, LocalDateTime.now());
-        jdbcTemplate.update(
-                "INSERT INTO SPRING_AI_CHAT_MEMORY (conversation_id, content, type, timestamp) VALUES (?, ?, ?, ?)",
-                uuid, "How do I deploy?", "USER", LocalDateTime.now().minusMinutes(2));
-        jdbcTemplate.update(
-                "INSERT INTO SPRING_AI_CHAT_MEMORY (conversation_id, content, type, timestamp) VALUES (?, ?, ?, ?)",
-                uuid, "follow up", "USER", LocalDateTime.now());
-        when(chatModel.call(any(Prompt.class))).thenReturn(new ChatResponse(
-                List.of(new Generation(new AssistantMessage("Deploy Question")))));
-
-        client.post().uri("/api/v1/chat/" + uuid + "/title:regenerate")
-                .exchange()
-                .expectStatus().isOk()
-                .expectBody()
-                .jsonPath("$.title").isEqualTo("Deploy Question");
-
-        assertThat(repository.findByUuid(uuid).orElseThrow().getTitle()).isEqualTo("Deploy Question");
-    }
-
-    @Test
-    void regenerate404OnUnknownUuid() {
-        client.post().uri("/api/v1/chat/missing-uuid/title:regenerate")
-                .exchange()
-                .expectStatus().isNotFound();
-    }
-
-    @Test
-    void regenerate409OnEmptyHistory() {
-        String uuid = UUID.randomUUID().toString();
-        seed(uuid, null, LocalDateTime.now());
-
-        client.post().uri("/api/v1/chat/" + uuid + "/title:regenerate")
-                .exchange()
-                .expectStatus().isEqualTo(409);
-    }
 }

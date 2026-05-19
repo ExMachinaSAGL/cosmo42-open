@@ -35,14 +35,6 @@ class GlobalExceptionHandlerTest {
                 .andExpect(jsonPath("$.message").value("nope"));
     }
 
-    @Test
-    void chatConversationHasNoUserMessageMapsTo409() throws Exception {
-        mockMvc.perform(get("/__test/conflict"))
-                .andExpect(status().isConflict())
-                .andExpect(jsonPath("$.error").value("conflict"))
-                .andExpect(jsonPath("$.message").value("bad state"));
-    }
-
     @RestController
     @RequestMapping("/__test")
     static class TestController {
@@ -54,11 +46,6 @@ class GlobalExceptionHandlerTest {
         @GetMapping(value = "/bad-request", produces = MediaType.APPLICATION_JSON_VALUE)
         public String bad() {
             throw new InvalidChatTitleException("nope");
-        }
-
-        @GetMapping(value = "/conflict", produces = MediaType.APPLICATION_JSON_VALUE)
-        public String conflict() {
-            throw new ChatConversationHasNoUserMessageException("bad state");
         }
     }
 }

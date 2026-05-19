@@ -47,11 +47,6 @@ public class ChatController {
         return conversationMapper.toListItem(conversationService.rename(uuid, body.title()));
     }
 
-    @PostMapping("/{uuid}/title:regenerate")
-    public ChatConversationListItemDTO regenerate(@PathVariable String uuid) {
-        return conversationMapper.toListItem(conversationService.regenerateTitle(uuid));
-    }
-
     @DeleteMapping("/{uuid}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void delete(@PathVariable String uuid) {

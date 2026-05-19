@@ -1,18 +1,11 @@
 package ch.exmachina.cosmo42.services.chat;
 
 import ch.exmachina.cosmo42.entities.ChatConversation;
-import ch.exmachina.cosmo42.exceptions.ChatConversationHasNoUserMessageException;
 import ch.exmachina.cosmo42.exceptions.ChatConversationNotFoundException;
 import ch.exmachina.cosmo42.exceptions.InvalidChatTitleException;
 import ch.exmachina.cosmo42.repositories.ChatConversationRepository;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.memory.ChatMemory;
-import org.springframework.ai.chat.messages.Message;
-import org.springframework.ai.chat.messages.MessageType;
-import org.springframework.ai.chat.model.ChatModel;
-import org.springframework.ai.chat.prompt.Prompt;
-import org.springframework.ai.openai.OpenAiChatOptions;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -32,9 +25,6 @@ public class ChatConversationService {
     private final ChatMemory chatMemory;
     private final JdbcTemplate jdbcTemplate;
     private final TitleSanitizer titleSanitizer;
-    private final TitleGeneratorAdvisor titleGeneratorAdvisor;
-    private final ChatModel chatModel;
-    private final OpenAiChatOptions.Builder titleModelOptionsBuilder;
     private final Clock clock;
 
     public ChatConversationService(
@@ -42,17 +32,11 @@ public class ChatConversationService {
             ChatMemory chatMemory,
             JdbcTemplate jdbcTemplate,
             TitleSanitizer titleSanitizer,
-            TitleGeneratorAdvisor titleGeneratorAdvisor,
-            ChatModel chatModel,
-            OpenAiChatOptions.Builder titleModelOptionsBuilder,
             Clock clock) {
         this.repository = repository;
         this.chatMemory = chatMemory;
         this.jdbcTemplate = jdbcTemplate;
         this.titleSanitizer = titleSanitizer;
-        this.titleGeneratorAdvisor = titleGeneratorAdvisor;
-        this.chatModel = chatModel;
-        this.titleModelOptionsBuilder = titleModelOptionsBuilder;
         this.clock = clock;
     }
 
@@ -123,37 +107,6 @@ public class ChatConversationService {
         if (rows == 0) {
             throw new ChatConversationNotFoundException(uuid);
         }
-        return repository.findByUuid(uuid)
-                .orElseThrow(() -> new ChatConversationNotFoundException(uuid));
-    }
-
-    public ChatConversation regenerateTitle(String uuid) {
-        log.info("Title regeneration requested uuid={}", uuid);
-        repository.findByUuid(uuid)
-                .orElseThrow(() -> new ChatConversationNotFoundException(uuid));
-
-        String firstUserMessage = chatMemory.get(uuid).stream()
-                .filter(m -> m.getMessageType() == MessageType.USER)
-                .map(Message::getText)
-                .findFirst()
-                .orElseThrow(() -> new ChatConversationHasNoUserMessageException(
-                        "No user message found for chat " + uuid));
-
-        ChatClient client = ChatClient.builder(chatModel)
-                .defaultOptions(titleModelOptionsBuilder)
-                .defaultAdvisors(titleGeneratorAdvisor)
-                .build();
-
-        String raw = client.prompt(new Prompt(firstUserMessage))
-                .call()
-                .content();
-
-        log.info("Title regeneration succeeded uuid={} titleLength={}",
-                uuid,
-                raw == null ? 0 : raw.length());
-
-        persistGeneratedTitle(uuid, raw);
-
         return repository.findByUuid(uuid)
                 .orElseThrow(() -> new ChatConversationNotFoundException(uuid));
     }

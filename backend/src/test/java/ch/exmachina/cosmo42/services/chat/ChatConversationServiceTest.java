@@ -6,8 +6,6 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.springframework.ai.chat.memory.ChatMemory;
-import org.springframework.ai.chat.model.ChatModel;
-import org.springframework.ai.openai.OpenAiChatOptions;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.jdbc.core.JdbcTemplate;
 
@@ -28,9 +26,6 @@ class ChatConversationServiceTest {
     ChatMemory chatMemory;
     JdbcTemplate jdbcTemplate;
     TitleSanitizer sanitizer;
-    TitleGeneratorAdvisor advisor;
-    ChatModel chatModel;
-    OpenAiChatOptions.Builder titleOptionsBuilder;
     Clock fixedClock;
     ChatConversationService service;
 
@@ -42,15 +37,9 @@ class ChatConversationServiceTest {
         chatMemory = mock(ChatMemory.class);
         jdbcTemplate = mock(JdbcTemplate.class);
         sanitizer = new TitleSanitizer();
-        advisor = new TitleGeneratorAdvisor();
-        advisor.setPromptTemplate("Title for: %s");
-        chatModel = mock(ChatModel.class);
-        titleOptionsBuilder = OpenAiChatOptions.builder().model("test-model").maxTokens(32);
-        when(chatModel.getDefaultOptions()).thenReturn(OpenAiChatOptions.builder().model("test-model").build());
         fixedClock = Clock.fixed(NOW.atZone(ZoneId.systemDefault()).toInstant(), ZoneId.systemDefault());
         service = new ChatConversationService(
-                repository, chatMemory, jdbcTemplate, sanitizer, advisor,
-                chatModel, titleOptionsBuilder, fixedClock);
+                repository, chatMemory, jdbcTemplate, sanitizer, fixedClock);
     }
 
     @Test
@@ -217,65 +206,6 @@ class ChatConversationServiceTest {
         org.junit.jupiter.api.Assertions.assertThrows(
                 ch.exmachina.cosmo42.exceptions.ChatConversationNotFoundException.class,
                 () -> service.rename("missing", "Some Title"));
-    }
-
-    @Test
-    void regenerateTitleUsesFirstUserMessage() {
-        ChatConversation c = new ChatConversation();
-        c.setUuid("u-1");
-        var firstUser = new org.springframework.ai.chat.messages.UserMessage("How do I deploy?");
-        var assistant = new org.springframework.ai.chat.messages.AssistantMessage("answer");
-        var laterUser = new org.springframework.ai.chat.messages.UserMessage("follow-up");
-        when(chatMemory.get("u-1"))
-                .thenReturn(java.util.List.of(firstUser, assistant, laterUser));
-        when(repository.findByUuid("u-1")).thenReturn(Optional.of(c));
-        when(repository.updateTitleByUuid(eq("u-1"), anyString(), any())).thenReturn(1);
-
-        org.mockito.ArgumentCaptor<org.springframework.ai.chat.prompt.Prompt> promptCaptor =
-                org.mockito.ArgumentCaptor.forClass(org.springframework.ai.chat.prompt.Prompt.class);
-        when(chatModel.call(promptCaptor.capture())).thenReturn(
-                new org.springframework.ai.chat.model.ChatResponse(
-                        java.util.List.of(new org.springframework.ai.chat.model.Generation(
-                                new org.springframework.ai.chat.messages.AssistantMessage("Deploy Question")
-                        ))));
-
-        ChatConversation result = service.regenerateTitle("u-1");
-
-        assertThat(promptCaptor.getValue().getUserMessage().getText())
-                .contains("How do I deploy?");
-        verify(repository).updateTitleByUuid("u-1", "Deploy Question", NOW);
-        assertThat(result).isSameAs(c);
-    }
-
-    @Test
-    void regenerateTitleDoesNotDeclareTransactionAroundModelCall() throws NoSuchMethodException {
-        assertThat(ChatConversationService.class
-                .getDeclaredMethod("regenerateTitle", String.class)
-                .isAnnotationPresent(org.springframework.transaction.annotation.Transactional.class))
-                .isFalse();
-    }
-
-    @Test
-    void regenerateTitleThrowsNotFoundWhenConversationMissing() {
-        when(repository.findByUuid("missing")).thenReturn(Optional.empty());
-
-        org.junit.jupiter.api.Assertions.assertThrows(
-                ch.exmachina.cosmo42.exceptions.ChatConversationNotFoundException.class,
-                () -> service.regenerateTitle("missing"));
-    }
-
-    @Test
-    void regenerateTitleThrowsConflictWhenNoUserMessage() {
-        ChatConversation c = new ChatConversation();
-        c.setUuid("u-1");
-        when(repository.findByUuid("u-1")).thenReturn(Optional.of(c));
-        when(chatMemory.get("u-1")).thenReturn(java.util.List.of(
-                new org.springframework.ai.chat.messages.AssistantMessage("only assistant")
-        ));
-
-        org.junit.jupiter.api.Assertions.assertThrows(
-                IllegalStateException.class,
-                () -> service.regenerateTitle("u-1"));
     }
 
     @Test
