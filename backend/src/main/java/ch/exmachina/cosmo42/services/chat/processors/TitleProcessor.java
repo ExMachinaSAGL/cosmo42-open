@@ -57,7 +57,7 @@ public class TitleProcessor implements ChatProcessor {
                 .flatMap(raw -> {
                     log.info("Title generation succeeded uuid={} titleLength={} titlePreview='{}'",
                             uuid,
-                            raw == null ? 0 : raw.length(),
+                            raw.length(),
                             preview(raw));
                     chatConversationService.persistGeneratedTitle(uuid, raw);
                     return Mono.justOrEmpty(titleSanitizer.sanitize(raw));
