@@ -20,7 +20,6 @@ class TitleGeneratorAdvisorTest {
     @Test
     void rewritesPromptWithTitleInstruction() {
         TitleGeneratorAdvisor advisor = new TitleGeneratorAdvisor();
-        advisor.setPromptTemplate("Generate a title for: %s");
 
         Prompt original = new Prompt(new UserMessage("How do I deploy?"));
         ChatClientRequest req = ChatClientRequest.builder()
@@ -37,7 +36,9 @@ class TitleGeneratorAdvisorTest {
         ArgumentCaptor<ChatClientRequest> captor = ArgumentCaptor.forClass(ChatClientRequest.class);
         org.mockito.Mockito.verify(chain).nextCall(captor.capture());
         String rewritten = captor.getValue().prompt().getUserMessage().getText();
-        assertThat(rewritten).contains("Generate a title for: How do I deploy?");
+        assertThat(rewritten)
+                .contains("generate a concise conversation title")
+                .contains("How do I deploy?");
         assertThat(result).isSameAs(expected);
     }
 

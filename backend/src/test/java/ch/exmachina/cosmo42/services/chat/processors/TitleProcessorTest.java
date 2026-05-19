@@ -40,7 +40,6 @@ class TitleProcessorTest {
         titleOptionsBuilder = OpenAiChatOptions.builder().model("test-model").maxTokens(32);
         when(chatModel.getDefaultOptions()).thenReturn(OpenAiChatOptions.builder().model("test-model").build());
         advisor = new TitleGeneratorAdvisor();
-        advisor.setPromptTemplate("Title for: %s");
         conversationService = mock(ChatConversationService.class);
         titleSanitizer = new ch.exmachina.cosmo42.services.chat.TitleSanitizer();
         processor = new TitleProcessor(chatModel, titleOptionsBuilder, advisor, conversationService, titleSanitizer);

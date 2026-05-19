@@ -3,7 +3,6 @@ package ch.exmachina.cosmo42.services.chat;
 import ch.exmachina.cosmo42.dto.ChatEventType;
 import ch.exmachina.cosmo42.dto.ChatResponseDTO;
 import lombok.AccessLevel;
-import lombok.Setter;
 import lombok.experimental.FieldDefaults;
 import lombok.extern.slf4j.Slf4j;
 import org.jspecify.annotations.NonNull;
@@ -12,7 +11,6 @@ import org.springframework.ai.chat.client.ChatClientResponse;
 import org.springframework.ai.chat.client.advisor.api.CallAdvisor;
 import org.springframework.ai.chat.client.advisor.api.CallAdvisorChain;
 import org.springframework.ai.chat.prompt.Prompt;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.codec.ServerSentEvent;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Sinks;
@@ -22,18 +20,14 @@ import reactor.core.publisher.Sinks;
 @Slf4j
 public class TitleGeneratorAdvisor implements CallAdvisor {
 
-    private static final String DEFAULT_PROMPT_TEMPLATE = """
+    private static final String PROMPT_TEMPLATE = """
             Based on this user message, generate a concise conversation title (max 5 words).
             Reply with ONLY the title, no extra text.
             Use the same language as the message when generating the title.
             User message:
-            
+
             %s
             """;
-
-    @Setter
-    @Value("${cosmo42.chat.title.prompt:#{null}}")
-    String promptTemplate;
 
     @Override
     @SuppressWarnings("unchecked")
@@ -54,10 +48,7 @@ public class TitleGeneratorAdvisor implements CallAdvisor {
                     .build());
         }
 
-        String template = (promptTemplate != null && !promptTemplate.isBlank())
-                ? promptTemplate
-                : DEFAULT_PROMPT_TEMPLATE;
-        String titlePrompt = template.formatted(chatClientRequest.prompt().getUserMessage().getText());
+        String titlePrompt = PROMPT_TEMPLATE.formatted(chatClientRequest.prompt().getUserMessage().getText());
 
         ChatClientRequest modified = chatClientRequest.mutate()
                 .prompt(new Prompt(titlePrompt, chatClientRequest.prompt().getOptions()))
