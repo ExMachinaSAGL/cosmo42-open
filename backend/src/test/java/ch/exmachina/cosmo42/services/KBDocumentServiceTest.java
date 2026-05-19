@@ -1,8 +1,9 @@
 package ch.exmachina.cosmo42.services;
 
 import ch.exmachina.cosmo42.BaseTest;
-import ch.exmachina.cosmo42.dto.JobAcceptedDTO;
+import ch.exmachina.cosmo42.dto.DocumentDTO;
 import ch.exmachina.cosmo42.entities.IngestionJob;
+import ch.exmachina.cosmo42.entities.IngestionJobStatus;
 import ch.exmachina.cosmo42.exceptions.FileSaveException;
 import ch.exmachina.cosmo42.mappers.KBDocumentMapper;
 import ch.exmachina.cosmo42.repositories.IngestionJobRepository;
@@ -43,13 +44,19 @@ class KBDocumentServiceTest extends BaseTest {
         FileReference ref = FileReference.builder().uuid("file-uuid").fileName("doc.pdf").fileSize(3L).build();
         IngestionJob job = new IngestionJob();
         job.setUuid("job-uuid");
+        job.setStoredFileUuid("file-uuid");
+        job.setOriginalFileName("doc.pdf");
+        job.setFileSizeBytes(3L);
+        job.setStatus(IngestionJobStatus.PENDING);
+        DocumentDTO dto = DocumentDTO.builder().fileName("job-uuid").fileUuid("file-uuid").build();
 
         when(fileService.save(file)).thenReturn(ref);
         when(ingestionJobService.createJob("doc.pdf", 3L, "file-uuid")).thenReturn(job);
+        when(kbDocumentMapper.toDocumentDTO(job)).thenReturn(dto);
 
-        JobAcceptedDTO result = service.enqueueKBDocument(file);
+        DocumentDTO result = service.enqueueKBDocument(file);
 
-        assertThat(result.getJobUuid()).isEqualTo("job-uuid");
+        assertThat(result.getFileUuid()).isEqualTo("file-uuid");
         verify(ingestionProcessor).processAsync("job-uuid");
     }
 

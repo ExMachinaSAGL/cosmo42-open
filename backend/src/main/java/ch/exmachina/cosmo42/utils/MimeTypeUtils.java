@@ -16,16 +16,8 @@ public class MimeTypeUtils {
         return SupportedMimeTypes.isSupported(getMimeType(file));
     }
 
-    public static boolean isMimeType(MultipartFile file, SupportedMimeTypes mimeType) {
-        return mimeType.matches(getMimeType(file));
-    }
-
     public static String getMimeType(byte[] bytes, String fileName) {
-        try {
-            return detect(TikaInputStream.get(bytes), fileName);
-        } catch (IOException e) {
-            return MimeTypes.OCTET_STREAM;
-        }
+        return detect(TikaInputStream.get(bytes), fileName);
     }
 
     private static String getMimeType(MultipartFile file) {
@@ -36,10 +28,14 @@ public class MimeTypeUtils {
         }
     }
 
-    private static String detect(TikaInputStream stream, String fileName) throws IOException {
-        Detector detector = new AutoDetectParser().getDetector();
-        Metadata metadata = new Metadata();
-        metadata.add(TikaCoreProperties.RESOURCE_NAME_KEY, fileName);
-        return detector.detect(stream, metadata).toString();
+    private static String detect(TikaInputStream stream, String fileName) {
+        try {
+            Detector detector = new AutoDetectParser().getDetector();
+            Metadata metadata = new Metadata();
+            metadata.add(TikaCoreProperties.RESOURCE_NAME_KEY, fileName);
+            return detector.detect(stream, metadata).toString();
+        } catch (IOException e) {
+            return MimeTypes.OCTET_STREAM;
+        }
     }
 }

@@ -1,15 +1,15 @@
 package ch.exmachina.cosmo42.services;
 
 import ch.exmachina.cosmo42.dto.DocumentDTO;
-import ch.exmachina.cosmo42.dto.JobAcceptedDTO;
-import ch.exmachina.cosmo42.entities.KBDocument;
+import ch.exmachina.cosmo42.dto.DownloadDocumentDTO;
 import ch.exmachina.cosmo42.entities.IngestionJob;
+import ch.exmachina.cosmo42.entities.KBDocument;
 import ch.exmachina.cosmo42.exceptions.FileSaveException;
 import ch.exmachina.cosmo42.exceptions.KBDocumentNotFoundException;
 import ch.exmachina.cosmo42.mappers.KBDocumentMapper;
+import ch.exmachina.cosmo42.repositories.IngestionJobRepository;
 import ch.exmachina.cosmo42.repositories.KBDocumentChunkRepository;
 import ch.exmachina.cosmo42.repositories.KBDocumentRepository;
-import ch.exmachina.cosmo42.repositories.IngestionJobRepository;
 import ch.exmachina.cosmo42.services.fs.FileReference;
 import ch.exmachina.cosmo42.services.fs.FileService;
 import lombok.AccessLevel;
@@ -22,6 +22,8 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
 import java.util.List;
+import java.util.Optional;
+
 
 @Service
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
@@ -38,19 +40,19 @@ public class KBDocumentService {
     KBDocumentIngestionProcessor ingestionProcessor;
 
     @Transactional(readOnly = true)
-    public List<DocumentDTO> listAllKBDocuments(){
-        return kbDocumentRepository.findAll().stream()
+    public List<DocumentDTO> listAllKBDocuments() {
+        return ingestionJobRepository.findAll().stream()
                 .map(kbDocumentMapper::toDocumentDTO)
                 .toList();
     }
 
-    public JobAcceptedDTO enqueueKBDocument(MultipartFile file) {
+    public DocumentDTO enqueueKBDocument(MultipartFile file) {
         try {
             FileReference ref = fileService.save(file);
             IngestionJob job = ingestionJobService.createJob(
                     file.getOriginalFilename(), file.getSize(), ref.getUuid());
             ingestionProcessor.processAsync(job.getUuid());
-            return new JobAcceptedDTO(job.getUuid());
+            return kbDocumentMapper.toDocumentDTO(job);
         } catch (IOException e) {
             log.error("Error saving file for ingestion", e);
             throw new FileSaveException();
@@ -58,11 +60,17 @@ public class KBDocumentService {
     }
 
     @Transactional(readOnly = true)
-    public DocumentDTO loadKBDocument(String uuid) {
+    public Optional<DocumentDTO> getDocument(String storedFileUuid) {
+        return ingestionJobRepository.findByStoredFileUuid(storedFileUuid)
+                .map(kbDocumentMapper::toDocumentDTO);
+    }
+
+    @Transactional(readOnly = true)
+    public DownloadDocumentDTO downloadKBDocument(String uuid) {
         KBDocument kbDocument = kbDocumentRepository.findByUuid(uuid)
                 .orElseThrow(() -> new KBDocumentNotFoundException(uuid));
         try {
-            DocumentDTO dto = kbDocumentMapper.toDocumentDTO(kbDocument);
+            DownloadDocumentDTO dto = kbDocumentMapper.toDownloadDocumentDTO(kbDocument);
             dto.setContent(fileService.load(kbDocument.getUuid()));
             return dto;
         } catch (IOException e) {

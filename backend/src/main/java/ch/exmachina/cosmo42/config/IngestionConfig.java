@@ -12,7 +12,7 @@ import java.util.concurrent.Executor;
 @Configuration
 @EnableAsync
 @EnableScheduling
-public class AsyncConfig {
+public class IngestionConfig {
 
     @Bean
     public Executor ingestionExecutor(

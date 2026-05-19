@@ -1,9 +1,9 @@
 package ch.exmachina.cosmo42.controllers;
 
-import ch.exmachina.cosmo42.utils.MimeTypeUtils;
 import ch.exmachina.cosmo42.dto.DocumentDTO;
-import ch.exmachina.cosmo42.dto.JobAcceptedDTO;
+import ch.exmachina.cosmo42.dto.DownloadDocumentDTO;
 import ch.exmachina.cosmo42.services.KBDocumentService;
+import ch.exmachina.cosmo42.utils.MimeTypeUtils;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -34,7 +34,7 @@ public class KBDocumentsController {
     KBDocumentService kbDocumentService;
 
     @GetMapping
-    @Operation(summary = "Document list")
+    @Operation(summary = "List all documents with ingestion status")
     public List<DocumentDTO> getDocuments() {
         return kbDocumentService.listAllKBDocuments();
     }
@@ -42,14 +42,14 @@ public class KBDocumentsController {
     @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     @Operation(
             summary = "Upload a document",
-            description = "Starts async ingestion. Returns immediately a jobUuid used to check the progress.",
+            description = "Starts async ingestion. Returns immediately with job status.",
             responses = {
                     @ApiResponse(responseCode = "202", description = "Job started",
-                            content = @Content(schema = @Schema(implementation = JobAcceptedDTO.class))),
+                            content = @Content(schema = @Schema(implementation = DocumentDTO.class))),
                     @ApiResponse(responseCode = "400", description = "Empty file or unsupported format")
             }
     )
-    public ResponseEntity<JobAcceptedDTO> uploadDocument(@RequestParam("file") MultipartFile file) {
+    public ResponseEntity<DocumentDTO> uploadDocument(@RequestParam("file") MultipartFile file) {
         if (file.isEmpty()) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Empty file.");
         }
@@ -60,12 +60,26 @@ public class KBDocumentsController {
         return ResponseEntity.accepted().body(kbDocumentService.enqueueKBDocument(file));
     }
 
+    @GetMapping("/{uuid}")
+    @Operation(
+            summary = "Get document with ingestion status",
+            responses = {
+                    @ApiResponse(responseCode = "200", description = "Document with current ingestion status"),
+                    @ApiResponse(responseCode = "404", description = "Document not found")
+            }
+    )
+    public ResponseEntity<DocumentDTO> getDocument(@PathVariable String uuid) {
+        return kbDocumentService.getDocument(uuid)
+                .map(ResponseEntity::ok)
+                .orElse(ResponseEntity.notFound().build());
+    }
+
     @GetMapping("/{uuid}/download")
     @Operation(summary = "Download the original document file")
     public ResponseEntity<ByteArrayResource> downloadDocument(@PathVariable UUID uuid) {
-        DocumentDTO dto = kbDocumentService.loadKBDocument(uuid.toString());
+        DownloadDocumentDTO dto = kbDocumentService.downloadKBDocument(uuid.toString());
         HttpHeaders headers = new HttpHeaders();
-        headers.add(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + dto.getName() + "\"");
+        headers.add(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + dto.getFileName() + "\"");
         return ResponseEntity.ok()
                 .headers(headers)
                 .contentLength(dto.getContent().length)

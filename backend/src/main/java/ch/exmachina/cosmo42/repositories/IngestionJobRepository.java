@@ -13,6 +13,8 @@ public interface IngestionJobRepository extends JpaRepository<IngestionJob, Long
 
     Optional<IngestionJob> findByUuid(String uuid);
 
+    Optional<IngestionJob> findByStoredFileUuid(String storedFileUuid);
+
     List<IngestionJob> findByStatusIn(List<IngestionJobStatus> statuses);
 
     void deleteByKbDocumentUuid(String kbDocumentUuid);

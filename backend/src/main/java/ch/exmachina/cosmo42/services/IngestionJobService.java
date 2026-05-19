@@ -1,13 +1,10 @@
 package ch.exmachina.cosmo42.services;
 
-import ch.exmachina.cosmo42.dto.JobStatusDTO;
 import ch.exmachina.cosmo42.entities.*;
 import ch.exmachina.cosmo42.mappers.IngestionJobMapper;
 import ch.exmachina.cosmo42.repositories.IngestionJobPageRepository;
 import ch.exmachina.cosmo42.repositories.IngestionJobRepository;
 import ch.exmachina.cosmo42.services.kb.schema.DocumentPage;
-import tools.jackson.core.JacksonException;
-import tools.jackson.databind.ObjectMapper;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
@@ -32,7 +29,6 @@ public class IngestionJobService {
 
     IngestionJobRepository ingestionJobRepository;
     IngestionJobPageRepository ingestionJobPageRepository;
-    ObjectMapper objectMapper;
     IngestionJobMapper ingestionJobMapper;
 
     @Transactional
@@ -106,10 +102,10 @@ public class IngestionJobService {
     }
 
     @Transactional
-    public void savePageResult(IngestionJob job, int pageIndex, DocumentPage page) {
-        IngestionJobPage entity = ingestionJobPageRepository.findByJobAndPageIndex(job, pageIndex).orElse(null);
+    public void savePageResult(String jobUuid, int pageIndex, DocumentPage page) {
+        IngestionJobPage entity = ingestionJobPageRepository.findByJob_UuidAndPageIndex(jobUuid, pageIndex).orElse(null);
         if (entity == null) {
-            log.warn("Page {} not found for job {} while saving result", pageIndex, job.getUuid());
+            log.warn("Page {} not found for job {} while saving result", pageIndex, jobUuid);
             return;
         }
         entity.setAttemptCount(entity.getAttemptCount() + 1);
@@ -118,14 +114,23 @@ public class IngestionJobService {
             ingestionJobPageRepository.save(entity);
             return;
         }
-        try {
-            entity.setChunksJson(objectMapper.writeValueAsString(page));
+        String json = ingestionJobMapper.toChunksJson(page);
+        if (json != null) {
+            entity.setChunksJson(json);
             entity.setStatus(IngestionJobPageStatus.COMPLETED);
-        } catch (JacksonException e) {
-            log.error("Failed to serialize page {} result", pageIndex, e);
+        } else {
             entity.setStatus(IngestionJobPageStatus.FAILED);
         }
         ingestionJobPageRepository.save(entity);
+    }
+
+    @Transactional
+    public void clearCompletedPagesChunksJson(IngestionJob job) {
+        List<IngestionJobPage> completed = ingestionJobPageRepository.findByJobOrderByPageIndexAsc(job).stream()
+                .filter(p -> p.getStatus() == IngestionJobPageStatus.COMPLETED)
+                .toList();
+        completed.forEach(p -> p.setChunksJson(null));
+        ingestionJobPageRepository.saveAll(completed);
     }
 
     @Transactional(readOnly = true)
@@ -133,18 +138,9 @@ public class IngestionJobService {
         return ingestionJobPageRepository
                 .findByJobOrderByPageIndexAsc(job).stream()
                 .filter(p -> p.getStatus() == IngestionJobPageStatus.COMPLETED)
-                .map(this::deserializePage)
+                .map(ingestionJobMapper::toDocumentPage)
                 .filter(Objects::nonNull)
                 .toList();
-    }
-
-    private DocumentPage deserializePage(IngestionJobPage page) {
-        try {
-            return objectMapper.readValue(page.getChunksJson(), DocumentPage.class);
-        } catch (JacksonException e) {
-            log.error("Failed to deserialize page {} result", page.getPageIndex(), e);
-            return null;
-        }
     }
 
     @Transactional(readOnly = true)
@@ -165,34 +161,5 @@ public class IngestionJobService {
     @Transactional(readOnly = true)
     public List<IngestionJob> findByStatuses(List<IngestionJobStatus> statuses) {
         return ingestionJobRepository.findByStatusIn(statuses);
-    }
-
-    @Transactional(readOnly = true)
-    public List<JobStatusDTO> listJobs(List<IngestionJobStatus> statuses) {
-        List<IngestionJob> jobs = (statuses == null || statuses.isEmpty())
-                ? ingestionJobRepository.findAll()
-                : ingestionJobRepository.findByStatusIn(statuses);
-        return jobs.stream().map(this::toStatusDTO).toList();
-    }
-
-    public JobStatusDTO toStatusDTO(IngestionJob job) {
-        return ingestionJobMapper.toStatusDTO(job, calculateProgress(job));
-    }
-
-    private int calculateProgress(IngestionJob job) {
-        if (job.getStatus() == IngestionJobStatus.COMPLETED) return 100;
-        if (job.getStatus() == IngestionJobStatus.PENDING) return 0;
-
-        if (job.getTotalPages() == null) return 0;
-
-        int progress = 10; // PDF + images conversion done
-        long completedPages = ingestionJobPageRepository.countByJobAndStatus(
-                job, IngestionJobPageStatus.COMPLETED);
-        progress += (int) (completedPages * 60L / job.getTotalPages());
-
-        if (job.getStoredFileUuid() != null) progress += 10;
-        if (job.getKbDocumentUuid() != null) progress += 10;
-
-        return Math.min(progress, 99);
     }
 }

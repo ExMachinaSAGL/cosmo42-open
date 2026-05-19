@@ -12,13 +12,11 @@ import java.time.LocalDateTime;
 @Builder
 @AllArgsConstructor
 @JsonInclude(JsonInclude.Include.NON_NULL)
-public class DocumentDTO {
+public class DownloadDocumentDTO {
 
     String fileUuid;
     String fileName;
     LocalDateTime uploadedAt;
-    String status;
-    String errorMessage;
-    Integer progressPercent;
+    byte[] content;
 
 }

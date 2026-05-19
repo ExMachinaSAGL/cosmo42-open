@@ -9,18 +9,17 @@ import ch.exmachina.cosmo42.repositories.KBDocumentRepository;
 import ch.exmachina.cosmo42.services.fs.FileService;
 import ch.exmachina.cosmo42.services.kb.FileConverter;
 import ch.exmachina.cosmo42.services.kb.KBDocumentChunker;
+import ch.exmachina.cosmo42.config.IngestionProperties;
 import ch.exmachina.cosmo42.services.kb.schema.Chunk;
 import ch.exmachina.cosmo42.services.kb.schema.DocumentPage;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
-import lombok.experimental.NonFinal;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.embedding.EmbeddingModel;
 import org.springframework.ai.embedding.EmbeddingRequest;
 import org.springframework.ai.embedding.EmbeddingResponse;
 import org.springframework.ai.openai.OpenAiEmbeddingOptions;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
@@ -41,9 +40,7 @@ public class KBDocumentIngestionProcessor {
     KBDocumentChunkRepository kbDocumentChunkRepository;
     EmbeddingModel embeddingModel;
     OpenAiEmbeddingOptions embeddingModelOptions;
-    @NonFinal
-    @Value("${cosmo42.ingestion.max-page-attempts:3}")
-    int maxPageAttempts;
+    IngestionProperties ingestionProperties;
 
     @Async("ingestionExecutor")
     public void processAsync(String jobUuid) {
@@ -62,17 +59,23 @@ public class KBDocumentIngestionProcessor {
     }
 
     private void runPipeline(IngestionJob job) throws Exception {
-        job = chunkPendingPages(job);
+        Set<Integer> retryable = job.getTotalPages() != null
+                ? ingestionJobService.findRetryablePageIndices(job, ingestionProperties.getMaxPageAttempts())
+                : null;
 
-        long exhausted = ingestionJobService.countExhaustedFailures(job, maxPageAttempts);
+        if (retryable == null || !retryable.isEmpty()) {
+            job = chunkPendingPages(job, retryable);
+        }
+
+        long exhausted = ingestionJobService.countExhaustedFailures(job, ingestionProperties.getMaxPageAttempts());
         if (exhausted > 0) {
-            String msg = "Pages exceeded max attempts (" + maxPageAttempts + "): " + exhausted;
+            String msg = "Pages exceeded max attempts (" + ingestionProperties.getMaxPageAttempts() + "): " + exhausted;
             log.error("Job {}: {}", job.getUuid(), msg);
             ingestionJobService.markFailed(job.getUuid(), msg);
             return;
         }
 
-        int stillRetryable = ingestionJobService.findRetryablePageIndices(job, maxPageAttempts).size();
+        int stillRetryable = ingestionJobService.findRetryablePageIndices(job, ingestionProperties.getMaxPageAttempts()).size();
         if (stillRetryable > 0) {
             log.warn("Job {} has {} retryable failed page(s). Marking INTERRUPTED for next recovery cycle.",
                     job.getUuid(), stillRetryable);
@@ -81,7 +84,7 @@ public class KBDocumentIngestionProcessor {
         }
 
         if (!Boolean.TRUE.equals(job.getChunksEmbedded())) {
-            job = ensureKbDocument(job);
+            job = getOrCreateKbDocument(job);
             embedAndStore(job);
             ingestionJobService.markChunksEmbedded(job.getUuid());
         } else {
@@ -92,14 +95,7 @@ public class KBDocumentIngestionProcessor {
         log.info("Ingestion job {} completed successfully.", job.getUuid());
     }
 
-    private IngestionJob chunkPendingPages(IngestionJob job) throws Exception {
-        Set<Integer> retryable = job.getTotalPages() != null
-                ? ingestionJobService.findRetryablePageIndices(job, maxPageAttempts)
-                : null;
-
-        if (retryable != null && retryable.isEmpty()) {
-            return job;
-        }
+    private IngestionJob chunkPendingPages(IngestionJob job, Set<Integer> retryable) throws Exception {
 
         byte[] rawBytes = fileService.load(job.getStoredFileUuid());
         byte[] pdf = fileConverter.convertSupportedFileToPdfFromBytes(rawBytes, job.getOriginalFileName());
@@ -108,17 +104,17 @@ public class KBDocumentIngestionProcessor {
         if (job.getTotalPages() == null) {
             ingestionJobService.setTotalPages(job.getUuid(), pageImages.size());
             job = refresh(job.getUuid());
-            retryable = ingestionJobService.findRetryablePageIndices(job, maxPageAttempts);
+            retryable = ingestionJobService.findRetryablePageIndices(job, ingestionProperties.getMaxPageAttempts());
         }
 
-        Map<Integer, DocumentPage> results = kbDocumentChunker.processPages(pageImages, retryable);
-        IngestionJob jobRef = job;
-        results.forEach((idx, page) -> ingestionJobService.savePageResult(jobRef, idx, page));
+        String jobUuid = job.getUuid();
+        kbDocumentChunker.processPages(pageImages, retryable,
+                (idx, page) -> ingestionJobService.savePageResult(jobUuid, idx, page));
 
         return refresh(job.getUuid());
     }
 
-    private IngestionJob ensureKbDocument(IngestionJob job) {
+    private IngestionJob getOrCreateKbDocument(IngestionJob job) {
         if (job.getKbDocumentUuid() != null) return job;
         KBDocument doc = new KBDocument();
         doc.setUuid(job.getStoredFileUuid());
@@ -135,6 +131,7 @@ public class KBDocumentIngestionProcessor {
         List<DocumentPage> mergedPages = kbDocumentChunker.mergePages(ingestionJobService.loadCompletedPages(job));
         kbDocumentChunkRepository.deleteByKbDocument_Uuid(kbDocument.getUuid());
         embedAndSaveChunks(kbDocument, mergedPages);
+        ingestionJobService.clearCompletedPagesChunksJson(job);
     }
 
     private void embedAndSaveChunks(KBDocument kbDocument, List<DocumentPage> pages) {
@@ -157,7 +154,12 @@ public class KBDocumentIngestionProcessor {
 
         if (chunks.isEmpty()) return;
 
-        EmbeddingResponse response = embeddingModel.call(new EmbeddingRequest(toEmbed, embeddingModelOptions));
+        EmbeddingResponse response;
+        try {
+            response = embeddingModel.call(new EmbeddingRequest(toEmbed, embeddingModelOptions));
+        } catch (Exception e) {
+            throw new RuntimeException("Embedding model call failed for document " + kbDocument.getUuid(), e);
+        }
         for (int i = 0; i < chunks.size(); i++) {
             chunks.get(i).setEmbedding(response.getResults().get(i).getOutput());
         }

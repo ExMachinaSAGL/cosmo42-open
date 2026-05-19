@@ -19,7 +19,7 @@ class KBDocumentChunkerMergePagesTest {
 
     @BeforeEach
     void setUp() {
-        chunker = new KBDocumentChunker(mock(ChatModel.class), OpenAiChatOptions.builder(), 1);
+        chunker = new KBDocumentChunker(mock(ChatModel.class), OpenAiChatOptions.builder(), 1, 600);
     }
 
     @Test

@@ -48,7 +48,7 @@ class IngestionJobRecoveryServiceTest extends BaseTest {
     @Test
     void scheduledRecovery_requeuesCorrectStatuses() {
         when(ingestionJobService.findByStatuses(List.of(
-                IngestionJobStatus.PENDING, IngestionJobStatus.PROCESSING, IngestionJobStatus.INTERRUPTED)))
+                IngestionJobStatus.PENDING, IngestionJobStatus.INTERRUPTED)))
                 .thenReturn(List.of(jobWithUuid("uuid-3")));
 
         recoveryService.scheduledRecovery();

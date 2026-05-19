@@ -18,6 +18,8 @@ public interface IngestionJobPageRepository extends JpaRepository<IngestionJobPa
 
     Optional<IngestionJobPage> findByJobAndPageIndex(IngestionJob job, int pageIndex);
 
+    Optional<IngestionJobPage> findByJob_UuidAndPageIndex(String jobUuid, int pageIndex);
+
     boolean existsByJobAndPageIndex(IngestionJob job, int pageIndex);
 
     long countByJobAndStatus(IngestionJob job, IngestionJobPageStatus status);

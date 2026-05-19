@@ -17,6 +17,7 @@ import org.springframework.util.MimeTypeUtils;
 
 import java.util.*;
 import java.util.concurrent.*;
+import java.util.function.BiConsumer;
 import java.util.stream.IntStream;
 
 @Service
@@ -27,6 +28,7 @@ public class KBDocumentChunker {
     ChatModel chatModel;
     OpenAiChatOptions.Builder chunkerModelOptionsBuilder;
     ExecutorService executorService;
+    int pageChunkingTimeoutSeconds;
 
     private static final String CHUNKER_PROMPT = """
             You are an expert document analysis and data extraction AI.
@@ -50,10 +52,12 @@ public class KBDocumentChunker {
 
     public KBDocumentChunker(ChatModel chatModel,
                              OpenAiChatOptions.Builder chunkerModelOptionsBuilder,
-                             @Value("${cosmo42.chunking.pool.size:4}") int poolSize) {
+                             @Value("${cosmo42.chunking.pool.size:4}") int poolSize,
+                             @Value("${cosmo42.ingestion.page-chunking-timeout-seconds:600}") int pageChunkingTimeoutSeconds) {
         this.chatModel = chatModel;
         this.chunkerModelOptionsBuilder = chunkerModelOptionsBuilder;
-        log.info("KBDocumentChunker pool size: {}", poolSize);
+        this.pageChunkingTimeoutSeconds = pageChunkingTimeoutSeconds;
+        log.info("KBDocumentChunker pool size: {}, page timeout: {}s", poolSize, pageChunkingTimeoutSeconds);
         this.executorService = Executors.newFixedThreadPool(poolSize);
     }
 
@@ -70,7 +74,8 @@ public class KBDocumentChunker {
         }
     }
 
-    public Map<Integer, DocumentPage> processPages(List<byte[]> pageImages, Set<Integer> indicesToProcess) {
+    public void processPages(List<byte[]> pageImages, Set<Integer> indicesToProcess,
+                             BiConsumer<Integer, DocumentPage> onPageComplete) {
         Set<Integer> targetIndices = indicesToProcess == null
                 ? new LinkedHashSet<>(IntStream.range(0, pageImages.size()).boxed().toList())
                 : indicesToProcess;
@@ -85,20 +90,24 @@ public class KBDocumentChunker {
             futures.put(pageIndex, executorService.submit(() -> chunkSinglePage(chatClient, media, pageIndex, totalPages)));
         }
 
-        Map<Integer, DocumentPage> results = new LinkedHashMap<>();
         for (Map.Entry<Integer, Future<DocumentPage>> entry : futures.entrySet()) {
             int pageIndex = entry.getKey();
+            DocumentPage page;
             try {
-                results.put(pageIndex, entry.getValue().get());
+                page = entry.getValue().get(pageChunkingTimeoutSeconds, TimeUnit.SECONDS);
+            } catch (TimeoutException e) {
+                log.error("Timeout waiting for page {} after {}s", pageIndex + 1, pageChunkingTimeoutSeconds);
+                entry.getValue().cancel(true);
+                page = null;
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
-                results.put(pageIndex, null);
+                page = null;
             } catch (ExecutionException e) {
                 log.error("Failed to get result for page {}", pageIndex + 1, e);
-                results.put(pageIndex, null);
+                page = null;
             }
+            onPageComplete.accept(pageIndex, page);
         }
-        return results;
     }
 
     private ChatClient buildChatClient() {

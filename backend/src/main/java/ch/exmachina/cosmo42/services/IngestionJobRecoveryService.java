@@ -4,6 +4,8 @@ import ch.exmachina.cosmo42.entities.IngestionJob;
 import ch.exmachina.cosmo42.entities.IngestionJobStatus;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.boot.context.event.ApplicationReadyEvent;
+import org.springframework.context.event.EventListener;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
@@ -16,11 +18,18 @@ public class IngestionJobRecoveryService {
 
     private static final List<IngestionJobStatus> STUCK_STATUSES = List.of(
             IngestionJobStatus.PENDING,
-            IngestionJobStatus.PROCESSING,
             IngestionJobStatus.INTERRUPTED);
 
     private final IngestionJobService ingestionJobService;
     private final KBDocumentIngestionProcessor ingestionProcessor;
+
+    @EventListener(ApplicationReadyEvent.class)
+    public void markOrphanedProcessingJobsOnStartup() {
+        List<IngestionJob> processing = ingestionJobService.findByStatuses(List.of(IngestionJobStatus.PROCESSING));
+        if (processing.isEmpty()) return;
+        log.warn("Found {} job(s) stuck in PROCESSING from previous run. Marking INTERRUPTED.", processing.size());
+        processing.forEach(job -> ingestionJobService.markInterrupted(job.getUuid()));
+    }
 
     @Scheduled(fixedDelayString = "${cosmo42.ingestion.recovery.interval-ms:300000}",
                initialDelayString = "${cosmo42.ingestion.recovery.interval-ms:300000}")

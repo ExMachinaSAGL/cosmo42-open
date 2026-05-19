@@ -1,6 +1,7 @@
 package ch.exmachina.cosmo42.services;
 
 import ch.exmachina.cosmo42.BaseTest;
+import ch.exmachina.cosmo42.config.IngestionProperties;
 import ch.exmachina.cosmo42.entities.IngestionJob;
 import ch.exmachina.cosmo42.entities.IngestionJobStatus;
 import ch.exmachina.cosmo42.entities.KBDocument;
@@ -24,6 +25,7 @@ import org.springframework.ai.openai.OpenAiEmbeddingOptions;
 
 import java.io.IOException;
 import java.util.*;
+import java.util.function.BiConsumer;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.*;
@@ -46,10 +48,12 @@ class KBDocumentIngestionProcessorTest extends BaseTest {
 
     @BeforeEach
     void setUp() {
+        IngestionProperties ingestionProperties = new IngestionProperties();
+        ingestionProperties.setMaxPageAttempts(MAX_ATTEMPTS);
         processor = new KBDocumentIngestionProcessor(
                 ingestionJobService, kbDocumentChunker, fileConverter, fileService,
                 kbDocumentRepository, kbDocumentChunkRepository,
-                embeddingModel, embeddingModelOptions, MAX_ATTEMPTS);
+                embeddingModel, embeddingModelOptions, ingestionProperties);
     }
 
     @Test
@@ -70,9 +74,12 @@ class KBDocumentIngestionProcessorTest extends BaseTest {
                 .thenReturn(new LinkedHashSet<>(List.of(0, 1)))
                 .thenReturn(new LinkedHashSet<>());
 
-        when(kbDocumentChunker.processPages(any(), any())).thenReturn(Map.of(
-                0, new DocumentPage(List.of(new Chunk("text", "a", null, false))),
-                1, new DocumentPage(List.of(new Chunk("text", "b", null, false)))));
+        doAnswer(inv -> {
+            BiConsumer<Integer, DocumentPage> cb = inv.getArgument(2);
+            cb.accept(0, new DocumentPage(List.of(new Chunk("text", "a", null, false))));
+            cb.accept(1, new DocumentPage(List.of(new Chunk("text", "b", null, false))));
+            return null;
+        }).when(kbDocumentChunker).processPages(any(), any(), any());
         when(ingestionJobService.countExhaustedFailures(any(), eq(MAX_ATTEMPTS))).thenReturn(0L);
         when(ingestionJobService.loadCompletedPages(any())).thenReturn(List.of(
                 new DocumentPage(List.of(new Chunk("text", "a", null, false))),
@@ -110,7 +117,8 @@ class KBDocumentIngestionProcessorTest extends BaseTest {
 
         when(ingestionJobService.findRetryablePageIndices(any(), eq(MAX_ATTEMPTS)))
                 .thenReturn(new LinkedHashSet<>(List.of(0)));
-        when(kbDocumentChunker.processPages(any(), any())).thenReturn(mapOf(0, null));
+        doAnswer(inv -> { ((BiConsumer<Integer, DocumentPage>) inv.getArgument(2)).accept(0, null); return null; })
+                .when(kbDocumentChunker).processPages(any(), any(), any());
         when(ingestionJobService.countExhaustedFailures(any(), eq(MAX_ATTEMPTS))).thenReturn(1L);
 
         processor.processInternal("j2");
@@ -132,7 +140,8 @@ class KBDocumentIngestionProcessorTest extends BaseTest {
 
         when(ingestionJobService.findRetryablePageIndices(any(), eq(MAX_ATTEMPTS)))
                 .thenReturn(new LinkedHashSet<>(List.of(0)));
-        when(kbDocumentChunker.processPages(any(), any())).thenReturn(mapOf(0, null));
+        doAnswer(inv -> { ((BiConsumer<Integer, DocumentPage>) inv.getArgument(2)).accept(0, null); return null; })
+                .when(kbDocumentChunker).processPages(any(), any(), any());
         when(ingestionJobService.countExhaustedFailures(any(), eq(MAX_ATTEMPTS))).thenReturn(0L);
 
         processor.processInternal("j3");
@@ -194,12 +203,6 @@ class KBDocumentIngestionProcessorTest extends BaseTest {
         ArgumentCaptor<EmbeddingRequest> captor = ArgumentCaptor.forClass(EmbeddingRequest.class);
         verify(embeddingModel).call(captor.capture());
         assertThat(captor.getValue().getInstructions()).containsExactly("tbl-summary");
-    }
-
-    private static <K, V> Map<K, V> mapOf(K key, V value) {
-        Map<K, V> m = new HashMap<>();
-        m.put(key, value);
-        return m;
     }
 
     private IngestionJob newJob(String uuid, String name) {
