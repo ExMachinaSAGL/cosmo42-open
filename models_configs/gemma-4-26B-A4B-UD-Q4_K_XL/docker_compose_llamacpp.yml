@@ -1,0 +1,52 @@
+services:
+  llamacpp-gemma4:
+    image: ghcr.io/ggml-org/llama.cpp:server-cuda
+    container_name: llamacpp-gemma-4
+    restart: unless-stopped
+
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: ["gpu"]
+
+    ports:
+      - "8000:8000"
+
+    volumes:
+      - ./models:/models
+
+    command:
+      - "-m"
+      - "/models/gemma-4-26B-A4B-it-UD-Q4_K_XL.gguf"
+      - "--mmproj"
+      - "/models/gemma-4-26B-mmproj-BF16.gguf"
+      - "--alias"
+      - "gemma-4-26B"
+      - "--host"
+      - "0.0.0.0"
+      - "--port"
+      - "8000"
+      - "--parallel"
+      - "3"
+      - "--cont-batching"
+      - "-c"
+      - "73728"            # Total context (24.576 x 3 users)
+      - "-ngl"
+      - "99"               # Use 100% of VRAM
+      - "-fa"              # Flash Attention
+      - "on"
+      - "-ctk"
+      - "q8_0"             # Cache Key at 8-bit
+      - "-ctv"
+      - "q8_0"             # Cache Value at 8-bit
+
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 60s
+
