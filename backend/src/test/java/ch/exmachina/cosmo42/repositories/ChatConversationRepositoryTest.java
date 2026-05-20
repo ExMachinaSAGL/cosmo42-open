@@ -14,11 +14,12 @@ import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-@SpringBootTest
+@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.NONE)
 @Transactional
 class ChatConversationRepositoryTest extends AbstractIntegrationTest {
 
-    @Autowired ChatConversationRepository repository;
+    @Autowired
+    ChatConversationRepository repository;
 
     @BeforeEach
     void cleanUp() {
@@ -76,9 +77,9 @@ class ChatConversationRepositoryTest extends AbstractIntegrationTest {
     @Test
     void updateTitleByUuidReturnsZeroWhenUuidMissing() {
         int updated = repository.updateTitleByUuid(
-            "00000000-0000-0000-0000-000000000000",
-            "anything",
-            LocalDateTime.now());
+                "00000000-0000-0000-0000-000000000000",
+                "anything",
+                LocalDateTime.now());
 
         assertThat(updated).isEqualTo(0);
     }
