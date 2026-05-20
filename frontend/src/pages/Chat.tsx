@@ -119,8 +119,6 @@ export function Chat() {
     statusQueueRef.current.push(status);
     if (!isStatusProcessingRef.current) {
       isStatusProcessingRef.current = true;
-      
-      // Immediately process the first status
       processNextStatus();
     }
   }, [processNextStatus]);
@@ -206,16 +204,9 @@ export function Chat() {
               status: event.data,
               content: '',
             };
-            
-            // Wait, we need to push to queue even for the first message, 
-            // so we add it to queue and let processNextStatus update it.
-            // But if we just created the message, it won't be updated by processNextStatus immediately 
-            // because processNextStatus works on the *previous* state.
-            // So we add the initial status to the queue and it will be processed.
             setTimeout(() => addStatusToQueue(event.data), 0);
             return [...prev, { source: 'ai', content: '' }];
           } else {
-             // Ai message already exists
              addStatusToQueue(event.data);
              return prev;
           }
