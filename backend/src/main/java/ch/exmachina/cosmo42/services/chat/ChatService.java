@@ -71,7 +71,8 @@ public class ChatService {
                     log.error("Chat processing failed", e);
                     eventSink.tryEmitNext(ServerSentEvent.<ChatResponseDTO>builder()
                             .data(ChatResponseDTO.builder()
-                                    .type(ChatEventType.COMPLETED)
+                                    .type(ChatEventType.ERROR)
+                                    .data(e.getMessage())
                                     .build())
                             .build());
                     eventSink.tryEmitComplete();
