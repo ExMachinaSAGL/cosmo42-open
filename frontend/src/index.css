@@ -232,6 +232,8 @@ h2 {
   padding: 0.5rem; /* p-2 */
   border-radius: 0.375rem; /* rounded-md */
   white-space: nowrap;
+  text-decoration: none;
+  color: inherit;
 }
 
 .sidebar.collapsed .sidebar-nav-link {
@@ -705,4 +707,84 @@ h2 {
 
 .kb-action-button + .kb-action-button {
   margin-left: 1rem; /* mr-4 (for the first button) */
+}
+
+/* Progress bar styles */
+@keyframes progress-stripes {
+  0% {
+    background-position: 1rem 0;
+  }
+  100% {
+    background-position: 0 0;
+  }
+}
+
+.progress-bar-container {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  width: 100%;
+  max-width: 150px;
+  height: 1rem;
+  background-color: #e2e8f0;
+  background-image: linear-gradient(
+    45deg,
+    rgba(255, 255, 255, 0.6) 25%,
+    transparent 25%,
+    transparent 50%,
+    rgba(255, 255, 255, 0.6) 50%,
+    rgba(255, 255, 255, 0.6) 75%,
+    transparent 75%,
+    transparent
+  );
+  background-size: 1rem 1rem;
+  animation: progress-stripes 1s linear infinite;
+  border-radius: 9999px;
+  overflow: hidden;
+  position: relative;
+}
+
+.progress-bar {
+  height: 100%;
+  background-color: #3b82f6;
+  background-image: linear-gradient(
+    45deg,
+    rgba(255, 255, 255, 0.25) 25%,
+    transparent 25%,
+    transparent 50%,
+    rgba(255, 255, 255, 0.25) 50%,
+    rgba(255, 255, 255, 0.25) 75%,
+    transparent 75%,
+    transparent
+  );
+  background-size: 1rem 1rem;
+  animation: progress-stripes 1s linear infinite;
+  border-radius: 9999px;
+  transition: width 0.3s ease;
+  position: absolute;
+  left: 0;
+  top: 0;
+}
+
+.progress-bar-text {
+  font-size: 0.75rem;
+  color: #4a5568;
+}
+
+td.kb-table-cell > .progress-bar-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.kb-status-badge.error {
+  background-color: #fee2e2; /* bg-red-100 */
+  color: #ef4444; /* text-red-600 */
+  padding: 0.25rem 0.5rem;
+  border-radius: 0.25rem;
+  white-space: normal; /* Allow text to wrap */
+  max-width: 200px; /* Limit width to prevent excessive stretching */
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: block; /* Ensure it takes up full width for tooltip */
 }

@@ -24,6 +24,8 @@ public interface IngestionJobPageRepository extends JpaRepository<IngestionJobPa
 
     long countByJobAndStatus(IngestionJob job, IngestionJobPageStatus status);
 
+    void deleteByJob_kbDocumentUuid(String kbDocumentUuid);
+
     @Query("""
             SELECT p.pageIndex FROM IngestionJobPage p
              WHERE p.job = :job

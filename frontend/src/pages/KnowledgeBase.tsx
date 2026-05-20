@@ -3,8 +3,12 @@ import { useEffect, useRef, useState } from 'react';
 import { fetchDocuments, uploadDocument, deleteDocument, downloadDocument } from '../api/client';
 
 interface Document {
-  uuid: string;
-  name: string;
+  fileUuid: string;
+  fileName: string;
+  uploadedAt: string;
+  status: string;
+  progressPercent: number;
+  errorMessage?: string;
 }
 
 export function KnowledgeBase() {
@@ -19,6 +23,23 @@ export function KnowledgeBase() {
   useEffect(() => {
     loadDocuments();
   }, []);
+
+  useEffect(() => {
+    const hasLoadingDocuments = documents.some(doc => doc.status === 'loading');
+    let timeoutId: NodeJS.Timeout;
+
+    if (hasLoadingDocuments) {
+      timeoutId = setTimeout(() => {
+        loadDocuments();
+      }, 5000);
+    }
+
+    return () => {
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+      }
+    };
+  }, [documents]);
 
   const handleFileUpload = async (file: File) => {
     setIsUploading(true);
@@ -121,30 +142,49 @@ export function KnowledgeBase() {
             <thead className="kb-table-header">
             <tr>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">File Name</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Uploaded At</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
               <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider w-24" style={{ textAlign: 'right' }}>Actions</th>
             </tr>
             </thead>
             <tbody className="kb-table-body">
             {documents.map((doc) => (
-              <tr key={doc.uuid} className="kb-table-row">
+              <tr key={doc.fileUuid} className="kb-table-row">
                 <td className="kb-table-cell">
                   <div className="flex items-center">
                     <FileText className="kb-file-icon" />
-                    <span className="kb-table-cell file-name">{doc.name}</span>
+                    <span className="kb-table-cell file-name">{doc.fileName}</span>
                   </div>
+                </td>
+                <td className="kb-table-cell">{new Date(doc.uploadedAt).toLocaleString()}</td>
+                <td className="kb-table-cell">
+                  {doc.status === 'loading' ? (
+                    <div className="progress-bar-wrapper">
+                      <div className="progress-bar-container">
+                        <div className="progress-bar" style={{ width: `${doc.progressPercent}%` }}></div>
+                      </div>
+                      <span className="progress-bar-text">{doc.progressPercent}%</span>
+                    </div>
+                  ) : doc.status === 'error' ? (
+                    <div className="kb-status-badge error" title={doc.errorMessage}>
+                      Error: {doc.errorMessage}
+                    </div>
+                  ) : (
+                    doc.status
+                  )}
                 </td>
                 <td className="kb-table-cell kb-actions-cell">
                   <button 
                     className="kb-action-button" 
                     title="Download"
-                    onClick={() => handleDownload(doc.uuid, doc.name)}
+                    onClick={() => handleDownload(doc.fileUuid, doc.fileName)}
                   >
                     <Download className="kb-action-button-icon" />
                   </button>
                   <button 
                     className="kb-action-button delete" 
                     title="Delete"
-                    onClick={() => handleDelete(doc.uuid)}
+                    onClick={() => handleDelete(doc.fileUuid)}
                   >
                     <Trash2 className="kb-action-button-icon" />
                   </button>

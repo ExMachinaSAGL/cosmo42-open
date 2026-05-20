@@ -7,6 +7,7 @@ import ch.exmachina.cosmo42.entities.KBDocument;
 import ch.exmachina.cosmo42.exceptions.FileSaveException;
 import ch.exmachina.cosmo42.exceptions.KBDocumentNotFoundException;
 import ch.exmachina.cosmo42.mappers.KBDocumentMapper;
+import ch.exmachina.cosmo42.repositories.IngestionJobPageRepository;
 import ch.exmachina.cosmo42.repositories.IngestionJobRepository;
 import ch.exmachina.cosmo42.repositories.KBDocumentChunkRepository;
 import ch.exmachina.cosmo42.repositories.KBDocumentRepository;
@@ -34,6 +35,7 @@ public class KBDocumentService {
     KBDocumentRepository kbDocumentRepository;
     KBDocumentChunkRepository kbDocumentChunkRepository;
     IngestionJobRepository ingestionJobRepository;
+    IngestionJobPageRepository ingestionJobPageRepository;
     FileService fileService;
     KBDocumentMapper kbDocumentMapper;
     IngestionJobService ingestionJobService;
@@ -82,10 +84,15 @@ public class KBDocumentService {
     @Transactional
     public void deleteKBDocument(String uuid) {
         try {
+            ingestionJobPageRepository.deleteByJob_kbDocumentUuid(uuid);
             ingestionJobRepository.deleteByKbDocumentUuid(uuid);
             kbDocumentChunkRepository.deleteByKbDocument_Uuid(uuid);
             kbDocumentRepository.deleteByUuid(uuid);
-            fileService.delete(uuid);
+            try{
+                fileService.delete(uuid);
+            }catch(KBDocumentNotFoundException e){
+                log.warn("KB Document file not found, with UUID: {}. DB entries deleted anyway (if any).", uuid);
+            }
         } catch (IOException e) {
             log.error("Error deleting the KB Document file with UUID: {}", uuid, e);
             throw new RuntimeException("Error deleting file", e);
