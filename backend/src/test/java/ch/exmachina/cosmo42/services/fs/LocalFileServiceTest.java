@@ -6,13 +6,19 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.test.util.ReflectionTestUtils;
+import org.springframework.web.multipart.MultipartFile;
 
+import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 class LocalFileServiceTest {
 
@@ -114,5 +120,71 @@ class LocalFileServiceTest {
         assertThat(loaded).containsExactly(payload);
         assertThatThrownBy(() -> service.load(ref.getUuid()))
                 .isInstanceOf(KBDocumentNotFoundException.class);
+    }
+
+    @Test
+    void saveCreatesDirectoryAutomatically() throws IOException {
+        Path nestedPath = storageRoot.resolve("new").resolve("dir");
+        ReflectionTestUtils.setField(service, "storagePath", nestedPath.toString());
+        MockMultipartFile file = new MockMultipartFile(
+                "file", "x.pdf", "application/pdf", new byte[]{1});
+
+        FileReference ref = service.save(file);
+
+        assertThat(Files.exists(nestedPath)).isTrue();
+        assertThat(Files.exists(nestedPath.resolve(ref.getUuid()))).isTrue();
+    }
+
+    @Test
+    void savePropagatesIOExceptionWhenTransferToFails() throws IOException {
+        MultipartFile file = mock(MultipartFile.class);
+        when(file.getOriginalFilename()).thenReturn("x.pdf");
+        when(file.getSize()).thenReturn(1L);
+        when(file.getInputStream()).thenReturn(new ByteArrayInputStream(new byte[]{1}));
+        doThrow(new IOException("disk full")).when(file).transferTo(any(Path.class));
+
+        assertThatThrownBy(() -> service.save(file))
+                .isInstanceOf(IOException.class)
+                .hasMessage("disk full");
+    }
+
+    @Test
+    void savePropagatesIOExceptionWhenCreateDirectoriesFails() throws IOException {
+        Path blocked = storageRoot.resolve("blocker.txt");
+        Files.write(blocked, "block".getBytes());
+        Path blockedStorage = blocked.resolve("subdir");
+        ReflectionTestUtils.setField(service, "storagePath", blockedStorage.toString());
+        MockMultipartFile file = new MockMultipartFile(
+                "file", "x.pdf", "application/pdf", new byte[]{1});
+
+        assertThatThrownBy(() -> service.save(file))
+                .isInstanceOf(IOException.class);
+    }
+
+    @Test
+    void loadPropagatesIOExceptionWhenReadAllBytesFails() throws IOException {
+        MockMultipartFile file = new MockMultipartFile(
+                "file", "x.pdf", "application/pdf", new byte[]{1});
+        FileReference ref = service.save(file);
+
+        Files.delete(storageRoot.resolve(ref.getUuid()));
+        Files.createDirectory(storageRoot.resolve(ref.getUuid()));
+
+        assertThatThrownBy(() -> service.load(ref.getUuid()))
+                .isInstanceOf(IOException.class);
+    }
+
+    @Test
+    void deletePropagatesIOExceptionWhenFileDeleteFails() throws IOException {
+        MockMultipartFile file = new MockMultipartFile(
+                "file", "x.pdf", "application/pdf", new byte[]{1});
+        FileReference ref = service.save(file);
+
+        Files.delete(storageRoot.resolve(ref.getUuid()));
+        Files.createDirectory(storageRoot.resolve(ref.getUuid()));
+        Files.createFile(storageRoot.resolve(ref.getUuid()).resolve("nested.txt"));
+
+        assertThatThrownBy(() -> service.delete(ref.getUuid()))
+                .isInstanceOf(IOException.class);
     }
 }

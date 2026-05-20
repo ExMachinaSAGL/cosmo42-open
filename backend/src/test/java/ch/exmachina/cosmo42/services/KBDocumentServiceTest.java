@@ -12,17 +12,15 @@ import ch.exmachina.cosmo42.repositories.KBDocumentRepository;
 import ch.exmachina.cosmo42.services.fs.FileReference;
 import ch.exmachina.cosmo42.services.fs.FileService;
 import ch.exmachina.cosmo42.services.kb.KBDocumentChunker;
-import ch.exmachina.cosmo42.services.kb.schema.Chunk;
 import ch.exmachina.cosmo42.services.kb.schema.DocumentPage;
+import ch.exmachina.cosmo42.testsupport.EmbeddingMocks;
 import ch.exmachina.cosmo42.testsupport.FakeClock;
 import ch.exmachina.cosmo42.testsupport.Fixtures;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
-import org.springframework.ai.embedding.Embedding;
 import org.springframework.ai.embedding.EmbeddingModel;
 import org.springframework.ai.embedding.EmbeddingRequest;
-import org.springframework.ai.embedding.EmbeddingResponse;
 import org.springframework.ai.openai.OpenAiEmbeddingOptions;
 import org.springframework.mock.web.MockMultipartFile;
 
@@ -73,12 +71,11 @@ class KBDocumentServiceTest {
 
     @Test
     void saveKBDocumentPersistsDocumentAndChunksWithEmbeddings() throws Exception {
-        DocumentPage page = page(textChunk("first body"), tableChunk("| col |", "table summary"));
+        DocumentPage page = Fixtures.page(Fixtures.textChunk("first body"), Fixtures.tableChunk("| col |", "table summary"));
         when(chunker.extractRawChunks(file)).thenReturn(List.of(page));
         when(fileService.save(file)).thenReturn(FileReference.builder()
                 .uuid("doc-uuid").fileName("doc.pdf").fileSize(123L).build());
-        stubEmbeddingResponseOfSize(2);
-
+        EmbeddingMocks.stubReturningZeros(embeddingModel, 1024);
         DocumentDTO dto = service.saveKBDocument(file);
 
         ArgumentCaptor<KBDocument> docCap = ArgumentCaptor.forClass(KBDocument.class);
@@ -108,12 +105,11 @@ class KBDocumentServiceTest {
 
     @Test
     void tableChunkEmbedsSummaryWhileTextChunkEmbedsContent() throws Exception {
-        DocumentPage page = page(textChunk("plain text"), tableChunk("| table |", "describes the table"));
+        DocumentPage page = Fixtures.page(Fixtures.textChunk("plain text"), Fixtures.tableChunk("| table |", "describes the table"));
         when(chunker.extractRawChunks(file)).thenReturn(List.of(page));
         when(fileService.save(file)).thenReturn(FileReference.builder()
                 .uuid("u").fileName("f").fileSize(1L).build());
-        stubEmbeddingResponseOfSize(2);
-
+        EmbeddingMocks.stubReturningZeros(embeddingModel, 1024);
         service.saveKBDocument(file);
 
         ArgumentCaptor<EmbeddingRequest> reqCap = ArgumentCaptor.forClass(EmbeddingRequest.class);
@@ -125,12 +121,12 @@ class KBDocumentServiceTest {
 
     @Test
     void multiplePagesProduceFlattenedChunkList() throws Exception {
-        DocumentPage page1 = page(textChunk("p1a"), textChunk("p1b"));
-        DocumentPage page2 = page(textChunk("p2a"));
+        DocumentPage page1 = Fixtures.page(Fixtures.textChunk("p1a"), Fixtures.textChunk("p1b"));
+        DocumentPage page2 = Fixtures.page(Fixtures.textChunk("p2a"));
         when(chunker.extractRawChunks(file)).thenReturn(List.of(page1, page2));
         when(fileService.save(file)).thenReturn(FileReference.builder()
                 .uuid("u").fileName("f").fileSize(1L).build());
-        stubEmbeddingResponseOfSize(3);
+        EmbeddingMocks.stubReturningZeros(embeddingModel, 1024);
 
         service.saveKBDocument(file);
 
@@ -225,39 +221,5 @@ class KBDocumentServiceTest {
         assertThatThrownBy(() -> service.deleteKBDocument("u-1"))
                 .isInstanceOf(RuntimeException.class)
                 .hasMessageContaining("Error deleting file");
-    }
-
-    private void stubEmbeddingResponseOfSize(int n) {
-        when(embeddingModel.call(any(EmbeddingRequest.class))).thenAnswer(invocation -> {
-            EmbeddingRequest req = invocation.getArgument(0);
-            List<Embedding> embeddings = new java.util.ArrayList<>();
-            for (int i = 0; i < req.getInstructions().size(); i++) {
-                embeddings.add(new Embedding(new float[1024], i));
-            }
-            return new EmbeddingResponse(embeddings);
-        });
-    }
-
-    private static DocumentPage page(Chunk... chunks) {
-        DocumentPage p = new DocumentPage();
-        p.setChunks(new java.util.ArrayList<>(List.of(chunks)));
-        return p;
-    }
-
-    private static Chunk textChunk(String content) {
-        Chunk c = new Chunk();
-        c.setType("text");
-        c.setContent(content);
-        c.setContinuesOnNextPage(false);
-        return c;
-    }
-
-    private static Chunk tableChunk(String content, String summary) {
-        Chunk c = new Chunk();
-        c.setType("table");
-        c.setContent(content);
-        c.setSummary(summary);
-        c.setContinuesOnNextPage(false);
-        return c;
     }
 }

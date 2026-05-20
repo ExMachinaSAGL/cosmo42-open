@@ -2,6 +2,7 @@ package ch.exmachina.cosmo42.services.kb;
 
 import ch.exmachina.cosmo42.services.kb.schema.Chunk;
 import ch.exmachina.cosmo42.services.kb.schema.DocumentPage;
+import ch.exmachina.cosmo42.testsupport.ChatModelMocks;
 import ch.exmachina.cosmo42.testsupport.SyncExecutor;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
@@ -33,9 +34,7 @@ class KBDocumentChunkerTest {
     @BeforeEach
     void setUp() {
         fileConverter = mock(FileConverter.class);
-        chatModel = mock(ChatModel.class);
-        when(chatModel.getDefaultOptions())
-                .thenReturn(OpenAiChatOptions.builder().model("test-model").build());
+        chatModel = ChatModelMocks.replyingWith("dummy");
         chunker = new KBDocumentChunker(
                 fileConverter,
                 chatModel,

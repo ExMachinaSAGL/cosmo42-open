@@ -5,22 +5,22 @@ import ch.exmachina.cosmo42.testsupport.FileFixtures;
 import ch.exmachina.cosmo42.utils.SupportedMimeTypes;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.test.web.client.MockRestServiceServer;
 import org.springframework.web.client.RestClient;
-import org.springframework.web.multipart.MultipartFile;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.content;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.header;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.method;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.requestTo;
+import static org.springframework.test.web.client.response.MockRestResponseCreators.withBadRequest;
 import static org.springframework.test.web.client.response.MockRestResponseCreators.withServerError;
 import static org.springframework.test.web.client.response.MockRestResponseCreators.withSuccess;
 
@@ -114,6 +114,20 @@ class FileConverterTest {
 
         assertThatThrownBy(() -> converter.convertSupportedFileToPdf(file))
                 .isInstanceOf(org.springframework.web.client.HttpServerErrorException.class);
+    }
+
+    @Test
+    void libreofficeClientErrorPropagates() {
+        byte[] docxBytes = FileFixtures.minimalDocx();
+        MockMultipartFile file = new MockMultipartFile(
+                "file", "doc.docx", "application/octet-stream", docxBytes);
+        mockServer.expect(requestTo("http://libreoffice-test/convert"))
+                .andRespond(withBadRequest());
+
+        stubFileType(file, SupportedMimeTypes.MIME_DOCX);
+
+        assertThatThrownBy(() -> converter.convertSupportedFileToPdf(file))
+                .isInstanceOf(org.springframework.web.client.HttpClientErrorException.class);
     }
 
     private void stubFileType(MockMultipartFile file, SupportedMimeTypes type) {

@@ -39,4 +39,9 @@ public final class ChatModelMocks {
     public static ChatResponse chatResponse(String content) {
         return new ChatResponse(List.of(new Generation(new AssistantMessage(content))));
     }
+
+    public static void stubDefaultOptions(ChatModel model) {
+        when(model.getDefaultOptions())
+                .thenReturn(OpenAiChatOptions.builder().model("test-model").build());
+    }
 }

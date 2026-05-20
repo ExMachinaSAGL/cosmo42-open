@@ -155,18 +155,12 @@ class KBDocumentsControllerTest {
     }
 
     @Test
-    void downloadOnMissingDocumentLetsServiceExceptionPropagate() throws Exception {
+    void downloadOnMissingDocumentReturns404() throws Exception {
         UUID uuid = UUID.randomUUID();
         when(kbDocumentService.loadKBDocument(eq(uuid.toString())))
                 .thenThrow(new KBDocumentNotFoundException(uuid.toString()));
 
-        // GlobalExceptionHandler does not (yet) handle KBDocumentNotFoundException explicitly.
-        // The exception is annotated @ResponseStatus indirectly via its parent? Let's just verify
-        // the request didn't 200; it should not return success.
         mockMvc.perform(get("/api/v1/kb/documents/{uuid}/download", uuid))
-                .andExpect(result -> {
-                    int status = result.getResponse().getStatus();
-                    org.assertj.core.api.Assertions.assertThat(status).isNotEqualTo(200);
-                });
+                .andExpect(status().isNotFound());
     }
 }

@@ -8,15 +8,14 @@ import ch.exmachina.cosmo42.entities.KBDocumentChunkType;
 import ch.exmachina.cosmo42.entities.converters.VectorAttributeConverter;
 import ch.exmachina.cosmo42.repositories.KBDocumentChunkRepository;
 import ch.exmachina.cosmo42.services.chat.ChatAttribute;
+import ch.exmachina.cosmo42.testsupport.EmbeddingMocks;
 import ch.exmachina.cosmo42.testsupport.Fixtures;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.springframework.ai.chat.model.ToolContext;
-import org.springframework.ai.embedding.Embedding;
 import org.springframework.ai.embedding.EmbeddingModel;
 import org.springframework.ai.embedding.EmbeddingRequest;
-import org.springframework.ai.embedding.EmbeddingResponse;
 import org.springframework.ai.openai.OpenAiEmbeddingOptions;
 import org.springframework.http.codec.ServerSentEvent;
 import reactor.core.publisher.Sinks;
@@ -27,6 +26,7 @@ import java.util.List;
 import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
@@ -54,7 +54,7 @@ class KBDocumentSimilaritySearchToolTest {
     @Test
     void embedsQueryAndCallsRepositoryWithConvertedVector() {
         float[] queryVec = Fixtures.unitVector(1024, 0);
-        stubEmbeddingResponse(queryVec);
+        EmbeddingMocks.stubWithFixedVector(embeddingModel, queryVec);
         when(chunkRepository.findMostSimilarByCosine(any(), eq(0.5), eq(10)))
                 .thenReturn(List.of());
 
@@ -68,7 +68,7 @@ class KBDocumentSimilaritySearchToolTest {
     @Test
     void embeddingRequestIncludesQueryAndConfiguredOptions() {
         float[] queryVec = Fixtures.zeroVector(1024);
-        stubEmbeddingResponse(queryVec);
+        EmbeddingMocks.stubWithFixedVector(embeddingModel, queryVec);
         when(chunkRepository.findMostSimilarByCosine(any(), any(), any(Integer.class)))
                 .thenReturn(List.of());
 
@@ -82,7 +82,7 @@ class KBDocumentSimilaritySearchToolTest {
 
     @Test
     void mapsRepositoryChunksToDtosPreservingOrder() {
-        stubEmbeddingResponse(Fixtures.zeroVector(1024));
+        EmbeddingMocks.stubWithFixedVector(embeddingModel, Fixtures.zeroVector(1024));
         KBDocument doc1 = Fixtures.document("doc-uuid-1", "first.pdf");
         KBDocument doc2 = Fixtures.document("doc-uuid-2", "second.pdf");
         KBDocumentChunk chunk1 = Fixtures.chunk(doc1, KBDocumentChunkType.TEXT, "first content", Fixtures.zeroVector(1024));
@@ -101,7 +101,7 @@ class KBDocumentSimilaritySearchToolTest {
 
     @Test
     void emptyRepositoryResultProducesEmptyResponse() {
-        stubEmbeddingResponse(Fixtures.zeroVector(1024));
+        EmbeddingMocks.stubWithFixedVector(embeddingModel, Fixtures.zeroVector(1024));
         when(chunkRepository.findMostSimilarByCosine(any(), any(), any(Integer.class)))
                 .thenReturn(List.of());
 
@@ -113,7 +113,7 @@ class KBDocumentSimilaritySearchToolTest {
 
     @Test
     void emitsStatusEventOnSinkBeforeRepositoryCall() {
-        stubEmbeddingResponse(Fixtures.zeroVector(1024));
+        EmbeddingMocks.stubWithFixedVector(embeddingModel, Fixtures.zeroVector(1024));
         when(chunkRepository.findMostSimilarByCosine(any(), any(), any(Integer.class)))
                 .thenReturn(List.of());
 
@@ -134,7 +134,7 @@ class KBDocumentSimilaritySearchToolTest {
 
     @Test
     void missingSinkInContextDoesNotThrow() {
-        stubEmbeddingResponse(Fixtures.zeroVector(1024));
+        EmbeddingMocks.stubWithFixedVector(embeddingModel, Fixtures.zeroVector(1024));
         when(chunkRepository.findMostSimilarByCosine(any(), any(), any(Integer.class)))
                 .thenReturn(List.of());
 
@@ -145,13 +145,40 @@ class KBDocumentSimilaritySearchToolTest {
         assertThat(response.chunks()).isEmpty();
     }
 
-    private void stubEmbeddingResponse(float[] vector) {
-        when(embeddingModel.call(any(EmbeddingRequest.class))).thenAnswer(invocation -> {
-            EmbeddingRequest req = invocation.getArgument(0);
-            return new EmbeddingResponse(req.getInstructions().stream()
-                    .map(s -> new Embedding(vector.clone(), 0))
-                    .toList());
-        });
+    @Test
+    void embeddingModelFailurePropagates() {
+        when(embeddingModel.call(any(EmbeddingRequest.class)))
+                .thenThrow(new RuntimeException("Embedding service down"));
+
+        assertThatThrownBy(() -> tool.search(request("q"), emptyContext()))
+                .isInstanceOf(RuntimeException.class)
+                .hasMessage("Embedding service down");
+    }
+
+    @Test
+    void vectorConverterFailurePropagates() {
+        float[] queryVec = Fixtures.unitVector(1024, 0);
+        EmbeddingMocks.stubWithFixedVector(embeddingModel, queryVec);
+        VectorAttributeConverter throwingConverter = mock(VectorAttributeConverter.class);
+        when(throwingConverter.convertToDatabaseColumn(queryVec))
+                .thenThrow(new IllegalArgumentException("Invalid vector"));
+        KBDocumentSimilaritySearchTool toolWithFailingConverter = new KBDocumentSimilaritySearchTool(
+                embeddingModel, embeddingOptions, throwingConverter, chunkRepository);
+
+        assertThatThrownBy(() -> toolWithFailingConverter.search(request("q"), emptyContext()))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("Invalid vector");
+    }
+
+    @Test
+    void repositoryQueryFailurePropagates() {
+        EmbeddingMocks.stubWithFixedVector(embeddingModel, Fixtures.zeroVector(1024));
+        when(chunkRepository.findMostSimilarByCosine(any(), any(), any(Integer.class)))
+                .thenThrow(new RuntimeException("DB connection lost"));
+
+        assertThatThrownBy(() -> tool.search(request("q"), emptyContext()))
+                .isInstanceOf(RuntimeException.class)
+                .hasMessage("DB connection lost");
     }
 
     private static KBDocumentSimilaritySearchTool.KBSimilaritySearchRequest request(String query) {

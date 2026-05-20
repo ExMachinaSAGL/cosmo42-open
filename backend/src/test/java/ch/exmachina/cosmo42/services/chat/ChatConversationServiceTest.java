@@ -1,19 +1,20 @@
 package ch.exmachina.cosmo42.services.chat;
 
 import ch.exmachina.cosmo42.entities.ChatConversation;
+import ch.exmachina.cosmo42.exceptions.ChatConversationNotFoundException;
 import ch.exmachina.cosmo42.repositories.ChatConversationRepository;
+import ch.exmachina.cosmo42.testsupport.FakeClock;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.springframework.ai.chat.memory.ChatMemory;
 import org.springframework.dao.DataIntegrityViolationException;
 
-import java.time.Clock;
 import java.time.LocalDateTime;
-import java.time.ZoneId;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
@@ -24,7 +25,6 @@ class ChatConversationServiceTest {
     ChatConversationRepository repository;
     ChatMemory chatMemory;
     TitleSanitizer sanitizer;
-    Clock fixedClock;
     ChatConversationService service;
 
     static final LocalDateTime NOW = LocalDateTime.parse("2026-05-15T12:00:00");
@@ -34,7 +34,7 @@ class ChatConversationServiceTest {
         repository = mock(ChatConversationRepository.class);
         chatMemory = mock(ChatMemory.class);
         sanitizer = new TitleSanitizer();
-        fixedClock = Clock.fixed(NOW.atZone(ZoneId.systemDefault()).toInstant(), ZoneId.systemDefault());
+        var fixedClock = FakeClock.fixedAt(NOW);
         service = new ChatConversationService(
                 repository, chatMemory, sanitizer, fixedClock);
     }
@@ -143,9 +143,8 @@ class ChatConversationServiceTest {
     void markActiveThrowsNotFoundWhenUuidUnknown() {
         when(repository.updateActivityByUuid("missing", NOW)).thenReturn(0);
 
-        org.junit.jupiter.api.Assertions.assertThrows(
-                ch.exmachina.cosmo42.exceptions.ChatConversationNotFoundException.class,
-                () -> service.markActive("missing"));
+        assertThatThrownBy(() -> service.markActive("missing"))
+                .isInstanceOf(ChatConversationNotFoundException.class);
     }
 
     @Test
@@ -168,9 +167,8 @@ class ChatConversationServiceTest {
     void getThrowsNotFoundWhenMissing() {
         when(repository.findByUuid("missing")).thenReturn(Optional.empty());
 
-        org.junit.jupiter.api.Assertions.assertThrows(
-                ch.exmachina.cosmo42.exceptions.ChatConversationNotFoundException.class,
-                () -> service.get("missing"));
+        assertThatThrownBy(() -> service.get("missing"))
+                .isInstanceOf(ChatConversationNotFoundException.class);
     }
 
     @Test
@@ -189,9 +187,8 @@ class ChatConversationServiceTest {
 
     @Test
     void renameThrowsBadArgWhenSanitizerDropsTitle() {
-        org.junit.jupiter.api.Assertions.assertThrows(
-                IllegalArgumentException.class,
-                () -> service.rename("u-1", "   "));
+        assertThatThrownBy(() -> service.rename("u-1", "   "))
+                .isInstanceOf(IllegalArgumentException.class);
 
         verify(repository, never()).updateTitleByUuid(anyString(), anyString(), any());
     }
@@ -200,9 +197,8 @@ class ChatConversationServiceTest {
     void renameThrowsNotFoundWhenUuidUnknown() {
         when(repository.updateTitleByUuid(eq("missing"), anyString(), any())).thenReturn(0);
 
-        org.junit.jupiter.api.Assertions.assertThrows(
-                ch.exmachina.cosmo42.exceptions.ChatConversationNotFoundException.class,
-                () -> service.rename("missing", "Some Title"));
+        assertThatThrownBy(() -> service.rename("missing", "Some Title"))
+                .isInstanceOf(ChatConversationNotFoundException.class);
     }
 
     @Test
@@ -220,9 +216,8 @@ class ChatConversationServiceTest {
     void deleteThrowsNotFoundWhenUuidUnknownAndDoesNotTouchChatMemory() {
         when(repository.deleteByUuid("missing")).thenReturn(0);
 
-        org.junit.jupiter.api.Assertions.assertThrows(
-                ch.exmachina.cosmo42.exceptions.ChatConversationNotFoundException.class,
-                () -> service.delete("missing"));
+        assertThatThrownBy(() -> service.delete("missing"))
+                .isInstanceOf(ChatConversationNotFoundException.class);
 
         verify(chatMemory, never()).clear(anyString());
     }

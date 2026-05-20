@@ -5,6 +5,7 @@ import ch.exmachina.cosmo42.dto.ChatRequestDTO;
 import ch.exmachina.cosmo42.dto.ChatResponseDTO;
 import ch.exmachina.cosmo42.services.chat.ChatContext;
 import ch.exmachina.cosmo42.services.chat.ChatConversationService;
+import ch.exmachina.cosmo42.testsupport.ChatModelMocks;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -37,9 +38,8 @@ class TitleProcessorTest {
 
     @BeforeEach
     void setUp() {
-        chatModel = mock(ChatModel.class);
+        chatModel = ChatModelMocks.replyingWith("dummy title");
         titleOptionsBuilder = OpenAiChatOptions.builder().model("test-model").maxTokens(32);
-        when(chatModel.getDefaultOptions()).thenReturn(OpenAiChatOptions.builder().model("test-model").build());
         conversationService = mock(ChatConversationService.class);
         titleSanitizer = new ch.exmachina.cosmo42.services.chat.TitleSanitizer();
         processor = new TitleProcessor(chatModel, titleOptionsBuilder, conversationService, titleSanitizer);

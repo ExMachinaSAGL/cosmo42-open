@@ -4,8 +4,12 @@ import ch.exmachina.cosmo42.entities.ChatConversation;
 import ch.exmachina.cosmo42.entities.KBDocument;
 import ch.exmachina.cosmo42.entities.KBDocumentChunk;
 import ch.exmachina.cosmo42.entities.KBDocumentChunkType;
+import ch.exmachina.cosmo42.services.kb.schema.Chunk;
+import ch.exmachina.cosmo42.services.kb.schema.DocumentPage;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.UUID;
 
 public final class Fixtures {
@@ -64,5 +68,28 @@ public final class Fixtures {
 
     public static float[] zeroVector(int dim) {
         return new float[dim];
+    }
+
+    public static DocumentPage page(Chunk... chunks) {
+        DocumentPage p = new DocumentPage();
+        p.setChunks(new ArrayList<>(List.of(chunks)));
+        return p;
+    }
+
+    public static Chunk textChunk(String content) {
+        Chunk c = new Chunk();
+        c.setType("text");
+        c.setContent(content);
+        c.setContinuesOnNextPage(false);
+        return c;
+    }
+
+    public static Chunk tableChunk(String content, String summary) {
+        Chunk c = new Chunk();
+        c.setType("table");
+        c.setContent(content);
+        c.setSummary(summary);
+        c.setContinuesOnNextPage(false);
+        return c;
     }
 }

@@ -3,6 +3,8 @@ package ch.exmachina.cosmo42.integration;
 import ch.exmachina.cosmo42.AbstractIntegrationTest;
 import ch.exmachina.cosmo42.dto.ChatEventType;
 import ch.exmachina.cosmo42.repositories.ChatConversationRepository;
+import ch.exmachina.cosmo42.testsupport.ChatModelMocks;
+import ch.exmachina.cosmo42.testsupport.TestDbCleaner;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.ai.chat.messages.AssistantMessage;
@@ -11,7 +13,6 @@ import org.springframework.ai.chat.model.ChatResponse;
 import org.springframework.ai.chat.model.Generation;
 import org.springframework.ai.chat.prompt.Prompt;
 import org.springframework.ai.embedding.EmbeddingModel;
-import org.springframework.ai.openai.OpenAiChatOptions;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.server.LocalServerPort;
@@ -45,10 +46,8 @@ class ChatStreamSseSequenceTest extends AbstractIntegrationTest {
                 .baseUrl("http://localhost:" + port)
                 .responseTimeout(Duration.ofSeconds(30))
                 .build();
-        jdbcTemplate.update("DELETE FROM SPRING_AI_CHAT_MEMORY");
-        jdbcTemplate.update("DELETE FROM chat_conversation");
-        when(chatModel.getDefaultOptions())
-                .thenReturn(OpenAiChatOptions.builder().model("test-model").build());
+        TestDbCleaner.cleanChatTables(jdbcTemplate);
+        ChatModelMocks.stubDefaultOptions(chatModel);
         when(embeddingModel.embed(any(String.class))).thenReturn(new float[1024]);
     }
 

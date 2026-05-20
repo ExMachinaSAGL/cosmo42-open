@@ -3,6 +3,7 @@ package ch.exmachina.cosmo42.services.chat.processors;
 import ch.exmachina.cosmo42.dto.ChatRequestDTO;
 import ch.exmachina.cosmo42.services.chat.ChatContext;
 import ch.exmachina.cosmo42.services.chat.tools.KBDocumentSimilaritySearchTool;
+import ch.exmachina.cosmo42.testsupport.ChatModelMocks;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.ai.chat.memory.ChatMemory;
@@ -20,8 +21,8 @@ import reactor.test.StepVerifier;
 import java.util.List;
 
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.argThat;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -36,7 +37,7 @@ class ConversationProcessorTest {
 
     @BeforeEach
     void setUp() {
-        chatModel = mock(ChatModel.class);
+        chatModel = ChatModelMocks.replyingWith("dummy");
         chatMemory = mock(ChatMemory.class);
         tool = mock(KBDocumentSimilaritySearchTool.class);
         processor = new ConversationProcessor(
@@ -45,7 +46,6 @@ class ConversationProcessorTest {
                 chatMemory,
                 tool);
 
-        when(chatModel.getDefaultOptions()).thenReturn(OpenAiChatOptions.builder().model("test-model").build());
         when(chatMemory.get("u-1")).thenReturn(List.of());
     }
 

@@ -5,6 +5,7 @@ import ch.exmachina.cosmo42.dto.ChatRequestDTO;
 import ch.exmachina.cosmo42.dto.ChatResponseDTO;
 import ch.exmachina.cosmo42.services.chat.ChatContext;
 import ch.exmachina.cosmo42.services.chat.tools.KBDocumentSimilaritySearchTool;
+import ch.exmachina.cosmo42.testsupport.ChatModelMocks;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
@@ -37,11 +38,9 @@ class ConversationProcessorContractTest {
 
     @BeforeEach
     void setUp() {
-        chatModel = mock(ChatModel.class);
+        chatModel = ChatModelMocks.replyingWith("dummy");
         chatMemory = mock(ChatMemory.class);
         tool = mock(KBDocumentSimilaritySearchTool.class);
-        when(chatModel.getDefaultOptions())
-                .thenReturn(OpenAiChatOptions.builder().model("test-model").build());
         when(chatMemory.get(any())).thenReturn(List.of());
         processor = new ConversationProcessor(
                 chatModel,

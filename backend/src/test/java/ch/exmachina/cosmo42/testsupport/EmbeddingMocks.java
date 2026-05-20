@@ -18,7 +18,16 @@ public final class EmbeddingMocks {
 
     public static EmbeddingModel returningFixed(float[] vector) {
         EmbeddingModel model = mock(EmbeddingModel.class);
+        stubWithFixedVector(model, vector);
         when(model.embed(any(String.class))).thenReturn(vector.clone());
+        return model;
+    }
+
+    public static EmbeddingModel returningZeros(int dim) {
+        return returningFixed(new float[dim]);
+    }
+
+    public static void stubWithFixedVector(EmbeddingModel model, float[] vector) {
         when(model.call(any(EmbeddingRequest.class))).thenAnswer(invocation -> {
             EmbeddingRequest req = invocation.getArgument(0);
             List<Embedding> embeddings = new ArrayList<>(req.getInstructions().size());
@@ -27,10 +36,9 @@ public final class EmbeddingMocks {
             }
             return new EmbeddingResponse(embeddings);
         });
-        return model;
     }
 
-    public static EmbeddingModel returningZeros(int dim) {
-        return returningFixed(new float[dim]);
+    public static void stubReturningZeros(EmbeddingModel model, int dim) {
+        stubWithFixedVector(model, new float[dim]);
     }
 }
