@@ -28,6 +28,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
+import java.time.Clock;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -46,6 +47,7 @@ public class KBDocumentService {
     KBDocumentChunker kbDocumentChunker;
     EmbeddingModel embeddingModel;
     OpenAiEmbeddingOptions embeddingModelOptions;
+    Clock clock;
 
     @Transactional(readOnly = true)
     public List<DocumentDTO> listAllKBDocuments(){
@@ -56,21 +58,34 @@ public class KBDocumentService {
 
     @Transactional
     public DocumentDTO saveKBDocument(MultipartFile file) {
+        List<DocumentPage> chunks;
         try {
-            List<DocumentPage> chunks = kbDocumentChunker.extractRawChunks(file);
+            chunks = kbDocumentChunker.extractRawChunks(file);
+        } catch (IOException e) {
+            log.error("Error extracting chunks from the KB Document", e);
+            throw new FileSaveException();
+        }
 
-            FileReference fileReference = fileService.save(file);
+        FileReference fileReference;
+        try {
+            fileReference = fileService.save(file);
+        } catch (IOException e) {
+            log.error("Error saving the KB Document file", e);
+            throw new FileSaveException();
+        }
+
+        try {
             KBDocument kbDocument = new KBDocument();
             kbDocument.setUuid(fileReference.getUuid());
             kbDocument.setFileName(fileReference.getFileName());
             kbDocument.setFileSize(fileReference.getFileSize());
-            kbDocument.setCreationTimestamp(LocalDateTime.now());
+            kbDocument.setCreationTimestamp(LocalDateTime.now(clock));
             kbDocumentRepository.save(kbDocument);
 
             List<KBDocumentChunk> persistedChunks = new ArrayList<>();
             List<String> toEmbed = new ArrayList<>();
-            for( DocumentPage pageChunks : chunks ){
-                for( Chunk chunk : pageChunks.getChunks() ){
+            for (DocumentPage pageChunks : chunks) {
+                for (Chunk chunk : pageChunks.getChunks()) {
                     KBDocumentChunk kbChunk = new KBDocumentChunk();
                     kbChunk.setUuid(UUID.randomUUID().toString());
                     kbChunk.setKbDocument(kbDocument);
@@ -84,16 +99,24 @@ public class KBDocumentService {
             }
             EmbeddingResponse embeddingResponse = embeddingModel.call(
                     new EmbeddingRequest(toEmbed, embeddingModelOptions));
-            for( int i=0; i<persistedChunks.size(); i++ ){
+            for (int i = 0; i < persistedChunks.size(); i++) {
                 float[] vector = embeddingResponse.getResults().get(i).getOutput();
                 persistedChunks.get(i).setEmbedding(vector);
             }
             kbDocumentChunkRepository.saveAll(persistedChunks);
 
             return kbDocumentMapper.toDocumentDTO(kbDocument);
-        } catch (IOException e) {
-            log.error("Error saving the KB Document", e);
-            throw new FileSaveException();
+        } catch (RuntimeException e) {
+            deleteOrphanFileQuietly(fileReference.getUuid());
+            throw e;
+        }
+    }
+
+    private void deleteOrphanFileQuietly(String uuid) {
+        try {
+            fileService.delete(uuid);
+        } catch (IOException ioe) {
+            log.error("Failed to delete orphan file {} during rollback", uuid, ioe);
         }
     }
 

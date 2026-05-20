@@ -51,15 +51,27 @@ public class KBDocumentChunker {
             - The 'summary' field is STRICTLY for 'table' and 'image' chunks. For 'text' chunks, the 'summary' field MUST be null.
             """;
 
+    @org.springframework.beans.factory.annotation.Autowired
     public KBDocumentChunker(FileConverter fileConverter,
                              ChatModel chatModel,
                              OpenAiChatOptions.Builder chunkerModelOptionsBuilder,
                              @Value("${cosmo42.chunking.pool.size:4}") int poolSize) {
+        this(fileConverter, chatModel, chunkerModelOptionsBuilder, createExecutor(poolSize));
+    }
+
+    KBDocumentChunker(FileConverter fileConverter,
+                      ChatModel chatModel,
+                      OpenAiChatOptions.Builder chunkerModelOptionsBuilder,
+                      ExecutorService executorService) {
         this.fileConverter = fileConverter;
         this.chatModel = chatModel;
         this.chunkerModelOptionsBuilder = chunkerModelOptionsBuilder;
+        this.executorService = executorService;
+    }
+
+    private static ExecutorService createExecutor(int poolSize) {
         log.info("KBDocumentChunker pool size: {}", poolSize);
-        this.executorService = Executors.newFixedThreadPool(poolSize);
+        return Executors.newFixedThreadPool(poolSize);
     }
 
     @PreDestroy
@@ -76,10 +88,15 @@ public class KBDocumentChunker {
     }
 
     public List<DocumentPage> extractRawChunks(MultipartFile file) throws IOException {
-
         byte[] pdf = fileConverter.convertSupportedFileToPdf(file);
         List<byte[]> images = fileConverter.convertPdfToImages(pdf);
-        
+        List<DocumentPage> rawPages = extractPagesViaLlm(images);
+        mergeCrossPageCutoffs(rawPages);
+        log.info("Chunking done.");
+        return rawPages;
+    }
+
+    private List<DocumentPage> extractPagesViaLlm(List<byte[]> images) {
         List<Media> mediaList = images.stream()
                 .map(imgBytes -> new Media(MimeTypeUtils.IMAGE_PNG, new ByteArrayResource(imgBytes)))
                 .toList();
@@ -115,45 +132,13 @@ public class KBDocumentChunker {
             futures.add(future);
         }
 
-
-        List<DocumentPage> allExtractedPages = new ArrayList<>();
-        Chunk pendingCutoffChunk = null;
+        List<DocumentPage> rawPages = new ArrayList<>();
         for (int i = 0; i < futures.size(); i++) {
             try {
                 PageResult result = futures.get(i).get();
-                if (result.page == null) {
-                    continue;
+                if (result.page != null) {
+                    rawPages.add(result.page);
                 }
-                DocumentPage extractedPage = result.page;
-                boolean removeFirst = false;
-                for (Chunk newChunk : extractedPage.getChunks()) {
-                    if (pendingCutoffChunk != null && pendingCutoffChunk.getType().equals(newChunk.getType())) {
-                        String mergedContent = pendingCutoffChunk.getContent() + " " + newChunk.getContent();
-                        String summary = pendingCutoffChunk.getSummary();
-                        if (summary != null) {
-                            if (newChunk.getSummary() != null) {
-                                summary += " " + newChunk.getSummary();
-                            }
-                        } else {
-                            summary = newChunk.getSummary();
-                        }
-                        pendingCutoffChunk.setContent(mergedContent);
-                        pendingCutoffChunk.setSummary(summary);
-                        pendingCutoffChunk.setContinuesOnNextPage(newChunk.getContinuesOnNextPage());
-                        removeFirst = true;
-                        if (!pendingCutoffChunk.getContinuesOnNextPage()) {
-                            pendingCutoffChunk = null;
-                        }
-                    } else {
-                        if (newChunk.getContinuesOnNextPage()) {
-                            pendingCutoffChunk = newChunk;
-                        }
-                    }
-                }
-                if (removeFirst) {
-                    extractedPage.getChunks().removeFirst();
-                }
-                allExtractedPages.add(extractedPage);
             } catch (InterruptedException | ExecutionException e) {
                 log.error("Failed to get result for page {}", i + 1, e);
                 if (e instanceof InterruptedException) {
@@ -161,8 +146,42 @@ public class KBDocumentChunker {
                 }
             }
         }
-        log.info("Chunking done.");
-        return allExtractedPages;
+        return rawPages;
+    }
+
+    List<DocumentPage> mergeCrossPageCutoffs(List<DocumentPage> rawPages) {
+        Chunk pendingCutoffChunk = null;
+        for (DocumentPage extractedPage : rawPages) {
+            boolean removeFirst = false;
+            for (Chunk newChunk : extractedPage.getChunks()) {
+                if (pendingCutoffChunk != null && pendingCutoffChunk.getType().equals(newChunk.getType())) {
+                    String mergedContent = pendingCutoffChunk.getContent() + " " + newChunk.getContent();
+                    String summary = pendingCutoffChunk.getSummary();
+                    if (summary != null) {
+                        if (newChunk.getSummary() != null) {
+                            summary += " " + newChunk.getSummary();
+                        }
+                    } else {
+                        summary = newChunk.getSummary();
+                    }
+                    pendingCutoffChunk.setContent(mergedContent);
+                    pendingCutoffChunk.setSummary(summary);
+                    pendingCutoffChunk.setContinuesOnNextPage(newChunk.getContinuesOnNextPage());
+                    removeFirst = true;
+                    if (!pendingCutoffChunk.getContinuesOnNextPage()) {
+                        pendingCutoffChunk = null;
+                    }
+                } else {
+                    if (newChunk.getContinuesOnNextPage()) {
+                        pendingCutoffChunk = newChunk;
+                    }
+                }
+            }
+            if (removeFirst) {
+                extractedPage.getChunks().removeFirst();
+            }
+        }
+        return rawPages;
     }
 
     private static class PageResult {
