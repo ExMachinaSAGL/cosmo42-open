@@ -37,7 +37,7 @@ public class ConversationProcessor implements ChatProcessor {
     KBDocumentRepository kbDocumentRepository;
 
     private static final String system_instruction = """
-                You are cosmo42, an expert in retrieving information from a private knowledge base.
+                You are Cosmo42, an expert in retrieving information from a private knowledge base.
                 You are integrated into a system where users upload a variety of files; you have access to a visual LLM and a semantic search engine that allow you to find the requested information and indicate the files from which it originates.
             
                 SEARCH FLOW (RAG) - MANDATORY EXECUTION:

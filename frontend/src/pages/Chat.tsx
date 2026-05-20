@@ -63,7 +63,7 @@ export function Chat() {
 
     if (isNewChat) {
       // Setup for a new chat
-      setMessages([{ role: 'assistant', content: 'Hello! I am your AI assistant. How can I help you today by looking at your documents?' }]);
+      setMessages([{ role: 'assistant', content: 'Hello! How can I help you today by looking at your documents?' }]);
       setChatTitle('New Chat');
       setCurrentChatUUID(null);
     } else {
