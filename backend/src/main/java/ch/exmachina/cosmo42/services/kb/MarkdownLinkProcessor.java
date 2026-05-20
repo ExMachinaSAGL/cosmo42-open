@@ -34,7 +34,7 @@ public class MarkdownLinkProcessor{
 
 
     private String buildMarkdownLink(String refName, String uuid){
-        return MessageFormat.format("[{0}](/api/v1/kb/documents/{1}/download)", refName, uuid);
+        return MessageFormat.format("[&#128279;](/api/v1/kb/documents/{0}/download)", uuid);
     }
 
 
