@@ -104,7 +104,7 @@ class MarkdownLinkProcessorTest {
         String newMessageChunk = markdownLinkProcessor.replaceFileReferenceLinks(messageChunk, allKBDocument);
 
         String expectedLink = "[file name 1.doc](/api/v1/kb/documents/f9da77ff-1111-4c5f-898f-0e3e1232f255/download)";
-        String expectedMessageChunk = "bla bla "+expectedLink+"\nbla bla "+expectedLink+"\nbla bla "+expectedLink;
+        String expectedMessageChunk = "bla bla "+expectedLink+"\nbla bla REF_FILE_FiLe_NaMe_1.Doc\nbla bla ref_file_file_name_1_doc";
         assertEquals(expectedMessageChunk, newMessageChunk);
     }
 
