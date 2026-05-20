@@ -11,7 +11,7 @@ type EventType = 'UUID' | 'TITLE' | 'STATUS' | 'CHUNK' | 'COMPLETED' | 'ERROR';
 export interface ChatMessageItem {
   id?: string | number;
   chat_uuid?: string;
-  source: 'user' | 'ai';
+  role: 'user' | 'assistant';
   content?: string;
   status?: string;
 }
@@ -38,29 +38,52 @@ export function Chat() {
   const currentStatusIndexRef = useRef<number>(-1);
   const isStatusProcessingRef = useRef<boolean>(false);
 
-  const isNewChatRef = useRef(!chatId);
-  const eventDispatchedRef = useRef(false);
-  const lastLoadedChatId = useRef<string | null>(null);
+  // Refs for tracking navigation and fetching logic
+  const justCreatedChatRef = useRef(false);
+  const isNewChat = !chatId;
 
+  // Refs to hold the latest state for use in callbacks without dependency issues
+  const chatUUIDRef = useRef(currentChatUUID);
   useEffect(() => {
-    isNewChatRef.current = !chatId;
-    eventDispatchedRef.current = false;
-  }, [chatId]);
+    chatUUIDRef.current = currentChatUUID;
+  }, [currentChatUUID]);
 
+  const chatTitleRef = useRef(chatTitle);
   useEffect(() => {
-    if (isNewChatRef.current && !eventDispatchedRef.current && currentChatUUID && chatTitle && chatTitle !== 'New Chat' && chatTitle !== 'Loading...') {
-      const event = new CustomEvent('chat-created', {
-        detail: {
-          uuid: currentChatUUID,
-          title: chatTitle,
-        }
-      });
-      window.dispatchEvent(event);
-      eventDispatchedRef.current = true;
-      lastLoadedChatId.current = currentChatUUID;
-      navigate(`/chat/${currentChatUUID}`, { replace: true });
+    chatTitleRef.current = chatTitle;
+  }, [chatTitle]);
+
+  // Main effect to handle route changes and data fetching
+  useEffect(() => {
+    // If a new chat was just created and we navigated here, skip fetching
+    if (justCreatedChatRef.current) {
+      justCreatedChatRef.current = false; // Reset the flag
+      return;
     }
-  }, [currentChatUUID, chatTitle, navigate]);
+
+    if (isNewChat) {
+      // Setup for a new chat
+      setMessages([{ role: 'assistant', content: 'Hello! I am your AI assistant. How can I help you today by looking at your documents?' }]);
+      setChatTitle('New Chat');
+      setCurrentChatUUID(null);
+    } else {
+      // Load an existing chat
+      setMessages([]);
+      setChatTitle('Loading...');
+      const loadHistory = async () => {
+        try {
+          const data = await fetchChatHistory(chatId);
+          setChatTitle(data.title || 'Chat');
+          setMessages(data.messages || []);
+          setCurrentChatUUID(chatId);
+        } catch (err) {
+          toast.error('Could not load history.');
+          console.error(err);
+        }
+      };
+      loadHistory();
+    }
+  }, [chatId, isNewChat]);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -103,7 +126,7 @@ export function Chat() {
 
     setMessages(prev => {
       const lastMessage = prev[prev.length - 1];
-      if (lastMessage?.source === 'ai') {
+      if (lastMessage?.role === 'assistant') {
         const updatedMessage = { ...lastMessage, status: nextStatus };
         return [...prev.slice(0, -1), updatedMessage];
       }
@@ -122,33 +145,6 @@ export function Chat() {
       processNextStatus();
     }
   }, [processNextStatus]);
-
-  useEffect(() => {
-    if (chatId) {
-      if (lastLoadedChatId.current === chatId) {
-        return;
-      }
-      lastLoadedChatId.current = chatId;
-      setCurrentChatUUID(chatId);
-      setChatTitle("Loading...");
-      const loadHistory = async () => {
-        try {
-          const data = await fetchChatHistory(chatId);
-          setChatTitle(data.chatTitle || "Chat");
-          setMessages(data.messages || []);
-        } catch (err) {
-          toast.error('Could not load history.');
-          console.error(err);
-        }
-      };
-      loadHistory();
-    } else {
-      lastLoadedChatId.current = null;
-      setCurrentChatUUID(null);
-      setChatTitle("New Chat");
-      setMessages([{ source: 'ai', content: 'Hello! I am your AI assistant. How can I help you today by looking at your documents?' }]);
-    }
-  }, [chatId]);
 
   const parseSSEChunk = (chunk: string): StreamEvent[] => {
     const events: StreamEvent[] = [];
@@ -198,14 +194,14 @@ export function Chat() {
         setMessages(prev => {
           const lastMessage = prev[prev.length - 1];
           // If we haven't created the AI message yet, create it with the status
-          if (lastMessage?.source !== 'ai') {
+          if (lastMessage?.role !== 'assistant') {
             const newMessage: ChatMessageItem = {
-              source: 'ai',
+              role: 'assistant',
               status: event.data,
               content: '',
             };
             setTimeout(() => addStatusToQueue(event.data), 0);
-            return [...prev, { source: 'ai', content: '' }];
+            return [...prev, { role: 'assistant', content: '' }];
           } else {
              addStatusToQueue(event.data);
              return prev;
@@ -217,7 +213,7 @@ export function Chat() {
         clearStatusQueue();
         setMessages(prev => {
           const lastMessage = prev[prev.length - 1];
-          if (lastMessage?.source === 'ai') {
+          if (lastMessage?.role === 'assistant') {
             const updatedMessage = {
               ...lastMessage,
               content: (lastMessage.content || '') + event.data
@@ -226,7 +222,7 @@ export function Chat() {
             return [...prev.slice(0, -1), updatedMessage];
           } else {
             const newMessage: ChatMessageItem = {
-              source: 'ai',
+              role: 'assistant',
               content: event.data,
             };
             return [...prev, newMessage];
@@ -238,7 +234,7 @@ export function Chat() {
         clearStatusQueue();
         setMessages(prev => {
           const lastMessage = prev[prev.length - 1];
-          if (lastMessage?.source === 'ai') {
+          if (lastMessage?.role === 'assistant') {
             const finalMessage = { ...lastMessage };
             delete finalMessage.status; 
             return [...prev.slice(0, -1), finalMessage];
@@ -246,6 +242,21 @@ export function Chat() {
           return prev; 
         });
         setIsStreaming(false);
+
+        // Navigation logic correctly delayed until stream is complete
+        if (isNewChat && chatUUIDRef.current && chatTitleRef.current) {
+          const customEvent = new CustomEvent('chat-created', {
+            detail: {
+              uuid: chatUUIDRef.current,
+              title: chatTitleRef.current,
+            }
+          });
+          window.dispatchEvent(customEvent);
+          
+          // Set the flag to prevent fetch on navigate
+          justCreatedChatRef.current = true;
+          navigate(`/chat/${chatUUIDRef.current}`, { replace: true });
+        }
         break;
 
       case 'ERROR':
@@ -254,7 +265,7 @@ export function Chat() {
         toast.error("Error: " + event.data);
         break;
     }
-  }, [addStatusToQueue, clearStatusQueue]);
+  }, [addStatusToQueue, clearStatusQueue, isNewChat, navigate]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -262,7 +273,7 @@ export function Chat() {
 
     const newMessage: ChatMessageItem = {
       ...(currentChatUUID && { chat_uuid: currentChatUUID }),
-      source: 'user',
+      role: 'user',
       content: inputValue
     };
     setMessages(prevMessages => [...prevMessages, newMessage]);
@@ -336,18 +347,18 @@ export function Chat() {
             </div>
           ) : (
             messages.map((msg, index) => (
-              <div key={msg.id || `msg-${index}`} className={`chat-message-item ${msg.source === 'user' ? 'user' : ''}`}>
+              <div key={msg.id || `msg-${index}`} className={`chat-message-item ${msg.role === 'user' ? 'user' : ''}`}>
                 {/* Avatar */}
-                <div className={`chat-avatar ${msg.source === 'user' ? 'user' : 'assistant'}`}>
-                  {msg.source === 'user' ? <User size={18} /> : <Bot size={18} />}
+                <div className={`chat-avatar ${msg.role === 'user' ? 'user' : 'assistant'}`}>
+                  {msg.role === 'user' ? <User size={18} /> : <Bot size={18} />}
                 </div>
 
                 {/* Message bubble */}
-                <div className={`chat-message-bubble ${msg.source === 'user' ? 'user' : 'assistant'}`}>
+                <div className={`chat-message-bubble ${msg.role === 'user' ? 'user' : 'assistant'}`}>
                   {msg.status && <p className="chat-message-status" style={{ fontStyle: 'italic', fontSize: '0.8em', color: '#888', marginBottom: '4px' }}>{msg.status}...</p>}
                   {msg.content && (
                     <div className="chat-message-content">
-                      {msg.source === 'ai' ? (
+                      {msg.role === 'assistant' ? (
                         <ReactMarkdown remarkPlugins={[remarkGfm]}>
                           {msg.content}
                         </ReactMarkdown>
@@ -367,13 +378,13 @@ export function Chat() {
       {/* Input Area anchored to the bottom */}
       <div className="chat-input-area">
         <div className="chat-input-form-container">
-          <form onSubmit={handleSubmit} className="chat-input-form">
+          <form onSubmit={handleSubmit} className="chat-input-form flex items-center">
             <input
               type="text"
               value={inputValue}
               onChange={(e) => setInputValue(e.target.value)}
               placeholder="Write a message to the AI..."
-              className="chat-input-field"
+              className="chat-input-field flex-grow"
               disabled={isStreaming}
             />
             <button

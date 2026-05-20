@@ -10,6 +10,7 @@ export default function App() {
         <Route path="/" element={<Layout />}>
           <Route index element={<Chat />} />
           <Route path="kb" element={<KnowledgeBase />} />
+          <Route path="chat" element={<Chat />} />
           <Route path="chat/:chatId" element={<Chat />} />
         </Route>
       </Routes>

@@ -484,8 +484,6 @@ h2 {
 }
 
 .chat-send-button {
-  position: absolute;
-  right: 0.5rem; /* right-2 */
   padding: 0.5rem; /* p-2 */
   background-color: #2563eb; /* bg-blue-600 */
   color: #fff; /* text-white */

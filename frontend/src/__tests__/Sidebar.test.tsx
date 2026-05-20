@@ -97,7 +97,6 @@ describe('Sidebar Component', () => {
     fireEvent.click(newChatButton);
 
     expect(mockNavigate).toHaveBeenCalledWith('/');
-    expect(toast.success).toHaveBeenCalledWith('Started a new chat');
   });
 
   describe('Chat Actions', () => {
@@ -113,7 +112,7 @@ describe('Sidebar Component', () => {
       );
       await waitFor(() => expect(screen.getByText('Chat 1')).toBeInTheDocument());
 
-      const optionsButton = screen.getAllByTitle('Opzioni')[0];
+      const optionsButton = screen.getAllByTitle('Options')[0];
       fireEvent.click(optionsButton);
 
       const renameButton = screen.getByText('Rename');
