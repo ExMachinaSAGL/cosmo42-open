@@ -1,15 +1,22 @@
 package ch.exmachina.cosmo42.services.kb;
 
+import ch.exmachina.cosmo42.services.MimeTypeService;
 import ch.exmachina.cosmo42.testsupport.FileFixtures;
+import ch.exmachina.cosmo42.utils.SupportedMimeTypes;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.MediaType;
 import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.test.web.client.MockRestServiceServer;
 import org.springframework.web.client.RestClient;
+import org.springframework.web.multipart.MultipartFile;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.content;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.header;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.method;
@@ -23,12 +30,14 @@ class FileConverterTest {
 
     MockRestServiceServer mockServer;
     FileConverter converter;
+    MimeTypeService mimeTypeService;
 
     @BeforeEach
     void setUp() {
         RestClient.Builder builder = RestClient.builder().baseUrl("http://libreoffice-test");
         mockServer = MockRestServiceServer.bindTo(builder).build();
-        converter = new FileConverter(builder.build());
+        mimeTypeService = mock(MimeTypeService.class);
+        converter = new FileConverter(builder.build(), mimeTypeService);
     }
 
     @Test
@@ -41,6 +50,8 @@ class FileConverterTest {
                 .andExpect(header("Content-Type", MediaType.APPLICATION_OCTET_STREAM_VALUE))
                 .andExpect(content().bytes(docxBytes))
                 .andRespond(withSuccess(PDF_FROM_LIBREOFFICE, MediaType.APPLICATION_OCTET_STREAM));
+
+        stubFileType(file, SupportedMimeTypes.MIME_DOCX);
 
         byte[] result = converter.convertSupportedFileToPdf(file);
 
@@ -57,6 +68,8 @@ class FileConverterTest {
                 .andExpect(method(org.springframework.http.HttpMethod.POST))
                 .andRespond(withSuccess(PDF_FROM_LIBREOFFICE, MediaType.APPLICATION_OCTET_STREAM));
 
+        stubFileType(file, SupportedMimeTypes.MIME_XSLX);
+
         byte[] result = converter.convertSupportedFileToPdf(file);
 
         assertThat(result).containsExactly(PDF_FROM_LIBREOFFICE);
@@ -70,6 +83,8 @@ class FileConverterTest {
                 "file", "x.pdf", "application/pdf", pdfBytes);
         // No expectations registered on mockServer — any call would fail.
 
+        stubFileType(file, SupportedMimeTypes.MIME_PDF);
+
         byte[] result = converter.convertSupportedFileToPdf(file);
 
         assertThat(result).containsExactly(pdfBytes);
@@ -80,6 +95,7 @@ class FileConverterTest {
     void unsupportedFileTypeThrowsIllegalArgument() {
         MockMultipartFile file = new MockMultipartFile(
                 "file", "notes.txt", "text/plain", "just text".getBytes());
+        when(mimeTypeService.isMimeType(any(), any())).thenReturn(false);
 
         assertThatThrownBy(() -> converter.convertSupportedFileToPdf(file))
                 .isInstanceOf(IllegalArgumentException.class)
@@ -94,7 +110,15 @@ class FileConverterTest {
         mockServer.expect(requestTo("http://libreoffice-test/convert"))
                 .andRespond(withServerError());
 
+        stubFileType(file, SupportedMimeTypes.MIME_DOCX);
+
         assertThatThrownBy(() -> converter.convertSupportedFileToPdf(file))
                 .isInstanceOf(org.springframework.web.client.HttpServerErrorException.class);
+    }
+
+    private void stubFileType(MockMultipartFile file, SupportedMimeTypes type) {
+        for (SupportedMimeTypes t : SupportedMimeTypes.values()) {
+            when(mimeTypeService.isMimeType(file, t)).thenReturn(t == type);
+        }
     }
 }

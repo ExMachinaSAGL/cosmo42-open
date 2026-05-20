@@ -34,7 +34,8 @@ class ChatServiceErrorPathTest {
         chatConversationService = mock(ChatConversationService.class);
         when(uuidProcessor.process(any())).thenReturn(Flux.<ServerSentEvent<ChatResponseDTO>>empty());
         when(titleProcessor.process(any())).thenReturn(Flux.<ServerSentEvent<ChatResponseDTO>>empty());
-        chatService = new ChatService(uuidProcessor, titleProcessor, conversationProcessor, chatConversationService);
+        chatService = new ChatService(uuidProcessor, titleProcessor, conversationProcessor,
+                chatConversationService, () -> "fixed-test-uuid");
     }
 
     @Test

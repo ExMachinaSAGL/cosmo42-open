@@ -1,6 +1,6 @@
 package ch.exmachina.cosmo42.services.kb;
 
-import ch.exmachina.cosmo42.utils.MimeTypeUtils;
+import ch.exmachina.cosmo42.services.MimeTypeService;
 import ch.exmachina.cosmo42.utils.SupportedMimeTypes;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
@@ -30,6 +30,7 @@ import java.util.List;
 public class FileConverter {
 
     RestClient libreofficeRestClient;
+    MimeTypeService mimeTypeService;
 
     private byte[] convertOfficeFileToPdf(byte[] fileBytes, String filename) {
         return libreofficeRestClient.post()
@@ -44,9 +45,9 @@ public class FileConverter {
 
     public byte[] convertSupportedFileToPdf(MultipartFile file) throws IOException {
         byte[] pdfBytes;
-        boolean isDocx = MimeTypeUtils.isMimeType(file, SupportedMimeTypes.MIME_DOCX);
-        boolean isXslx = MimeTypeUtils.isMimeType(file, SupportedMimeTypes.MIME_XSLX);
-        boolean isPdf = MimeTypeUtils.isMimeType(file, SupportedMimeTypes.MIME_PDF);
+        boolean isDocx = mimeTypeService.isMimeType(file, SupportedMimeTypes.MIME_DOCX);
+        boolean isXslx = mimeTypeService.isMimeType(file, SupportedMimeTypes.MIME_XSLX);
+        boolean isPdf = mimeTypeService.isMimeType(file, SupportedMimeTypes.MIME_PDF);
 
         if (isDocx || isXslx) {
             log.info("Converting docx/xlsx to PDF");

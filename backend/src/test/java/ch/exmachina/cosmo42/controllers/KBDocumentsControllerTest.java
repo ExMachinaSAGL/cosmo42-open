@@ -4,6 +4,7 @@ import ch.exmachina.cosmo42.dto.DocumentDTO;
 import ch.exmachina.cosmo42.exceptions.GlobalExceptionHandler;
 import ch.exmachina.cosmo42.exceptions.KBDocumentNotFoundException;
 import ch.exmachina.cosmo42.services.KBDocumentService;
+import ch.exmachina.cosmo42.services.MimeTypeService;
 import ch.exmachina.cosmo42.testsupport.FileFixtures;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -38,6 +39,7 @@ class KBDocumentsControllerTest {
 
     @Autowired MockMvc mockMvc;
     @MockitoBean KBDocumentService kbDocumentService;
+    @MockitoBean MimeTypeService mimeTypeService;
 
     @Test
     void getListReturnsAllDocuments() throws Exception {
@@ -57,6 +59,7 @@ class KBDocumentsControllerTest {
                 "file", "doc.pdf", "application/pdf", FileFixtures.singlePagePdf("hi"));
         when(kbDocumentService.saveKBDocument(any())).thenReturn(
                 DocumentDTO.builder().uuid("new-uuid").name("doc.pdf").build());
+        when(mimeTypeService.isSupportedMimeType(any())).thenReturn(true);
 
         mockMvc.perform(multipart("/api/v1/kb/documents").file(file))
                 .andExpect(status().isOk())
@@ -72,6 +75,7 @@ class KBDocumentsControllerTest {
                 "file", "doc.docx", "application/octet-stream", FileFixtures.minimalDocx());
         when(kbDocumentService.saveKBDocument(any())).thenReturn(
                 DocumentDTO.builder().uuid("u").name("doc.docx").build());
+        when(mimeTypeService.isSupportedMimeType(any())).thenReturn(true);
 
         mockMvc.perform(multipart("/api/v1/kb/documents").file(file))
                 .andExpect(status().isOk());
@@ -95,6 +99,7 @@ class KBDocumentsControllerTest {
     void uploadUnsupportedFileReturns400() throws Exception {
         MockMultipartFile file = new MockMultipartFile(
                 "file", "notes.txt", "text/plain", "just text".getBytes());
+        when(mimeTypeService.isSupportedMimeType(any())).thenReturn(false);
 
         mockMvc.perform(multipart("/api/v1/kb/documents").file(file))
                 .andExpect(status().isBadRequest())

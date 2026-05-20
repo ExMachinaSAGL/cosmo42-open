@@ -1,5 +1,6 @@
 package ch.exmachina.cosmo42.services.kb;
 
+import ch.exmachina.cosmo42.services.MimeTypeService;
 import ch.exmachina.cosmo42.testsupport.FileFixtures;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -13,6 +14,7 @@ import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.Mockito.mock;
 
 class FileConverterPdfTest {
 
@@ -24,7 +26,7 @@ class FileConverterPdfTest {
     @BeforeEach
     void setUp() {
         // No HTTP calls in this test; constructor still requires a RestClient.
-        converter = new FileConverter(RestClient.builder().build());
+        converter = new FileConverter(RestClient.builder().build(), mock(MimeTypeService.class));
     }
 
     @Test

@@ -11,6 +11,8 @@ import org.mockito.ArgumentCaptor;
 import org.springframework.http.codec.ServerSentEvent;
 import reactor.core.publisher.Flux;
 
+import java.util.function.Supplier;
+
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
@@ -32,7 +34,8 @@ class ChatServiceTest {
         when(uuidProcessor.process(any())).thenReturn(Flux.<ServerSentEvent<ChatResponseDTO>>empty());
         when(titleProcessor.process(any())).thenReturn(Flux.<ServerSentEvent<ChatResponseDTO>>empty());
         when(conversationProcessor.process(any())).thenReturn(Flux.<ServerSentEvent<ChatResponseDTO>>empty());
-        chatService = new ChatService(uuidProcessor, titleProcessor, conversationProcessor, conversationService);
+        chatService = new ChatService(uuidProcessor, titleProcessor, conversationProcessor,
+                conversationService, () -> "fixed-test-uuid");
     }
 
     @Test
@@ -42,7 +45,7 @@ class ChatServiceTest {
 
         ArgumentCaptor<String> uuidCap = ArgumentCaptor.forClass(String.class);
         verify(conversationService).createIfAbsent(uuidCap.capture());
-        assertThat(uuidCap.getValue()).matches("^[0-9a-f-]{36}$");
+        assertThat(uuidCap.getValue()).isEqualTo("fixed-test-uuid");
     }
 
     @Test

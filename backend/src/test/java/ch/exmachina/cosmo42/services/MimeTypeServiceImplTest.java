@@ -1,22 +1,31 @@
-package ch.exmachina.cosmo42.utils;
+package ch.exmachina.cosmo42.services;
 
 import ch.exmachina.cosmo42.testsupport.FileFixtures;
+import ch.exmachina.cosmo42.utils.SupportedMimeTypes;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.mock.web.MockMultipartFile;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-class MimeTypeUtilsTest {
+class MimeTypeServiceImplTest {
+
+    MimeTypeService service;
+
+    @BeforeEach
+    void setUp() {
+        service = new MimeTypeServiceImpl();
+    }
 
     @Test
     void detectsRealPdfAsSupported() {
         MockMultipartFile file = new MockMultipartFile(
                 "file", "doc.pdf", "application/pdf", FileFixtures.singlePagePdf("hello"));
 
-        assertThat(MimeTypeUtils.isSupportedMimeType(file)).isTrue();
-        assertThat(MimeTypeUtils.isMimeType(file, SupportedMimeTypes.MIME_PDF)).isTrue();
-        assertThat(MimeTypeUtils.isMimeType(file, SupportedMimeTypes.MIME_DOCX)).isFalse();
-        assertThat(MimeTypeUtils.isMimeType(file, SupportedMimeTypes.MIME_XSLX)).isFalse();
+        assertThat(service.isSupportedMimeType(file)).isTrue();
+        assertThat(service.isMimeType(file, SupportedMimeTypes.MIME_PDF)).isTrue();
+        assertThat(service.isMimeType(file, SupportedMimeTypes.MIME_DOCX)).isFalse();
+        assertThat(service.isMimeType(file, SupportedMimeTypes.MIME_XSLX)).isFalse();
     }
 
     @Test
@@ -24,9 +33,9 @@ class MimeTypeUtilsTest {
         MockMultipartFile file = new MockMultipartFile(
                 "file", "doc.docx", "application/octet-stream", FileFixtures.minimalDocx());
 
-        assertThat(MimeTypeUtils.isSupportedMimeType(file)).isTrue();
-        assertThat(MimeTypeUtils.isMimeType(file, SupportedMimeTypes.MIME_DOCX)).isTrue();
-        assertThat(MimeTypeUtils.isMimeType(file, SupportedMimeTypes.MIME_PDF)).isFalse();
+        assertThat(service.isSupportedMimeType(file)).isTrue();
+        assertThat(service.isMimeType(file, SupportedMimeTypes.MIME_DOCX)).isTrue();
+        assertThat(service.isMimeType(file, SupportedMimeTypes.MIME_PDF)).isFalse();
     }
 
     @Test
@@ -34,8 +43,8 @@ class MimeTypeUtilsTest {
         MockMultipartFile file = new MockMultipartFile(
                 "file", "sheet.xlsx", "application/octet-stream", FileFixtures.minimalXlsx());
 
-        assertThat(MimeTypeUtils.isSupportedMimeType(file)).isTrue();
-        assertThat(MimeTypeUtils.isMimeType(file, SupportedMimeTypes.MIME_XSLX)).isTrue();
+        assertThat(service.isSupportedMimeType(file)).isTrue();
+        assertThat(service.isMimeType(file, SupportedMimeTypes.MIME_XSLX)).isTrue();
     }
 
     @Test
@@ -43,7 +52,7 @@ class MimeTypeUtilsTest {
         MockMultipartFile file = new MockMultipartFile(
                 "file", "notes.txt", "text/plain", "just text".getBytes());
 
-        assertThat(MimeTypeUtils.isSupportedMimeType(file)).isFalse();
+        assertThat(service.isSupportedMimeType(file)).isFalse();
     }
 
     @Test
@@ -51,7 +60,7 @@ class MimeTypeUtilsTest {
         MockMultipartFile file = new MockMultipartFile(
                 "file", "empty.bin", "application/octet-stream", new byte[0]);
 
-        assertThat(MimeTypeUtils.isSupportedMimeType(file)).isFalse();
+        assertThat(service.isSupportedMimeType(file)).isFalse();
     }
 
     @Test
@@ -60,7 +69,7 @@ class MimeTypeUtilsTest {
         MockMultipartFile file = new MockMultipartFile(
                 "file", "lying.pdf", "application/pdf", "not actually a pdf".getBytes());
 
-        assertThat(MimeTypeUtils.isMimeType(file, SupportedMimeTypes.MIME_PDF)).isFalse();
+        assertThat(service.isMimeType(file, SupportedMimeTypes.MIME_PDF)).isFalse();
     }
 
     @Test
