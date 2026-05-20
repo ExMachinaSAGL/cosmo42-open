@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import { Send, User, Bot, Loader2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import ReactMarkdown from 'react-markdown';
@@ -23,6 +23,7 @@ interface StreamEvent {
 
 export function Chat() {
   const { chatId } = useParams();
+  const navigate = useNavigate();
   const [inputValue, setInputValue] = useState('');
   
   const [currentChatUUID, setCurrentChatUUID] = useState<string | null>(null);
@@ -36,6 +37,30 @@ export function Chat() {
   const statusTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const currentStatusIndexRef = useRef<number>(-1);
   const isStatusProcessingRef = useRef<boolean>(false);
+
+  const isNewChatRef = useRef(!chatId);
+  const eventDispatchedRef = useRef(false);
+  const lastLoadedChatId = useRef<string | null>(null);
+
+  useEffect(() => {
+    isNewChatRef.current = !chatId;
+    eventDispatchedRef.current = false;
+  }, [chatId]);
+
+  useEffect(() => {
+    if (isNewChatRef.current && !eventDispatchedRef.current && currentChatUUID && chatTitle && chatTitle !== 'New Chat' && chatTitle !== 'Loading...') {
+      const event = new CustomEvent('chat-created', {
+        detail: {
+          uuid: currentChatUUID,
+          title: chatTitle,
+        }
+      });
+      window.dispatchEvent(event);
+      eventDispatchedRef.current = true;
+      lastLoadedChatId.current = currentChatUUID;
+      navigate(`/chat/${currentChatUUID}`, { replace: true });
+    }
+  }, [currentChatUUID, chatTitle, navigate]);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -87,19 +112,25 @@ export function Chat() {
 
     statusTimerRef.current = setTimeout(() => {
       processNextStatus();
-    }, 1000);
+    }, 2000);
   }, []);
 
   const addStatusToQueue = useCallback((status: string) => {
     statusQueueRef.current.push(status);
     if (!isStatusProcessingRef.current) {
       isStatusProcessingRef.current = true;
+      
+      // Immediately process the first status
       processNextStatus();
     }
   }, [processNextStatus]);
 
   useEffect(() => {
     if (chatId) {
+      if (lastLoadedChatId.current === chatId) {
+        return;
+      }
+      lastLoadedChatId.current = chatId;
       setCurrentChatUUID(chatId);
       setChatTitle("Loading...");
       const loadHistory = async () => {
@@ -114,6 +145,7 @@ export function Chat() {
       };
       loadHistory();
     } else {
+      lastLoadedChatId.current = null;
       setCurrentChatUUID(null);
       setChatTitle("New Chat");
       setMessages([{ source: 'ai', content: 'Hello! I am your AI assistant. How can I help you today by looking at your documents?' }]);
@@ -167,16 +199,25 @@ export function Chat() {
       case 'STATUS':
         setMessages(prev => {
           const lastMessage = prev[prev.length - 1];
-          if (lastMessage?.source === 'ai') {
-            addStatusToQueue(event.data);
-            return prev;
-          } else {
+          // If we haven't created the AI message yet, create it with the status
+          if (lastMessage?.source !== 'ai') {
             const newMessage: ChatMessageItem = {
               source: 'ai',
               status: event.data,
               content: '',
             };
-            return [...prev, newMessage];
+            
+            // Wait, we need to push to queue even for the first message, 
+            // so we add it to queue and let processNextStatus update it.
+            // But if we just created the message, it won't be updated by processNextStatus immediately 
+            // because processNextStatus works on the *previous* state.
+            // So we add the initial status to the queue and it will be processed.
+            setTimeout(() => addStatusToQueue(event.data), 0);
+            return [...prev, { source: 'ai', content: '' }];
+          } else {
+             // Ai message already exists
+             addStatusToQueue(event.data);
+             return prev;
           }
         });
         break;

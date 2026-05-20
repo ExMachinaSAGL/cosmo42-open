@@ -19,6 +19,19 @@ export function Sidebar() {
   }, []);
 
   useEffect(() => {
+    const handleChatCreated = (event: Event) => {
+      const { uuid, title } = (event as CustomEvent).detail;
+      setChats(prevChats => [{ uuid, title }, ...prevChats]);
+    };
+
+    window.addEventListener('chat-created', handleChatCreated);
+
+    return () => {
+      window.removeEventListener('chat-created', handleChatCreated);
+    };
+  }, []);
+
+  useEffect(() => {
     fetchChatList()
       .then((data: Page<ChatConversationListItemDTO>) => {
         if (data && data.content) {
