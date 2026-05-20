@@ -6,6 +6,7 @@ import logo from '../assets/Cosmo42logo_128x128.jpg';
 import { fetchChatList, renameChat, deleteChat } from '../api/client';
 import type { ChatConversationListItemDTO, Page } from '../types/chat';
 import Modal from './Modal';
+import './Sidebar.css';
 
 export function Sidebar() {
   const [isCollapsed, setIsCollapsed] = useState(false);
