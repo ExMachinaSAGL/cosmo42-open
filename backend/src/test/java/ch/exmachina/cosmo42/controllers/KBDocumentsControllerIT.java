@@ -39,7 +39,6 @@ class KBDocumentsControllerIT extends BaseIT {
                     assertThat(dto.getFileName()).isEqualTo(job.getOriginalFileName());
                     assertThat(dto.getUploadedAt()).isNotNull();
                     assertThat(dto.getStatus()).isEqualTo("loading");
-                    assertThat(dto.getProgressPercent()).isEqualTo(0);
                 });
     }
 
@@ -58,7 +57,6 @@ class KBDocumentsControllerIT extends BaseIT {
                 .expectBody(DocumentDTO.class)
                 .value(dto -> {
                     assertThat(dto.getStatus()).isEqualTo("done");
-                    assertThat(dto.getProgressPercent()).isEqualTo(100);
                 });
     }
 
@@ -77,7 +75,6 @@ class KBDocumentsControllerIT extends BaseIT {
                 .value(dto -> {
                     assertThat(dto.getStatus()).isEqualTo("error");
                     assertThat(dto.getErrorMessage()).isEqualTo("conversion failed");
-                    assertThat(dto.getProgressPercent()).isNull();
                 });
     }
 
