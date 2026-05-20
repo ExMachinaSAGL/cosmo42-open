@@ -4,7 +4,6 @@ import org.apache.tika.detect.Detector;
 import org.apache.tika.io.TikaInputStream;
 import org.apache.tika.metadata.Metadata;
 import org.apache.tika.metadata.TikaCoreProperties;
-import org.apache.tika.mime.MediaType;
 import org.apache.tika.mime.MimeTypes;
 import org.apache.tika.parser.AutoDetectParser;
 import org.springframework.web.multipart.MultipartFile;
@@ -17,19 +16,24 @@ public class MimeTypeUtils {
         return SupportedMimeTypes.isSupported(getMimeType(file));
     }
 
-    public static boolean isMimeType(MultipartFile file, SupportedMimeTypes mimeType) {
-        return mimeType.getContentType().equals(getMimeType(file));
+    public static String getMimeType(byte[] bytes, String fileName) {
+        return detect(TikaInputStream.get(bytes), fileName);
     }
 
     private static String getMimeType(MultipartFile file) {
-        AutoDetectParser parser = new AutoDetectParser();
-        Detector detector = parser.getDetector();
         try {
+            return detect(TikaInputStream.get(file.getInputStream()), file.getName());
+        } catch (IOException e) {
+            return MimeTypes.OCTET_STREAM;
+        }
+    }
+
+    private static String detect(TikaInputStream stream, String fileName) {
+        try {
+            Detector detector = new AutoDetectParser().getDetector();
             Metadata metadata = new Metadata();
-            metadata.add(TikaCoreProperties.RESOURCE_NAME_KEY, file.getName());
-            TikaInputStream stream = TikaInputStream.get(file.getInputStream());
-            MediaType mediaType = detector.detect(stream, metadata);
-            return mediaType.toString();
+            metadata.add(TikaCoreProperties.RESOURCE_NAME_KEY, fileName);
+            return detector.detect(stream, metadata).toString();
         } catch (IOException e) {
             return MimeTypes.OCTET_STREAM;
         }

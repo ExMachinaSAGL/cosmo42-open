@@ -1,20 +1,22 @@
 package ch.exmachina.cosmo42.dto;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
-import lombok.AccessLevel;
-import lombok.Builder;
-import lombok.Getter;
-import lombok.Setter;
+import lombok.*;
 import lombok.experimental.FieldDefaults;
+
+import java.time.LocalDateTime;
 
 @FieldDefaults(level = AccessLevel.PRIVATE)
 @Getter
 @Setter
 @Builder
+@AllArgsConstructor
 @JsonInclude(JsonInclude.Include.NON_NULL)
-public class ChatResponseDTO {
+public class DownloadDocumentDTO {
 
-    ChatEventType type;
-    Object data;
+    String fileUuid;
+    String fileName;
+    LocalDateTime uploadedAt;
+    byte[] content;
 
 }

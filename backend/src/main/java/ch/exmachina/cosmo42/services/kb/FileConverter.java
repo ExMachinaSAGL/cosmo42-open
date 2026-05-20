@@ -13,7 +13,6 @@ import org.apache.pdfbox.rendering.PDFRenderer;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
-import org.springframework.web.multipart.MultipartFile;
 
 import javax.imageio.ImageIO;
 import java.awt.*;
@@ -38,25 +37,21 @@ public class FileConverter {
                 .contentType(MediaType.APPLICATION_OCTET_STREAM)
                 .body(fileBytes)
                 .retrieve()
-                .body(byte[].class)
-                ;
+                .body(byte[].class);
     }
 
-    public byte[] convertSupportedFileToPdf(MultipartFile file) throws IOException {
-        byte[] pdfBytes;
-        boolean isDocx = MimeTypeUtils.isMimeType(file, SupportedMimeTypes.MIME_DOCX);
-        boolean isXslx = MimeTypeUtils.isMimeType(file, SupportedMimeTypes.MIME_XSLX);
-        boolean isPdf = MimeTypeUtils.isMimeType(file, SupportedMimeTypes.MIME_PDF);
-
-        if (isDocx || isXslx) {
-            log.info("Converting docx/xlsx to PDF");
-            pdfBytes = convertOfficeFileToPdf(file.getBytes(), file.getName());
-        } else if (isPdf) {
-            pdfBytes = file.getBytes();
+    public byte[] convertSupportedFileToPdfFromBytes(byte[] rawBytes, String originalFileName) {
+        String mimeType = MimeTypeUtils.getMimeType(rawBytes, originalFileName);
+        log.info("Detected mime type {} for file {}", mimeType, originalFileName);
+        if (SupportedMimeTypes.MIME_DOCX.matches(mimeType)
+                || SupportedMimeTypes.MIME_XSLX.matches(mimeType)) {
+            log.info("Converting docx/xlsx to PDF from raw bytes");
+            return convertOfficeFileToPdf(rawBytes, originalFileName);
+        } else if (SupportedMimeTypes.MIME_PDF.matches(mimeType)) {
+            return rawBytes;
         } else {
-            throw new IllegalArgumentException("Unsupported file type: " + file.getName());
+            throw new IllegalArgumentException("Unsupported file type: " + originalFileName + " (" + mimeType + ")");
         }
-        return pdfBytes;
     }
 
     public List<byte[]> convertPdfToImages(byte[] pdfBytes) throws IOException {

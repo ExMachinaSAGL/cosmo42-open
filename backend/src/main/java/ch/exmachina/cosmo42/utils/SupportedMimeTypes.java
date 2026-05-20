@@ -17,6 +17,10 @@ public enum SupportedMimeTypes {
         return contentType;
     }
 
+    public boolean matches(String mimeType) {
+        return contentType.equals(mimeType);
+    }
+
     public static boolean isSupported(String contentType) {
         if (contentType == null) {
             return false;
