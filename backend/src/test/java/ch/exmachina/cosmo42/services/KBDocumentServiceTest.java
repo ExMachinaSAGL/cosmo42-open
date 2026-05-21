@@ -1,6 +1,5 @@
 package ch.exmachina.cosmo42.services;
 
-import ch.exmachina.cosmo42.BaseTest;
 import ch.exmachina.cosmo42.dto.DocumentDTO;
 import ch.exmachina.cosmo42.dto.DownloadDocumentDTO;
 import ch.exmachina.cosmo42.entities.IngestionJob;
@@ -16,9 +15,11 @@ import ch.exmachina.cosmo42.services.fs.FileReference;
 import ch.exmachina.cosmo42.services.fs.FileService;
 import ch.exmachina.cosmo42.testsupport.Fixtures;
 import org.junit.jupiter.api.Test;
-import org.mockito.InjectMocks;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InOrder;
+import org.mockito.InjectMocks;
 import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -30,23 +31,28 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
-import static org.mockito.Mockito.doThrow;
-import static org.mockito.Mockito.inOrder;
-import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.*;
 
-class KBDocumentServiceTest extends BaseTest {
+@ExtendWith(MockitoExtension.class)
+class KBDocumentServiceTest {
 
-    @Mock KBDocumentRepository kbDocumentRepository;
-    @Mock KBDocumentChunkRepository kbDocumentChunkRepository;
-    @Mock IngestionJobRepository ingestionJobRepository;
-    @Mock FileService fileService;
-    @Mock KBDocumentMapper kbDocumentMapper;
-    @Mock IngestionJobService ingestionJobService;
-    @Mock KBDocumentIngestionProcessor ingestionProcessor;
+    @Mock
+    KBDocumentRepository kbDocumentRepository;
+    @Mock
+    KBDocumentChunkRepository kbDocumentChunkRepository;
+    @Mock
+    IngestionJobRepository ingestionJobRepository;
+    @Mock
+    FileService fileService;
+    @Mock
+    KBDocumentMapper kbDocumentMapper;
+    @Mock
+    IngestionJobService ingestionJobService;
+    @Mock
+    KBDocumentIngestionProcessor ingestionProcessor;
 
-    @InjectMocks KBDocumentService service;
+    @InjectMocks
+    KBDocumentService service;
 
     private MultipartFile pdfFile() {
         return new MockMultipartFile("file", "doc.pdf", "application/pdf", new byte[]{1, 2, 3});

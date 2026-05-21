@@ -1,6 +1,6 @@
 package ch.exmachina.cosmo42.integration;
 
-import ch.exmachina.cosmo42.BaseIT;
+import ch.exmachina.cosmo42.AbstractWebIntegrationTest;
 import ch.exmachina.cosmo42.entities.IngestionJob;
 import ch.exmachina.cosmo42.entities.IngestionJobStatus;
 import ch.exmachina.cosmo42.repositories.IngestionJobPageRepository;
@@ -40,7 +40,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.when;
 
-class IngestionPipelineAsyncE2ETest extends BaseIT {
+class IngestionPipelineAsyncE2ETest extends AbstractWebIntegrationTest {
 
     @TempDir
     static Path storageRoot;
@@ -153,7 +153,6 @@ class IngestionPipelineAsyncE2ETest extends BaseIT {
         return dto.getFileUuid();
     }
 
-    @SuppressWarnings("unchecked")
     private void stubChunkerToReturnTwoPagesOfText() {
         doAnswer(invocation -> {
             BiConsumer<Integer, DocumentPage> onPageComplete = invocation.getArgument(2);

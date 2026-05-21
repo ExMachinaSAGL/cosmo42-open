@@ -1,6 +1,5 @@
 package ch.exmachina.cosmo42.services;
 
-import ch.exmachina.cosmo42.BaseTest;
 import ch.exmachina.cosmo42.config.IngestionProperties;
 import ch.exmachina.cosmo42.entities.IngestionJob;
 import ch.exmachina.cosmo42.entities.IngestionJobStatus;
@@ -15,8 +14,10 @@ import ch.exmachina.cosmo42.services.kb.schema.Chunk;
 import ch.exmachina.cosmo42.services.kb.schema.DocumentPage;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.ai.embedding.Embedding;
 import org.springframework.ai.embedding.EmbeddingRequest;
 import org.springframework.ai.embedding.EmbeddingResponse;
@@ -26,12 +27,15 @@ import org.springframework.ai.openai.OpenAiEmbeddingOptions;
 import java.io.IOException;
 import java.util.*;
 import java.util.function.BiConsumer;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
-class KBDocumentIngestionProcessorTest extends BaseTest {
+@ExtendWith(MockitoExtension.class)
+class KBDocumentIngestionProcessorTest {
 
     @Mock IngestionJobService ingestionJobService;
     @Mock KBDocumentChunker kbDocumentChunker;
@@ -222,10 +226,9 @@ class KBDocumentIngestionProcessorTest extends BaseTest {
     }
 
     private EmbeddingResponse embedResponse(int n) {
-        List<Embedding> embeddings = new ArrayList<>();
-        for (int i = 0; i < n; i++) {
-            embeddings.add(new Embedding(new float[]{0.1f, 0.2f}, i));
-        }
+        List<Embedding> embeddings = IntStream.range(0, n)
+                .mapToObj(i -> new Embedding(new float[]{0.1f, 0.2f}, i))
+                .collect(Collectors.toList());
         return new EmbeddingResponse(embeddings);
     }
 }

@@ -1,5 +1,6 @@
 package ch.exmachina.cosmo42.services.chat.tools;
 
+import ch.exmachina.cosmo42.config.ChatProperties;
 import ch.exmachina.cosmo42.entities.KBDocumentChunk;
 import ch.exmachina.cosmo42.entities.converters.VectorAttributeConverter;
 import ch.exmachina.cosmo42.repositories.KBDocumentChunkRepository;
@@ -27,6 +28,7 @@ public class KBDocumentSimilaritySearchTool extends BaseTool {
     OpenAiEmbeddingOptions embeddingModelOptions;
     VectorAttributeConverter vectorAttributeConverter;
     KBDocumentChunkRepository kbDocumentChunkRepository;
+    ChatProperties chatProps;
 
     @Tool(description = """
             Executes a semantic similarity search against the private Knowledge Base.
@@ -44,7 +46,11 @@ public class KBDocumentSimilaritySearchTool extends BaseTool {
         float[] queryVector = embeddingResponse.getResults().getFirst().getOutput();
         byte[] bytesVector = vectorAttributeConverter.convertToDatabaseColumn(queryVector);
 
-        List<KBDocumentChunk> chunks = kbDocumentChunkRepository.findMostSimilarByCosine(bytesVector, 0.5, 10);
+        List<KBDocumentChunk> chunks = kbDocumentChunkRepository.findMostSimilarByCosine(
+                bytesVector,
+                chatProps.getSimilaritySearchMaxDistance(),
+                chatProps.getSimilaritySearchLimit()
+        );
         List<ChunkDTO> chunkDTOs = chunks.stream()
                 .map(c -> new ChunkDTO(c.getKbDocument().getFileName(), c.getKbDocument().getUuid(), c.getContent()))
                 .toList();

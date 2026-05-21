@@ -5,6 +5,7 @@ import ch.exmachina.cosmo42.exceptions.ChatConversationNotFoundException;
 import ch.exmachina.cosmo42.exceptions.InvalidChatTitleException;
 import ch.exmachina.cosmo42.repositories.ChatConversationRepository;
 import ch.exmachina.cosmo42.testsupport.FakeClock;
+import ch.exmachina.cosmo42.testsupport.Fixtures;
 import jakarta.persistence.EntityManager;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
@@ -30,7 +31,7 @@ class ChatConversationServiceTest {
     EntityManager entityManager;
     ChatConversationService service;
 
-    static final LocalDateTime NOW = LocalDateTime.parse("2026-05-15T12:00:00");
+    static final LocalDateTime NOW = Fixtures.FIXED_NOW;
 
     @BeforeEach
     void setUp() {

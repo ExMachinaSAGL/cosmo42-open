@@ -1,6 +1,6 @@
-package ch.exmachina.cosmo42.controllers;
+package ch.exmachina.cosmo42.integration;
 
-import ch.exmachina.cosmo42.BaseIT;
+import ch.exmachina.cosmo42.AbstractWebIntegrationTest;
 import ch.exmachina.cosmo42.dto.DocumentDTO;
 import ch.exmachina.cosmo42.entities.IngestionJob;
 import ch.exmachina.cosmo42.entities.IngestionJobStatus;
@@ -15,7 +15,7 @@ import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-class KBDocumentsControllerIT extends BaseIT {
+class KBDocumentsControllerIT extends AbstractWebIntegrationTest {
 
     @Autowired
     IngestionJobRepository ingestionJobRepository;

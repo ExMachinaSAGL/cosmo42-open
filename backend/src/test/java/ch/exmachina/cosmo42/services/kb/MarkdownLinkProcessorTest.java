@@ -5,7 +5,7 @@ import org.junit.jupiter.api.Test;
 
 import java.util.List;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.assertj.core.api.Assertions.assertThat;
 
 class MarkdownLinkProcessorTest {
 
@@ -25,7 +25,7 @@ class MarkdownLinkProcessorTest {
         String newMessageChunk = markdownLinkProcessor.replaceFileReferenceLinks(messageChunk, allKBDocument);
 
         String expectedMessageChunk = "bla bla [&#128279;](/api/v1/kb/documents/f9da77ff-9838-4c5f-898f-0e3e1232f255/download)\n\nbla bla";
-        assertEquals(expectedMessageChunk, newMessageChunk);
+        assertThat(newMessageChunk).isEqualTo(expectedMessageChunk);
     }
 
     @Test
@@ -39,7 +39,7 @@ class MarkdownLinkProcessorTest {
         String newMessageChunk = markdownLinkProcessor.replaceFileReferenceLinks(messageChunk, allKBDocument);
 
         String expectedMessageChunk = messageChunk;
-        assertEquals(expectedMessageChunk, newMessageChunk);
+        assertThat(newMessageChunk).isEqualTo(expectedMessageChunk);
     }
 
     @Test
@@ -54,7 +54,7 @@ class MarkdownLinkProcessorTest {
         String newMessageChunk = markdownLinkProcessor.replaceFileReferenceLinks(messageChunk, allKBDocument);
 
         String expectedMessageChunk = "bla bla [&#128279;](/api/v1/kb/documents/f9da77ff-9838-4c5f-898f-0e3e1232f255/download)\n\nbla bla [&#128279;](/api/v1/kb/documents/f9da77ff-9838-4c5f-898f-0e3e1232f255/download)";
-        assertEquals(expectedMessageChunk, newMessageChunk);
+        assertThat(newMessageChunk).isEqualTo(expectedMessageChunk);
     }
 
     @Test
@@ -70,10 +70,8 @@ class MarkdownLinkProcessorTest {
         String newMessageChunk = markdownLinkProcessor.replaceFileReferenceLinks(messageChunk, allKBDocument);
 
         String expectedMessageChunk = "bla bla [&#128279;](/api/v1/kb/documents/f9da77ff-1111-4c5f-898f-0e3e1232f255/download)\n\nbla bla [&#128279;](/api/v1/kb/documents/f9da77ff-2222-4c5f-898f-0e3e1232f255/download)";
-        assertEquals(expectedMessageChunk, newMessageChunk);
+        assertThat(newMessageChunk).isEqualTo(expectedMessageChunk);
     }
-
-
 
 
     private KBDocument buildKBDocument(String uuid, String fileName) {
