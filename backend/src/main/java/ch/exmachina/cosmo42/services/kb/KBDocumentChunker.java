@@ -9,6 +9,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.ai.content.Media;
+import org.springframework.ai.converter.BeanOutputConverter;
 import org.springframework.ai.openai.OpenAiChatOptions;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.ByteArrayResource;
@@ -25,19 +26,14 @@ import java.util.stream.IntStream;
 @Slf4j
 public class KBDocumentChunker {
 
-    ChatModel chatModel;
-    OpenAiChatOptions.Builder chunkerModelOptionsBuilder;
-    ExecutorService executorService;
-    int pageChunkingTimeoutSeconds;
-
     private static final String CHUNKER_PROMPT = """
             You are an expert document analysis and data extraction AI.
             Analyze the provided single document page and extract its content into logical, self-contained chunks.
-
+            
             CRITICAL RULES:
             1. Process the page strictly from top to bottom.
             2. EXCLUSIONS: You MUST ignore document headers, footers, logos, page numbers, and recurring technical marginalia. Do not extract them.
-
+            
             EXTRACTION:
             - Text: Group text by semantic completeness. Prioritize logic over visual whitespace.
               - HEADINGS: NEVER extract a heading or title alone. Always merge it with the paragraph that immediately follows.
@@ -45,10 +41,14 @@ public class KBDocumentChunker {
             - Cut-offs: If a paragraph is cut off at the very bottom of the page, extract what you see and set 'continuesOnNextPage' to true.
             - Tables: Extract as Markdown, prepend the title, and provide a context summary. Ignore empty trailing rows.
             - Images: Provide a detailed descriptive text summary.
-
+            
             SCHEMA INSTRUCTIONS:
             - The 'summary' field is STRICTLY for 'table' and 'image' chunks. For 'text' chunks, the 'summary' field MUST be null.
             """;
+    ChatModel chatModel;
+    OpenAiChatOptions.Builder chunkerModelOptionsBuilder;
+    ExecutorService executorService;
+    int pageChunkingTimeoutSeconds;
 
     public KBDocumentChunker(ChatModel chatModel,
                              OpenAiChatOptions.Builder chunkerModelOptionsBuilder,
@@ -83,30 +83,47 @@ public class KBDocumentChunker {
         ChatClient chatClient = buildChatClient();
         int totalPages = pageImages.size();
 
-        Map<Integer, Future<DocumentPage>> futures = new LinkedHashMap<>();
+        CompletionService<Map.Entry<Integer, DocumentPage>> completionService =
+                new ExecutorCompletionService<>(executorService);
+        int submitted = 0;
         for (Integer pageIndex : targetIndices) {
             if (pageIndex < 0 || pageIndex >= totalPages) continue;
             Media media = new Media(MimeTypeUtils.IMAGE_PNG, new ByteArrayResource(pageImages.get(pageIndex)));
-            futures.put(pageIndex, executorService.submit(() -> chunkSinglePage(chatClient, media, pageIndex, totalPages)));
+            completionService.submit(() -> Map.entry(pageIndex, chunkSinglePageNullSafe(chatClient, media, pageIndex, totalPages)));
+            submitted++;
         }
 
-        for (Map.Entry<Integer, Future<DocumentPage>> entry : futures.entrySet()) {
-            int pageIndex = entry.getKey();
-            DocumentPage page;
+        for (int i = 0; i < submitted; i++) {
+            int pageIndex = -1;
+            DocumentPage page = null;
             try {
-                page = entry.getValue().get(pageChunkingTimeoutSeconds, TimeUnit.SECONDS);
-            } catch (TimeoutException e) {
-                log.error("Timeout waiting for page {} after {}s", pageIndex + 1, pageChunkingTimeoutSeconds);
-                entry.getValue().cancel(true);
-                page = null;
+                Future<Map.Entry<Integer, DocumentPage>> future =
+                        completionService.poll(pageChunkingTimeoutSeconds, TimeUnit.SECONDS);
+                if (future == null) {
+                    log.error("Global timeout waiting for a page result after {}s", pageChunkingTimeoutSeconds);
+                    break;
+                }
+                Map.Entry<Integer, DocumentPage> result = future.get();
+                pageIndex = result.getKey();
+                page = result.getValue();
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
-                page = null;
+                break;
             } catch (ExecutionException e) {
-                log.error("Failed to get result for page {}", pageIndex + 1, e);
-                page = null;
+                log.error("Unexpected execution error collecting page result", e);
             }
-            onPageComplete.accept(pageIndex, page);
+            if (pageIndex >= 0) {
+                onPageComplete.accept(pageIndex, page);
+            }
+        }
+    }
+
+    private DocumentPage chunkSinglePageNullSafe(ChatClient chatClient, Media media, int pageIndex, int totalPages) {
+        try {
+            return chunkSinglePage(chatClient, media, pageIndex, totalPages);
+        } catch (Exception e) {
+            log.error("Failed to extract chunks for page {}. Skipping.", pageIndex + 1, e);
+            return null;
         }
     }
 
@@ -118,20 +135,20 @@ public class KBDocumentChunker {
     }
 
     private DocumentPage chunkSinglePage(ChatClient chatClient, Media media, int pageIndex, int totalPages) {
-        try {
-            log.info("Chunking page {}/{} of the document.", pageIndex + 1, totalPages);
-            DocumentPage extracted = chatClient.prompt()
-                    .user(u -> u.text("Extract the chunks for the attached page.").media(media))
-                    .call()
-                    .entity(DocumentPage.class);
-            if (extracted == null) {
-                log.error("Null response from LLM for page {}. Skipping.", pageIndex + 1);
-            }
-            return extracted;
-        } catch (Exception e) {
-            log.error("Failed to extract chunks for page {}. Skipping.", pageIndex + 1, e);
+        log.info("Chunking page {}/{} of the document.", pageIndex + 1, totalPages);
+        BeanOutputConverter<DocumentPage> converter = new BeanOutputConverter<>(DocumentPage.class);
+        String fullContent = chatClient.prompt()
+                .user(u -> u.text("Extract the chunks for the attached page.\n" + converter.getFormat()).media(media))
+                .stream()
+                .content()
+                .collectList()
+                .map(chunks -> String.join("", chunks))
+                .block();
+        if (fullContent == null || fullContent.isBlank()) {
+            log.error("Empty response from LLM for page {}. Skipping.", pageIndex + 1);
             return null;
         }
+        return converter.convert(fullContent);
     }
 
     public List<DocumentPage> mergePages(List<DocumentPage> orderedPages) {
