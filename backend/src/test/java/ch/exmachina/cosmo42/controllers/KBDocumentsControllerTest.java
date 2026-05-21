@@ -45,7 +45,7 @@ class KBDocumentsControllerTest {
     @Test
     void getListReturnsAllDocuments() throws Exception {
         when(kbDocumentService.listAllKBDocuments()).thenReturn(List.of(
-                DocumentDTO.builder().fileUuid("file-1").fileName("a.pdf").status("done").build(),
+                DocumentDTO.builder().fileUuid("file-1").fileName("a.pdf").status("loaded").build(),
                 DocumentDTO.builder().fileUuid("file-2").fileName("b.pdf").status("loading").build()));
 
         mockMvc.perform(get("/api/v1/kb/documents"))
@@ -113,12 +113,12 @@ class KBDocumentsControllerTest {
     @Test
     void getDocumentReturns200WithBody() throws Exception {
         when(kbDocumentService.getDocument("file-uuid")).thenReturn(Optional.of(
-                DocumentDTO.builder().fileUuid("file-uuid").fileName("doc.pdf").status("done").build()));
+                DocumentDTO.builder().fileUuid("file-uuid").fileName("doc.pdf").status("loaded").build()));
 
         mockMvc.perform(get("/api/v1/kb/documents/{uuid}", "file-uuid"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.fileUuid").value("file-uuid"))
-                .andExpect(jsonPath("$.status").value("done"));
+                .andExpect(jsonPath("$.status").value("loaded"));
     }
 
     @Test

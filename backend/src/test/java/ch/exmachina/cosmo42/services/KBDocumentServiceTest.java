@@ -8,6 +8,7 @@ import ch.exmachina.cosmo42.entities.KBDocument;
 import ch.exmachina.cosmo42.exceptions.FileSaveException;
 import ch.exmachina.cosmo42.exceptions.KBDocumentNotFoundException;
 import ch.exmachina.cosmo42.mappers.KBDocumentMapper;
+import ch.exmachina.cosmo42.repositories.IngestionJobPageRepository;
 import ch.exmachina.cosmo42.repositories.IngestionJobRepository;
 import ch.exmachina.cosmo42.repositories.KBDocumentChunkRepository;
 import ch.exmachina.cosmo42.repositories.KBDocumentRepository;
@@ -42,6 +43,8 @@ class KBDocumentServiceTest {
     KBDocumentChunkRepository kbDocumentChunkRepository;
     @Mock
     IngestionJobRepository ingestionJobRepository;
+    @Mock
+    IngestionJobPageRepository ingestionJobPageRepository;
     @Mock
     FileService fileService;
     @Mock
@@ -178,8 +181,9 @@ class KBDocumentServiceTest {
     void deleteKBDocument_removesJobsChunksDocumentAndFileInOrder() throws IOException {
         service.deleteKBDocument("doc-uuid");
 
-        InOrder inOrder = inOrder(ingestionJobRepository, kbDocumentChunkRepository,
-                kbDocumentRepository, fileService);
+        InOrder inOrder = inOrder(ingestionJobPageRepository, ingestionJobRepository,
+                kbDocumentChunkRepository, kbDocumentRepository, fileService);
+        inOrder.verify(ingestionJobPageRepository).deleteByJob_kbDocumentUuid("doc-uuid");
         inOrder.verify(ingestionJobRepository).deleteByKbDocumentUuid("doc-uuid");
         inOrder.verify(kbDocumentChunkRepository).deleteByKbDocument_Uuid("doc-uuid");
         inOrder.verify(kbDocumentRepository).deleteByUuid("doc-uuid");

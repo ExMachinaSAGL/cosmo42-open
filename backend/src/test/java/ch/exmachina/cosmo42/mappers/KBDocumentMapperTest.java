@@ -88,7 +88,7 @@ class KBDocumentMapperTest {
     void toDocumentDTO_completedJobYieldsDoneAnd100Percent() {
         DocumentDTO dto = mapper.toDocumentDTO(baseJob(IngestionJobStatus.COMPLETED));
 
-        assertThat(dto.getStatus()).isEqualTo("done");
+        assertThat(dto.getStatus()).isEqualTo("loaded");
         assertThat(dto.getProgressPercent()).isEqualTo(100);
         assertThat(dto.getErrorMessage()).isNull();
     }
