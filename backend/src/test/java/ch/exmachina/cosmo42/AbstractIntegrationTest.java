@@ -4,11 +4,6 @@ import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.testcontainers.containers.MariaDBContainer;
 
-/**
- * Shared base for tests that need a real MariaDB.
- * Reuses a single manually managed container across the JVM so Spring context
- * caching never points at a container stopped after another test class.
- */
 public abstract class AbstractIntegrationTest {
 
     static final MariaDBContainer<?> MARIADB =
