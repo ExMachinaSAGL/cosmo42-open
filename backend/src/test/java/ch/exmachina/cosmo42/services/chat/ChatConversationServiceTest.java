@@ -2,6 +2,7 @@ package ch.exmachina.cosmo42.services.chat;
 
 import ch.exmachina.cosmo42.entities.ChatConversation;
 import ch.exmachina.cosmo42.repositories.ChatConversationRepository;
+import ch.exmachina.cosmo42.repositories.KBDocumentRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
@@ -26,6 +27,7 @@ class ChatConversationServiceTest {
     TitleSanitizer sanitizer;
     Clock fixedClock;
     ChatConversationService service;
+    KBDocumentRepository kbDocumentRepository;
 
     static final LocalDateTime NOW = LocalDateTime.parse("2026-05-15T12:00:00");
 
@@ -33,10 +35,11 @@ class ChatConversationServiceTest {
     void setUp() {
         repository = mock(ChatConversationRepository.class);
         chatMemory = mock(ChatMemory.class);
+        kbDocumentRepository = mock(KBDocumentRepository.class);
         sanitizer = new TitleSanitizer();
         fixedClock = Clock.fixed(NOW.atZone(ZoneId.systemDefault()).toInstant(), ZoneId.systemDefault());
         service = new ChatConversationService(
-                repository, chatMemory, sanitizer, fixedClock);
+                repository, chatMemory, sanitizer, fixedClock, kbDocumentRepository);
     }
 
     @Test
