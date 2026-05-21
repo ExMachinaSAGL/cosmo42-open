@@ -95,8 +95,8 @@ class KBDocumentSimilaritySearchToolTest {
 
         assertThat(response.chunks())
                 .containsExactly(
-                        new KBDocumentSimilaritySearchTool.ChunkDTO("first.pdf", "first content"),
-                        new KBDocumentSimilaritySearchTool.ChunkDTO("second.pdf", "second content"));
+                        new KBDocumentSimilaritySearchTool.ChunkDTO("first.pdf", "doc-uuid-1", "first content"),
+                        new KBDocumentSimilaritySearchTool.ChunkDTO("second.pdf", "doc-uuid-2", "second content"));
     }
 
     @Test

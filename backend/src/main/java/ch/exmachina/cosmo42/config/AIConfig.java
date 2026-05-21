@@ -18,6 +18,9 @@ public class AIConfig {
     @Value("${cosmo42.model.embedding.name}")
     private String embeddingModelName;
 
+    @Value("${cosmo42.chunking.max-tokens}")
+    private Integer chunkingMaxTokens;
+
     @Bean
     public OpenAiChatOptions.Builder chatModelOptionsBuilder() {
         return OpenAiChatOptions.builder()
@@ -32,7 +35,7 @@ public class AIConfig {
         return OpenAiChatOptions.builder()
                 .temperature(0.1)
                 .topP((double) 1.0F)
-                .maxTokens(16000)
+                .maxTokens(chunkingMaxTokens)
                 .model(llmModelName);
     }
 

@@ -3,9 +3,12 @@ package ch.exmachina.cosmo42.services.chat.processors;
 import ch.exmachina.cosmo42.dto.ChatEventType;
 import ch.exmachina.cosmo42.dto.ChatRequestDTO;
 import ch.exmachina.cosmo42.dto.ChatResponseDTO;
+import ch.exmachina.cosmo42.entities.KBDocument;
+import ch.exmachina.cosmo42.repositories.KBDocumentRepository;
 import ch.exmachina.cosmo42.services.chat.ChatContext;
 import ch.exmachina.cosmo42.services.chat.tools.KBDocumentSimilaritySearchTool;
 import ch.exmachina.cosmo42.testsupport.ChatModelMocks;
+import ch.exmachina.cosmo42.testsupport.Fixtures;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -39,6 +42,7 @@ class ConversationProcessorTest {
     ChatModel chatModel;
     ChatMemory chatMemory;
     KBDocumentSimilaritySearchTool tool;
+    KBDocumentRepository kbDocumentRepository;
     ConversationProcessor processor;
 
     @BeforeEach
@@ -46,12 +50,15 @@ class ConversationProcessorTest {
         chatModel = ChatModelMocks.replyingWith("dummy");
         chatMemory = mock(ChatMemory.class);
         tool = mock(KBDocumentSimilaritySearchTool.class);
+        kbDocumentRepository = mock(KBDocumentRepository.class);
         when(chatMemory.get(any())).thenReturn(List.of());
+        when(kbDocumentRepository.findAll()).thenReturn(List.of());
         processor = new ConversationProcessor(
                 chatModel,
                 OpenAiChatOptions.builder().model("test-model").temperature(0.2),
                 chatMemory,
-                tool);
+                tool,
+                kbDocumentRepository);
     }
 
     @Nested
@@ -59,7 +66,7 @@ class ConversationProcessorTest {
 
         @Test
         void promptCarriesSystemInstructionDefiningCosmo42Persona() {
-            when(chatModel.stream(any(Prompt.class))).thenReturn(Flux.just(response("ok")));
+            when(chatModel.stream(any(Prompt.class))).thenReturn(Flux.just(response("ok\n")));
             ChatContext ctx = newContext("u-1", "what is X?");
 
             processor.process(ctx).blockLast();
@@ -75,7 +82,7 @@ class ConversationProcessorTest {
 
         @Test
         void promptCarriesTheUserMessageVerbatim() {
-            when(chatModel.stream(any(Prompt.class))).thenReturn(Flux.just(response("ok")));
+            when(chatModel.stream(any(Prompt.class))).thenReturn(Flux.just(response("ok\n")));
             ChatContext ctx = newContext("u-1", "Tell me about the Q3 report.");
 
             processor.process(ctx).blockLast();
@@ -87,22 +94,25 @@ class ConversationProcessorTest {
         }
 
         @Test
-        void streamMapsEachChatResponseToOneChunkSseEvent() {
+        void streamBuffersChunksUntilNewlineThenEmitsOneSseEventPerLine() {
             when(chatModel.stream(any(Prompt.class))).thenReturn(Flux.just(
-                    response("hello"), response(" world"), response("!")));
+                    response("hello "),
+                    response("world\n"),
+                    response("second line\n"),
+                    response("tail no newline")));
             ChatContext ctx = newContext("u-1", "hi");
 
             StepVerifier.create(processor.process(ctx))
-                    .assertNext(sse -> assertChunkEvent(sse, "hello"))
-                    .assertNext(sse -> assertChunkEvent(sse, " world"))
-                    .assertNext(sse -> assertChunkEvent(sse, "!"))
+                    .assertNext(sse -> assertChunkEvent(sse, "hello world\n"))
+                    .assertNext(sse -> assertChunkEvent(sse, "second line\n"))
+                    .assertNext(sse -> assertChunkEvent(sse, "tail no newline"))
                     .verifyComplete();
         }
 
         @Test
-        void responseWithNullTextMappedToEmptyChunkData() {
-            ChatResponse withNullText = new ChatResponse(List.of(new Generation(new AssistantMessage(""))));
-            when(chatModel.stream(any(Prompt.class))).thenReturn(Flux.just(withNullText));
+        void responseWithEmptyTextStillEmitsExactlyOneSseEvent() {
+            ChatResponse withEmptyText = new ChatResponse(List.of(new Generation(new AssistantMessage(""))));
+            when(chatModel.stream(any(Prompt.class))).thenReturn(Flux.just(withEmptyText));
             ChatContext ctx = newContext("u-1", "hi");
 
             StepVerifier.create(processor.process(ctx))
@@ -123,12 +133,47 @@ class ConversationProcessorTest {
 
         @Test
         void conversationIdParameterPropagatedToChatMemoryAdvisor() {
-            when(chatModel.stream(any(Prompt.class))).thenReturn(Flux.just(response("ok")));
+            when(chatModel.stream(any(Prompt.class))).thenReturn(Flux.just(response("ok\n")));
             ChatContext ctx = newContext("conv-xyz", "hi");
 
             processor.process(ctx).blockLast();
 
             verify(chatMemory).get("conv-xyz");
+        }
+
+        @Test
+        void referenceTokensInLlmOutputAreRewrittenToMarkdownLinks() {
+            String uuid = "1d52d4f1-1c5b-4be8-8b1c-0123456789ab";
+            KBDocument doc = Fixtures.document(uuid, "report.pdf");
+            when(kbDocumentRepository.findAll()).thenReturn(List.of(doc));
+            when(chatModel.stream(any(Prompt.class))).thenReturn(Flux.just(
+                    response("see REF_FILE_" + uuid + "\n")));
+            ChatContext ctx = newContext("u-1", "where is it?");
+
+            StepVerifier.create(processor.process(ctx))
+                    .assertNext(sse -> {
+                        assertThat(sse.data()).isNotNull();
+                        assertThat(sse.data().getType()).isEqualTo(ChatEventType.CHUNK);
+                        assertThat((String) sse.data().getData())
+                                .contains("(/api/v1/kb/documents/" + uuid + "/download)")
+                                .doesNotContain("REF_FILE_");
+                    })
+                    .verifyComplete();
+        }
+
+        @Test
+        void unknownReferenceTokensAreStrippedFromOutput() {
+            when(kbDocumentRepository.findAll()).thenReturn(List.of());
+            String fakeUuid = "ffffffff-ffff-ffff-ffff-ffffffffffff";
+            when(chatModel.stream(any(Prompt.class))).thenReturn(Flux.just(
+                    response("text REF_FILE_" + fakeUuid + " more\n")));
+            ChatContext ctx = newContext("u-1", "hi");
+
+            StepVerifier.create(processor.process(ctx))
+                    .assertNext(sse -> assertThat((String) sse.data().getData())
+                            .doesNotContain("REF_FILE_")
+                            .doesNotContain(fakeUuid))
+                    .verifyComplete();
         }
     }
 
@@ -136,14 +181,14 @@ class ConversationProcessorTest {
     class MemoryAdvisor {
 
         @BeforeEach
-        void setUp() {
+        void stubChatMemoryForU1() {
             when(chatMemory.get("u-1")).thenReturn(List.of());
         }
 
         @Test
         void doesNotManuallyPersistMessagesBecauseMemoryAdvisorOwnsPersistence() {
             when(chatModel.stream(any(Prompt.class))).thenReturn(Flux.just(new ChatResponse(
-                    List.of(new Generation(new AssistantMessage("answer"))))));
+                    List.of(new Generation(new AssistantMessage("answer\n"))))));
 
             ChatContext context = ChatContext.builder()
                     .newChat(false)
