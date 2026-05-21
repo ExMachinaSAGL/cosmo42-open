@@ -4,7 +4,6 @@ import ch.exmachina.cosmo42.services.MimeTypeService;
 import ch.exmachina.cosmo42.dto.DocumentDTO;
 import ch.exmachina.cosmo42.dto.DownloadDocumentDTO;
 import ch.exmachina.cosmo42.services.KBDocumentService;
-import ch.exmachina.cosmo42.utils.MimeTypeUtils;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -55,14 +54,12 @@ public class KBDocumentsController {
         if (file.isEmpty()) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Empty file.");
         }
-        if (!MimeTypeUtils.isSupportedMimeType(file)) {
+        if (!mimeTypeService.isSupportedMimeType(file)) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
                     "Only PDF, DOCX, and XLSX files are supported.");
         }
-        if (mimeTypeService.isSupportedMimeType(file)) {
-            return ResponseEntity.ok(kbDocumentService.saveKBDocument(file));
-        }
-        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Only PDF files are supported.");
+        return ResponseEntity.status(HttpStatus.ACCEPTED)
+                .body(kbDocumentService.enqueueKBDocument(file));
     }
 
     @GetMapping("/{uuid}")

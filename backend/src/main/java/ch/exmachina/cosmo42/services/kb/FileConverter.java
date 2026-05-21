@@ -1,6 +1,7 @@
 package ch.exmachina.cosmo42.services.kb;
 
 import ch.exmachina.cosmo42.services.MimeTypeService;
+import ch.exmachina.cosmo42.services.MimeTypeServiceImpl;
 import ch.exmachina.cosmo42.utils.SupportedMimeTypes;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
@@ -58,6 +59,18 @@ public class FileConverter {
             throw new IllegalArgumentException("Unsupported file type: " + file.getName());
         }
         return pdfBytes;
+    }
+
+    public byte[] convertSupportedFileToPdfFromBytes(byte[] bytes, String filename) {
+        String mimeType = MimeTypeServiceImpl.getMimeType(bytes, filename);
+        if (SupportedMimeTypes.MIME_DOCX.matches(mimeType) || SupportedMimeTypes.MIME_XSLX.matches(mimeType)) {
+            log.info("Converting docx/xlsx bytes to PDF for {}", filename);
+            return convertOfficeFileToPdf(bytes, filename);
+        }
+        if (SupportedMimeTypes.MIME_PDF.matches(mimeType)) {
+            return bytes;
+        }
+        throw new IllegalArgumentException("Unsupported file type: " + filename);
     }
 
     public List<byte[]> convertPdfToImages(byte[] pdfBytes) throws IOException {

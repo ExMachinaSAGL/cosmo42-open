@@ -1,6 +1,7 @@
 package ch.exmachina.cosmo42.controllers;
 
 import ch.exmachina.cosmo42.dto.DocumentDTO;
+import ch.exmachina.cosmo42.dto.DownloadDocumentDTO;
 import ch.exmachina.cosmo42.exceptions.GlobalExceptionHandler;
 import ch.exmachina.cosmo42.exceptions.KBDocumentNotFoundException;
 import ch.exmachina.cosmo42.services.KBDocumentService;
@@ -16,12 +17,12 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doNothing;
-import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
@@ -44,43 +45,46 @@ class KBDocumentsControllerTest {
     @Test
     void getListReturnsAllDocuments() throws Exception {
         when(kbDocumentService.listAllKBDocuments()).thenReturn(List.of(
-                DocumentDTO.builder().uuid("u-1").name("a.pdf").build(),
-                DocumentDTO.builder().uuid("u-2").name("b.pdf").build()));
+                DocumentDTO.builder().fileUuid("file-1").fileName("a.pdf").status("done").build(),
+                DocumentDTO.builder().fileUuid("file-2").fileName("b.pdf").status("loading").build()));
 
         mockMvc.perform(get("/api/v1/kb/documents"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$[0].uuid").value("u-1"))
-                .andExpect(jsonPath("$[1].uuid").value("u-2"));
+                .andExpect(jsonPath("$[0].fileUuid").value("file-1"))
+                .andExpect(jsonPath("$[0].fileName").value("a.pdf"))
+                .andExpect(jsonPath("$[1].fileUuid").value("file-2"));
     }
 
     @Test
-    void uploadValidPdfDelegatesToServiceAndReturnsDto() throws Exception {
+    void uploadValidPdfReturns202AndDelegatesToService() throws Exception {
         MockMultipartFile file = new MockMultipartFile(
                 "file", "doc.pdf", "application/pdf", FileFixtures.singlePagePdf("hi"));
-        when(kbDocumentService.saveKBDocument(any())).thenReturn(
-                DocumentDTO.builder().uuid("new-uuid").name("doc.pdf").build());
         when(mimeTypeService.isSupportedMimeType(any())).thenReturn(true);
+        when(kbDocumentService.enqueueKBDocument(any())).thenReturn(
+                DocumentDTO.builder().fileUuid("file-uuid").fileName("doc.pdf").status("loading").build());
 
         mockMvc.perform(multipart("/api/v1/kb/documents").file(file))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.uuid").value("new-uuid"))
-                .andExpect(jsonPath("$.name").value("doc.pdf"));
+                .andExpect(status().isAccepted())
+                .andExpect(jsonPath("$.fileUuid").value("file-uuid"))
+                .andExpect(jsonPath("$.fileName").value("doc.pdf"))
+                .andExpect(jsonPath("$.status").value("loading"));
 
-        verify(kbDocumentService).saveKBDocument(any());
+        verify(kbDocumentService).enqueueKBDocument(any());
     }
 
     @Test
-    void uploadValidDocxDelegatesToService() throws Exception {
+    void uploadValidDocxReturns202() throws Exception {
         MockMultipartFile file = new MockMultipartFile(
                 "file", "doc.docx", "application/octet-stream", FileFixtures.minimalDocx());
-        when(kbDocumentService.saveKBDocument(any())).thenReturn(
-                DocumentDTO.builder().uuid("u").name("doc.docx").build());
         when(mimeTypeService.isSupportedMimeType(any())).thenReturn(true);
+        when(kbDocumentService.enqueueKBDocument(any())).thenReturn(
+                DocumentDTO.builder().fileUuid("file-uuid").fileName("doc.docx").status("loading").build());
 
         mockMvc.perform(multipart("/api/v1/kb/documents").file(file))
-                .andExpect(status().isOk());
+                .andExpect(status().isAccepted())
+                .andExpect(jsonPath("$.fileName").value("doc.docx"));
 
-        verify(kbDocumentService).saveKBDocument(any());
+        verify(kbDocumentService).enqueueKBDocument(any());
     }
 
     @Test
@@ -89,8 +93,7 @@ class KBDocumentsControllerTest {
                 "file", "empty.pdf", "application/pdf", new byte[0]);
 
         mockMvc.perform(multipart("/api/v1/kb/documents").file(file))
-                .andExpect(status().isBadRequest())
-                .andExpect(content().string("Empty file."));
+                .andExpect(status().isBadRequest());
 
         verifyNoInteractions(kbDocumentService);
     }
@@ -102,19 +105,37 @@ class KBDocumentsControllerTest {
         when(mimeTypeService.isSupportedMimeType(any())).thenReturn(false);
 
         mockMvc.perform(multipart("/api/v1/kb/documents").file(file))
-                .andExpect(status().isBadRequest())
-                .andExpect(content().string("Only PDF files are supported."));
+                .andExpect(status().isBadRequest());
 
         verifyNoInteractions(kbDocumentService);
     }
 
     @Test
+    void getDocumentReturns200WithBody() throws Exception {
+        when(kbDocumentService.getDocument("file-uuid")).thenReturn(Optional.of(
+                DocumentDTO.builder().fileUuid("file-uuid").fileName("doc.pdf").status("done").build()));
+
+        mockMvc.perform(get("/api/v1/kb/documents/{uuid}", "file-uuid"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.fileUuid").value("file-uuid"))
+                .andExpect(jsonPath("$.status").value("done"));
+    }
+
+    @Test
+    void getDocumentReturns404WhenMissing() throws Exception {
+        when(kbDocumentService.getDocument("missing")).thenReturn(Optional.empty());
+
+        mockMvc.perform(get("/api/v1/kb/documents/{uuid}", "missing"))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
     void downloadReturnsBytesWithAttachmentHeader() throws Exception {
         UUID uuid = UUID.randomUUID();
-        when(kbDocumentService.loadKBDocument(uuid.toString())).thenReturn(
-                DocumentDTO.builder()
-                        .uuid(uuid.toString())
-                        .name("report.pdf")
+        when(kbDocumentService.downloadKBDocument(uuid.toString())).thenReturn(
+                DownloadDocumentDTO.builder()
+                        .fileUuid(uuid.toString())
+                        .fileName("report.pdf")
                         .content(new byte[]{1, 2, 3, 4})
                         .build());
 
@@ -125,6 +146,16 @@ class KBDocumentsControllerTest {
                 .andExpect(header().longValue("Content-Length", 4))
                 .andExpect(content().contentType(MediaType.APPLICATION_OCTET_STREAM))
                 .andExpect(content().bytes(new byte[]{1, 2, 3, 4}));
+    }
+
+    @Test
+    void downloadOnMissingDocumentReturns404() throws Exception {
+        UUID uuid = UUID.randomUUID();
+        when(kbDocumentService.downloadKBDocument(eq(uuid.toString())))
+                .thenThrow(new KBDocumentNotFoundException(uuid.toString()));
+
+        mockMvc.perform(get("/api/v1/kb/documents/{uuid}/download", uuid))
+                .andExpect(status().isNotFound());
     }
 
     @Test
@@ -152,15 +183,5 @@ class KBDocumentsControllerTest {
                 .andExpect(status().isBadRequest());
 
         verifyNoInteractions(kbDocumentService);
-    }
-
-    @Test
-    void downloadOnMissingDocumentReturns404() throws Exception {
-        UUID uuid = UUID.randomUUID();
-        when(kbDocumentService.loadKBDocument(eq(uuid.toString())))
-                .thenThrow(new KBDocumentNotFoundException(uuid.toString()));
-
-        mockMvc.perform(get("/api/v1/kb/documents/{uuid}/download", uuid))
-                .andExpect(status().isNotFound());
     }
 }

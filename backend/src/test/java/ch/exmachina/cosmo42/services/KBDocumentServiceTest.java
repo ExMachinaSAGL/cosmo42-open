@@ -2,11 +2,10 @@ package ch.exmachina.cosmo42.services;
 
 import ch.exmachina.cosmo42.BaseTest;
 import ch.exmachina.cosmo42.dto.DocumentDTO;
-import ch.exmachina.cosmo42.entities.KBDocument;
-import ch.exmachina.cosmo42.entities.KBDocumentChunk;
-import ch.exmachina.cosmo42.entities.KBDocumentChunkType;
+import ch.exmachina.cosmo42.dto.DownloadDocumentDTO;
 import ch.exmachina.cosmo42.entities.IngestionJob;
 import ch.exmachina.cosmo42.entities.IngestionJobStatus;
+import ch.exmachina.cosmo42.entities.KBDocument;
 import ch.exmachina.cosmo42.exceptions.FileSaveException;
 import ch.exmachina.cosmo42.exceptions.KBDocumentNotFoundException;
 import ch.exmachina.cosmo42.mappers.KBDocumentMapper;
@@ -15,37 +14,26 @@ import ch.exmachina.cosmo42.repositories.KBDocumentChunkRepository;
 import ch.exmachina.cosmo42.repositories.KBDocumentRepository;
 import ch.exmachina.cosmo42.services.fs.FileReference;
 import ch.exmachina.cosmo42.services.fs.FileService;
-import ch.exmachina.cosmo42.services.kb.KBDocumentChunker;
-import ch.exmachina.cosmo42.services.kb.schema.DocumentPage;
-import ch.exmachina.cosmo42.testsupport.EmbeddingMocks;
-import ch.exmachina.cosmo42.testsupport.FakeClock;
 import ch.exmachina.cosmo42.testsupport.Fixtures;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.mockito.ArgumentCaptor;
-import org.springframework.ai.embedding.EmbeddingModel;
-import org.springframework.ai.embedding.EmbeddingRequest;
-import org.springframework.ai.openai.OpenAiEmbeddingOptions;
 import org.mockito.InjectMocks;
+import org.mockito.InOrder;
 import org.mockito.Mock;
 import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
-import java.time.Clock;
 import java.util.List;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.*;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.inOrder;
-import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 class KBDocumentServiceTest extends BaseTest {
@@ -58,214 +46,61 @@ class KBDocumentServiceTest extends BaseTest {
     @Mock IngestionJobService ingestionJobService;
     @Mock KBDocumentIngestionProcessor ingestionProcessor;
 
-    @InjectMocks
-    KBDocumentRepository documentRepo;
-    KBDocumentChunkRepository chunkRepo;
-    FileService fileService;
-    KBDocumentMapper mapper;
-    KBDocumentChunker chunker;
-    EmbeddingModel embeddingModel;
-    OpenAiEmbeddingOptions embeddingOptions;
-    Clock clock;
-    KBDocumentService service;
+    @InjectMocks KBDocumentService service;
 
-    MockMultipartFile file;
+    private MultipartFile pdfFile() {
+        return new MockMultipartFile("file", "doc.pdf", "application/pdf", new byte[]{1, 2, 3});
+    }
 
-    @BeforeEach
-    void setUp() {
-        documentRepo = mock(KBDocumentRepository.class);
-        chunkRepo = mock(KBDocumentChunkRepository.class);
-        fileService = mock(FileService.class);
-        mapper = new KBDocumentMapper();
-        chunker = mock(KBDocumentChunker.class);
-        embeddingModel = mock(EmbeddingModel.class);
-        embeddingOptions = OpenAiEmbeddingOptions.builder().model("test-embedding").build();
-        clock = FakeClock.fixedAtFixedNow();
-        service = new KBDocumentService(
-                documentRepo, chunkRepo, fileService, mapper, chunker,
-                embeddingModel, embeddingOptions, clock);
-        file = new MockMultipartFile("file", "doc.pdf", "application/pdf", "pdf-bytes".getBytes());
+    private IngestionJob job(String uuid, String storedFileUuid, IngestionJobStatus status) {
+        IngestionJob j = new IngestionJob();
+        j.setUuid(uuid);
+        j.setStoredFileUuid(storedFileUuid);
+        j.setOriginalFileName("doc.pdf");
+        j.setFileSizeBytes(3L);
+        j.setStatus(status);
+        return j;
     }
 
     @Test
-    void saveKBDocumentPersistsDocumentAndChunksWithEmbeddings() throws Exception {
-        DocumentPage page = Fixtures.page(Fixtures.textChunk("first body"), Fixtures.tableChunk("| col |", "table summary"));
-        when(chunker.extractRawChunks(file)).thenReturn(List.of(page));
-        when(fileService.save(file)).thenReturn(FileReference.builder()
-                .uuid("doc-uuid").fileName("doc.pdf").fileSize(123L).build());
-        EmbeddingMocks.stubReturningZeros(embeddingModel, 1024);
-        DocumentDTO dto = service.saveKBDocument(file);
-
-        ArgumentCaptor<KBDocument> docCap = ArgumentCaptor.forClass(KBDocument.class);
-        verify(documentRepo).save(docCap.capture());
-        KBDocument saved = docCap.getValue();
-        assertThat(saved.getUuid()).isEqualTo("doc-uuid");
-        assertThat(saved.getFileName()).isEqualTo("doc.pdf");
-        assertThat(saved.getFileSize()).isEqualTo(123L);
-        assertThat(saved.getCreationTimestamp()).isEqualTo(Fixtures.FIXED_NOW);
-
-        @SuppressWarnings("unchecked")
-        ArgumentCaptor<List<KBDocumentChunk>> chunksCap = ArgumentCaptor.forClass(List.class);
-        verify(chunkRepo).saveAll(chunksCap.capture());
-        List<KBDocumentChunk> chunks = chunksCap.getValue();
-        assertThat(chunks).hasSize(2);
-        assertThat(chunks.get(0).getType()).isEqualTo(KBDocumentChunkType.TEXT);
-        assertThat(chunks.get(0).getContent()).isEqualTo("first body");
-        assertThat(chunks.get(1).getType()).isEqualTo(KBDocumentChunkType.TABLE);
-        assertThat(chunks.get(1).getSummary()).isEqualTo("table summary");
-        for (KBDocumentChunk chunk : chunks) {
-            assertThat(chunk.getEmbedding()).isNotNull().hasSize(1024);
-        }
-
-        assertThat(dto.getUuid()).isEqualTo("doc-uuid");
-        assertThat(dto.getName()).isEqualTo("doc.pdf");
-    }
-
-    @Test
-    void tableChunkEmbedsSummaryWhileTextChunkEmbedsContent() throws Exception {
-        DocumentPage page = Fixtures.page(Fixtures.textChunk("plain text"), Fixtures.tableChunk("| table |", "describes the table"));
-        when(chunker.extractRawChunks(file)).thenReturn(List.of(page));
-        when(fileService.save(file)).thenReturn(FileReference.builder()
-                .uuid("u").fileName("f").fileSize(1L).build());
-        EmbeddingMocks.stubReturningZeros(embeddingModel, 1024);
-        service.saveKBDocument(file);
-
-        ArgumentCaptor<EmbeddingRequest> reqCap = ArgumentCaptor.forClass(EmbeddingRequest.class);
-        verify(embeddingModel).call(reqCap.capture());
-        assertThat(reqCap.getValue().getInstructions())
-                .containsExactly("plain text", "describes the table");
-        assertThat(reqCap.getValue().getOptions()).isSameAs(embeddingOptions);
-    }
-
-    @Test
-    void multiplePagesProduceFlattenedChunkList() throws Exception {
-        DocumentPage page1 = Fixtures.page(Fixtures.textChunk("p1a"), Fixtures.textChunk("p1b"));
-        DocumentPage page2 = Fixtures.page(Fixtures.textChunk("p2a"));
-        when(chunker.extractRawChunks(file)).thenReturn(List.of(page1, page2));
-        when(fileService.save(file)).thenReturn(FileReference.builder()
-                .uuid("u").fileName("f").fileSize(1L).build());
-        EmbeddingMocks.stubReturningZeros(embeddingModel, 1024);
-
-        service.saveKBDocument(file);
-
-        @SuppressWarnings("unchecked")
-        ArgumentCaptor<List<KBDocumentChunk>> chunksCap = ArgumentCaptor.forClass(List.class);
-        verify(chunkRepo).saveAll(chunksCap.capture());
-        assertThat(chunksCap.getValue())
-                .extracting(KBDocumentChunk::getContent)
-                .containsExactly("p1a", "p1b", "p2a");
-    }
-
-    @Test
-    void chunkerIoExceptionTranslatesToFileSaveException() throws Exception {
-        when(chunker.extractRawChunks(file)).thenThrow(new IOException("pdf parse failed"));
-
-        assertThatThrownBy(() -> service.saveKBDocument(file))
-                .isInstanceOf(FileSaveException.class);
-        verifyNoInteractions(fileService);
-        verifyNoInteractions(embeddingModel);
-        verify(documentRepo, never()).save(any());
-    }
-
-    @Test
-    void fileServiceIoExceptionTranslatesToFileSaveException() throws Exception {
-        when(chunker.extractRawChunks(file)).thenReturn(List.of());
-        when(fileService.save(file)).thenThrow(new IOException("disk full"));
-
-        assertThatThrownBy(() -> service.saveKBDocument(file))
-                .isInstanceOf(FileSaveException.class);
-        verify(documentRepo, never()).save(any());
-        verifyNoInteractions(embeddingModel);
-    }
-
-    @Test
-    void listAllKBDocumentsDelegatesToRepositoryAndMaps() {
-        KBDocument d1 = Fixtures.document("u-1", "a.pdf");
-        KBDocument d2 = Fixtures.document("u-2", "b.pdf");
-        when(documentRepo.findAll()).thenReturn(List.of(d1, d2));
+    void listAllKBDocuments_delegatesToIngestionRepoAndMaps() {
+        IngestionJob j1 = job("job-1", "file-1", IngestionJobStatus.COMPLETED);
+        j1.setId(1L);
+        IngestionJob j2 = job("job-2", "file-2", IngestionJobStatus.PENDING);
+        j2.setId(2L);
+        DocumentDTO d1 = DocumentDTO.builder().fileUuid("file-1").fileName("doc.pdf").build();
+        DocumentDTO d2 = DocumentDTO.builder().fileUuid("file-2").fileName("doc.pdf").build();
+        when(ingestionJobRepository.findAll()).thenReturn(List.of(j1, j2));
+        when(kbDocumentMapper.toDocumentDTO(j1)).thenReturn(d1);
+        when(kbDocumentMapper.toDocumentDTO(j2)).thenReturn(d2);
 
         List<DocumentDTO> result = service.listAllKBDocuments();
 
-        assertThat(result).extracting(DocumentDTO::getUuid).containsExactly("u-1", "u-2");
-        assertThat(result).extracting(DocumentDTO::getName).containsExactly("a.pdf", "b.pdf");
-    }
-
-    @Test
-    void loadKBDocumentReturnsDtoWithFileContent() throws Exception {
-        KBDocument doc = Fixtures.document("u-1", "a.pdf");
-        when(documentRepo.findByUuid("u-1")).thenReturn(Optional.of(doc));
-        when(fileService.load("u-1")).thenReturn(new byte[]{1, 2, 3});
-
-        DocumentDTO dto = service.loadKBDocument("u-1");
-
-        assertThat(dto.getUuid()).isEqualTo("u-1");
-        assertThat(dto.getName()).isEqualTo("a.pdf");
-        assertThat(dto.getContent()).containsExactly(1, 2, 3);
-    }
-
-    @Test
-    void loadKBDocumentThrowsNotFoundWhenUuidMissing() {
-        when(documentRepo.findByUuid("missing")).thenReturn(Optional.empty());
-
-        assertThatThrownBy(() -> service.loadKBDocument("missing"))
-                .isInstanceOf(KBDocumentNotFoundException.class);
-    }
-
-    @Test
-    void loadKBDocumentWrapsFileServiceIoException() throws Exception {
-        KBDocument doc = Fixtures.document("u-1", "a.pdf");
-        when(documentRepo.findByUuid("u-1")).thenReturn(Optional.of(doc));
-        when(fileService.load("u-1")).thenThrow(new IOException("read failed"));
-
-        assertThatThrownBy(() -> service.loadKBDocument("u-1"))
-                .isInstanceOf(RuntimeException.class)
-                .hasMessageContaining("Error downloading file");
-    }
-
-    @Test
-    void deleteKBDocumentRemovesChunksDocumentAndFileInOrder() throws Exception {
-        service.deleteKBDocument("u-1");
-
-        var inOrder = inOrder(chunkRepo, documentRepo, fileService);
-        inOrder.verify(chunkRepo).deleteByKbDocument_Uuid("u-1");
-        inOrder.verify(documentRepo).deleteByUuid("u-1");
-        inOrder.verify(fileService).delete("u-1");
-    }
-
-    @Test
-    void deleteKBDocumentWrapsFileServiceIoException() throws Exception {
-        org.mockito.Mockito.doThrow(new IOException("disk fail")).when(fileService).delete("u-1");
-
-        assertThatThrownBy(() -> service.deleteKBDocument("u-1"))
-                .isInstanceOf(RuntimeException.class)
-                .hasMessageContaining("Error deleting file");
+        assertThat(result).extracting(DocumentDTO::getFileUuid).containsExactly("file-1", "file-2");
     }
 
     @Test
     void enqueueKBDocument_savesFileCreatesJobAndTriggersAsync() throws IOException {
-        MultipartFile file = new MockMultipartFile("file", "doc.pdf", "application/pdf", new byte[]{1, 2, 3});
+        MultipartFile file = pdfFile();
         FileReference ref = FileReference.builder().uuid("file-uuid").fileName("doc.pdf").fileSize(3L).build();
-        IngestionJob job = new IngestionJob();
-        job.setUuid("job-uuid");
-        job.setStoredFileUuid("file-uuid");
-        job.setOriginalFileName("doc.pdf");
-        job.setFileSizeBytes(3L);
-        job.setStatus(IngestionJobStatus.PENDING);
-        DocumentDTO dto = DocumentDTO.builder().fileName("job-uuid").fileUuid("file-uuid").build();
+        IngestionJob created = job("job-uuid", "file-uuid", IngestionJobStatus.PENDING);
+        DocumentDTO dto = DocumentDTO.builder().fileUuid("file-uuid").fileName("doc.pdf")
+                .status("loading").build();
 
         when(fileService.save(file)).thenReturn(ref);
-        when(ingestionJobService.createJob("doc.pdf", 3L, "file-uuid")).thenReturn(job);
-        when(kbDocumentMapper.toDocumentDTO(job)).thenReturn(dto);
+        when(ingestionJobService.createJob("doc.pdf", 3L, "file-uuid")).thenReturn(created);
+        when(kbDocumentMapper.toDocumentDTO(created)).thenReturn(dto);
 
         DocumentDTO result = service.enqueueKBDocument(file);
 
         assertThat(result.getFileUuid()).isEqualTo("file-uuid");
+        assertThat(result.getStatus()).isEqualTo("loading");
         verify(ingestionProcessor).processAsync("job-uuid");
     }
 
     @Test
     void enqueueKBDocument_ioErrorOnFileSave_throwsFileSaveException() throws IOException {
-        MultipartFile file = new MockMultipartFile("file", "doc.pdf", "application/pdf", new byte[]{1});
+        MultipartFile file = pdfFile();
         when(fileService.save(any())).thenThrow(new IOException("disk full"));
 
         assertThatThrownBy(() -> service.enqueueKBDocument(file))
@@ -275,21 +110,82 @@ class KBDocumentServiceTest extends BaseTest {
     }
 
     @Test
-    void deleteKBDocument_removesJobsChunksDocumentAndFile() throws IOException {
-        service.deleteKBDocument("doc-uuid");
+    void getDocument_returnsMappedDtoWhenJobExists() {
+        IngestionJob existing = job("job-uuid", "file-uuid", IngestionJobStatus.PROCESSING);
+        DocumentDTO dto = DocumentDTO.builder().fileUuid("file-uuid").fileName("doc.pdf")
+                .status("loading").build();
+        when(ingestionJobRepository.findByStoredFileUuid("file-uuid")).thenReturn(Optional.of(existing));
+        when(kbDocumentMapper.toDocumentDTO(existing)).thenReturn(dto);
 
-        verify(ingestionJobRepository).deleteByKbDocumentUuid("doc-uuid");
-        verify(kbDocumentChunkRepository).deleteByKbDocument_Uuid("doc-uuid");
-        verify(kbDocumentRepository).deleteByUuid("doc-uuid");
-        verify(fileService).delete("doc-uuid");
+        Optional<DocumentDTO> result = service.getDocument("file-uuid");
+
+        assertThat(result).isPresent();
+        assertThat(result.get().getFileUuid()).isEqualTo("file-uuid");
+        assertThat(result.get().getStatus()).isEqualTo("loading");
     }
 
     @Test
-    void deleteKBDocument_fileServiceIOError_throwsRuntimeException() throws IOException {
-        doThrow(new IOException("perm denied")).when(fileService).delete(eq("doc-uuid"));
+    void getDocument_returnsEmptyWhenMissing() {
+        when(ingestionJobRepository.findByStoredFileUuid("missing")).thenReturn(Optional.empty());
+
+        assertThat(service.getDocument("missing")).isEmpty();
+    }
+
+    @Test
+    void downloadKBDocument_returnsContentAndMetadata() throws IOException {
+        KBDocument doc = Fixtures.document("doc-uuid", "report.pdf");
+        DownloadDocumentDTO mapped = DownloadDocumentDTO.builder()
+                .fileUuid("doc-uuid").fileName("report.pdf").build();
+        when(kbDocumentRepository.findByUuid("doc-uuid")).thenReturn(Optional.of(doc));
+        when(kbDocumentMapper.toDownloadDocumentDTO(doc)).thenReturn(mapped);
+        when(fileService.load("doc-uuid")).thenReturn(new byte[]{9, 8, 7});
+
+        DownloadDocumentDTO result = service.downloadKBDocument("doc-uuid");
+
+        assertThat(result.getFileUuid()).isEqualTo("doc-uuid");
+        assertThat(result.getFileName()).isEqualTo("report.pdf");
+        assertThat(result.getContent()).containsExactly(9, 8, 7);
+    }
+
+    @Test
+    void downloadKBDocument_throwsNotFoundWhenMissing() {
+        when(kbDocumentRepository.findByUuid("missing")).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> service.downloadKBDocument("missing"))
+                .isInstanceOf(KBDocumentNotFoundException.class);
+    }
+
+    @Test
+    void downloadKBDocument_wrapsFileServiceIoException() throws IOException {
+        KBDocument doc = Fixtures.document("doc-uuid", "report.pdf");
+        when(kbDocumentRepository.findByUuid("doc-uuid")).thenReturn(Optional.of(doc));
+        when(kbDocumentMapper.toDownloadDocumentDTO(doc))
+                .thenReturn(DownloadDocumentDTO.builder().fileUuid("doc-uuid").fileName("report.pdf").build());
+        when(fileService.load("doc-uuid")).thenThrow(new IOException("read failed"));
+
+        assertThatThrownBy(() -> service.downloadKBDocument("doc-uuid"))
+                .isInstanceOf(RuntimeException.class)
+                .hasMessageContaining("Error downloading file");
+    }
+
+    @Test
+    void deleteKBDocument_removesJobsChunksDocumentAndFileInOrder() throws IOException {
+        service.deleteKBDocument("doc-uuid");
+
+        InOrder inOrder = inOrder(ingestionJobRepository, kbDocumentChunkRepository,
+                kbDocumentRepository, fileService);
+        inOrder.verify(ingestionJobRepository).deleteByKbDocumentUuid("doc-uuid");
+        inOrder.verify(kbDocumentChunkRepository).deleteByKbDocument_Uuid("doc-uuid");
+        inOrder.verify(kbDocumentRepository).deleteByUuid("doc-uuid");
+        inOrder.verify(fileService).delete("doc-uuid");
+    }
+
+    @Test
+    void deleteKBDocument_wrapsFileServiceIoException() throws IOException {
+        doThrow(new IOException("perm denied")).when(fileService).delete("doc-uuid");
 
         assertThatThrownBy(() -> service.deleteKBDocument("doc-uuid"))
                 .isInstanceOf(RuntimeException.class)
-                .hasMessageContaining("deleting");
+                .hasMessageContaining("Error deleting file");
     }
 }

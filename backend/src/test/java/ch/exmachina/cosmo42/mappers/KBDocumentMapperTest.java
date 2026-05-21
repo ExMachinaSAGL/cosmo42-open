@@ -1,13 +1,20 @@
 package ch.exmachina.cosmo42.mappers;
 
 import ch.exmachina.cosmo42.dto.DocumentDTO;
+import ch.exmachina.cosmo42.dto.DownloadDocumentDTO;
+import ch.exmachina.cosmo42.entities.IngestionJob;
+import ch.exmachina.cosmo42.entities.IngestionJobStatus;
 import ch.exmachina.cosmo42.entities.KBDocument;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+import java.time.LocalDateTime;
+
 import static org.assertj.core.api.Assertions.assertThat;
 
 class KBDocumentMapperTest {
+
+    private static final LocalDateTime CREATED_AT = LocalDateTime.of(2026, 1, 15, 9, 30);
 
     KBDocumentMapper mapper;
 
@@ -16,59 +23,110 @@ class KBDocumentMapperTest {
         mapper = new KBDocumentMapper();
     }
 
+    private IngestionJob baseJob(IngestionJobStatus status) {
+        IngestionJob j = new IngestionJob();
+        j.setUuid("job-1");
+        j.setStoredFileUuid("file-1");
+        j.setOriginalFileName("report.pdf");
+        j.setFileSizeBytes(123L);
+        j.setStatus(status);
+        j.setCreatedAt(CREATED_AT);
+        j.setChunksEmbedded(false);
+        return j;
+    }
+
     @Test
-    void mapsAllFieldsFromEntityToDto() {
+    void toDocumentDTO_pendingJob_yieldsLoadingStatusAndZeroProgress() {
+        DocumentDTO dto = mapper.toDocumentDTO(baseJob(IngestionJobStatus.PENDING));
+
+        assertThat(dto.getFileUuid()).isEqualTo("file-1");
+        assertThat(dto.getFileName()).isEqualTo("report.pdf");
+        assertThat(dto.getStatus()).isEqualTo("loading");
+        assertThat(dto.getUploadedAt()).isEqualTo(CREATED_AT);
+        assertThat(dto.getErrorMessage()).isNull();
+        assertThat(dto.getProgressPercent()).isEqualTo(0);
+    }
+
+    @Test
+    void toDocumentDTO_processingJobWithoutPagesYields10Percent() {
+        DocumentDTO dto = mapper.toDocumentDTO(baseJob(IngestionJobStatus.PROCESSING));
+
+        assertThat(dto.getStatus()).isEqualTo("loading");
+        assertThat(dto.getProgressPercent()).isEqualTo(10);
+    }
+
+    @Test
+    void toDocumentDTO_processingJobWithKnownPagesYields50Percent() {
+        IngestionJob job = baseJob(IngestionJobStatus.PROCESSING);
+        job.setTotalPages(5);
+
+        DocumentDTO dto = mapper.toDocumentDTO(job);
+
+        assertThat(dto.getProgressPercent()).isEqualTo(50);
+    }
+
+    @Test
+    void toDocumentDTO_processingJobWithEmbeddedChunksYields95Percent() {
+        IngestionJob job = baseJob(IngestionJobStatus.PROCESSING);
+        job.setTotalPages(5);
+        job.setChunksEmbedded(true);
+
+        DocumentDTO dto = mapper.toDocumentDTO(job);
+
+        assertThat(dto.getProgressPercent()).isEqualTo(95);
+    }
+
+    @Test
+    void toDocumentDTO_interruptedJobYieldsLoadingStatus() {
+        DocumentDTO dto = mapper.toDocumentDTO(baseJob(IngestionJobStatus.INTERRUPTED));
+
+        assertThat(dto.getStatus()).isEqualTo("loading");
+        assertThat(dto.getProgressPercent()).isEqualTo(10);
+    }
+
+    @Test
+    void toDocumentDTO_completedJobYieldsDoneAnd100Percent() {
+        DocumentDTO dto = mapper.toDocumentDTO(baseJob(IngestionJobStatus.COMPLETED));
+
+        assertThat(dto.getStatus()).isEqualTo("done");
+        assertThat(dto.getProgressPercent()).isEqualTo(100);
+        assertThat(dto.getErrorMessage()).isNull();
+    }
+
+    @Test
+    void toDocumentDTO_failedJobCarriesErrorMessageAndNullProgress() {
+        IngestionJob job = baseJob(IngestionJobStatus.FAILED);
+        job.setErrorMessage("LLM unreachable");
+
+        DocumentDTO dto = mapper.toDocumentDTO(job);
+
+        assertThat(dto.getStatus()).isEqualTo("error");
+        assertThat(dto.getErrorMessage()).isEqualTo("LLM unreachable");
+        assertThat(dto.getProgressPercent()).isNull();
+    }
+
+    @Test
+    void toDocumentDTO_nonFailedStatusOmitsErrorMessageEvenWhenSet() {
+        IngestionJob job = baseJob(IngestionJobStatus.COMPLETED);
+        job.setErrorMessage("stale error");
+
+        DocumentDTO dto = mapper.toDocumentDTO(job);
+
+        assertThat(dto.getErrorMessage()).isNull();
+    }
+
+    @Test
+    void toDownloadDocumentDTO_mapsKBDocumentMetadataAndLeavesContentNull() {
         KBDocument doc = new KBDocument();
-        doc.setUuid("doc-uuid-123");
+        doc.setUuid("doc-uuid");
         doc.setFileName("report.pdf");
+        doc.setCreationTimestamp(CREATED_AT);
 
-        DocumentDTO dto = mapper.toDocumentDTO(doc);
+        DownloadDocumentDTO dto = mapper.toDownloadDocumentDTO(doc);
 
-        assertThat(dto.getUuid()).isEqualTo("doc-uuid-123");
-        assertThat(dto.getName()).isEqualTo("report.pdf");
-        assertThat(dto.getContent()).isNull();
-    }
-
-    @Test
-    void producesDistinctDtoForEachEntity() {
-        KBDocument doc1 = new KBDocument();
-        doc1.setUuid("u-1");
-        doc1.setFileName("a.pdf");
-        KBDocument doc2 = new KBDocument();
-        doc2.setUuid("u-2");
-        doc2.setFileName("b.pdf");
-
-        DocumentDTO dto1 = mapper.toDocumentDTO(doc1);
-        DocumentDTO dto2 = mapper.toDocumentDTO(doc2);
-
-        assertThat(dto1.getUuid()).isEqualTo("u-1");
-        assertThat(dto2.getUuid()).isEqualTo("u-2");
-        assertThat(dto1).isNotEqualTo(dto2);
-    }
-
-    @Test
-    void nullFieldsMappedAsNull() {
-        KBDocument doc = new KBDocument();
-
-        DocumentDTO dto = mapper.toDocumentDTO(doc);
-
-        assertThat(dto.getUuid()).isNull();
-        assertThat(dto.getName()).isNull();
-    }
-
-    @Test
-    void builderSetsOnlyExpectedFields() {
-        KBDocument doc = new KBDocument();
-        doc.setUuid("test-uuid");
-        doc.setFileName("name.pdf");
-        doc.setFileSize(999L);
-        doc.setCreationTimestamp(java.time.LocalDateTime.of(2026, 1, 1, 12, 0));
-
-        DocumentDTO dto = mapper.toDocumentDTO(doc);
-
-        assertThat(dto.getUuid()).isEqualTo("test-uuid");
-        assertThat(dto.getName()).isEqualTo("name.pdf");
-        // Content is never set by mapper — always null until explicitly set by caller.
+        assertThat(dto.getFileUuid()).isEqualTo("doc-uuid");
+        assertThat(dto.getFileName()).isEqualTo("report.pdf");
+        assertThat(dto.getUploadedAt()).isEqualTo(CREATED_AT);
         assertThat(dto.getContent()).isNull();
     }
 }

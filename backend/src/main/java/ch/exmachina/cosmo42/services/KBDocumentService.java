@@ -21,9 +21,6 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
-import java.time.Clock;
-import java.time.LocalDateTime;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
@@ -39,12 +36,8 @@ public class KBDocumentService {
     IngestionJobRepository ingestionJobRepository;
     FileService fileService;
     KBDocumentMapper kbDocumentMapper;
-    KBDocumentChunker kbDocumentChunker;
-    EmbeddingModel embeddingModel;
-    OpenAiEmbeddingOptions embeddingModelOptions;
     IngestionJobService ingestionJobService;
     KBDocumentIngestionProcessor ingestionProcessor;
-    Clock clock;
 
     @Transactional(readOnly = true)
     public List<DocumentDTO> listAllKBDocuments() {

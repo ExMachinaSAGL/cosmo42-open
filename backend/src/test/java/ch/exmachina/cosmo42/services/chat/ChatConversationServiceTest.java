@@ -2,6 +2,7 @@ package ch.exmachina.cosmo42.services.chat;
 
 import ch.exmachina.cosmo42.entities.ChatConversation;
 import ch.exmachina.cosmo42.exceptions.ChatConversationNotFoundException;
+import ch.exmachina.cosmo42.exceptions.InvalidChatTitleException;
 import ch.exmachina.cosmo42.repositories.ChatConversationRepository;
 import ch.exmachina.cosmo42.testsupport.FakeClock;
 import jakarta.persistence.EntityManager;
@@ -216,9 +217,9 @@ class ChatConversationServiceTest {
         }
 
         @Test
-        void renameThrowsBadArgWhenSanitizerDropsTitle() {
+        void renameThrowsInvalidTitleWhenSanitizerDropsTitle() {
             assertThatThrownBy(() -> service.rename("u-1", "   "))
-                    .isInstanceOf(IllegalArgumentException.class);
+                    .isInstanceOf(InvalidChatTitleException.class);
 
             verify(repository, never()).updateTitleByUuid(anyString(), anyString(), any());
         }
