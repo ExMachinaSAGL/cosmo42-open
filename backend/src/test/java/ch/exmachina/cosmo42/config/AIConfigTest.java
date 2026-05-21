@@ -35,7 +35,7 @@ class AIConfigTest extends AbstractIntegrationTest {
     @Test
     void titleOptionsHaveSmallMaxTokens() {
         OpenAiChatOptions opts = titleModelOptionsBuilder.build();
-        assertThat(opts.getMaxTokens()).isEqualTo(32);
+        assertThat(opts.getMaxTokens()).isEqualTo(512);
         assertThat(opts.getTemperature()).isEqualTo(0.3);
         assertThat(opts.getTopP()).isEqualTo(0.9);
         assertThat(opts.getModel()).isNotBlank();

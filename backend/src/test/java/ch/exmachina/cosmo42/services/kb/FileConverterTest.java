@@ -131,6 +131,8 @@ class FileConverterTest {
     @Test
     void convertSupportedFileToPdfFromBytes_pdfBytes_returnsSameBytes() {
         byte[] pdf = FileFixtures.singlePagePdf("hi");
+        when(mimeTypeService.getMimeType(pdf, "doc.pdf"))
+                .thenReturn(SupportedMimeTypes.MIME_PDF.getContentType());
 
         byte[] result = converter.convertSupportedFileToPdfFromBytes(pdf, "doc.pdf");
 
@@ -141,6 +143,8 @@ class FileConverterTest {
     @Test
     void convertSupportedFileToPdfFromBytes_docxBytes_routesThroughLibreoffice() {
         byte[] docxBytes = FileFixtures.minimalDocx();
+        when(mimeTypeService.getMimeType(docxBytes, "doc.docx"))
+                .thenReturn(SupportedMimeTypes.MIME_DOCX.getContentType());
         mockServer.expect(requestTo("http://libreoffice-test/convert"))
                 .andExpect(method(org.springframework.http.HttpMethod.POST))
                 .andExpect(content().bytes(docxBytes))
@@ -155,6 +159,8 @@ class FileConverterTest {
     @Test
     void convertSupportedFileToPdfFromBytes_xlsxBytes_routesThroughLibreoffice() {
         byte[] xlsxBytes = FileFixtures.minimalXlsx();
+        when(mimeTypeService.getMimeType(xlsxBytes, "sheet.xlsx"))
+                .thenReturn(SupportedMimeTypes.MIME_XSLX.getContentType());
         mockServer.expect(requestTo("http://libreoffice-test/convert"))
                 .andExpect(method(org.springframework.http.HttpMethod.POST))
                 .andExpect(content().bytes(xlsxBytes))
@@ -169,6 +175,7 @@ class FileConverterTest {
     @Test
     void convertSupportedFileToPdfFromBytes_unsupported_throws() {
         byte[] txt = "plain text content".getBytes();
+        when(mimeTypeService.getMimeType(txt, "note.txt")).thenReturn("text/plain");
 
         assertThatThrownBy(() -> converter.convertSupportedFileToPdfFromBytes(txt, "note.txt"))
                 .isInstanceOf(IllegalArgumentException.class)

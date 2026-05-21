@@ -80,4 +80,35 @@ class MimeTypeServiceImplTest {
         assertThat(SupportedMimeTypes.isSupported(SupportedMimeTypes.MIME_DOCX.getContentType())).isTrue();
         assertThat(SupportedMimeTypes.isSupported(SupportedMimeTypes.MIME_XSLX.getContentType())).isTrue();
     }
+
+    @Test
+    void getMimeTypeFromBytesDetectsPdf() {
+        byte[] bytes = FileFixtures.singlePagePdf("hi");
+
+        assertThat(service.getMimeType(bytes, "doc.pdf"))
+                .isEqualTo(SupportedMimeTypes.MIME_PDF.getContentType());
+    }
+
+    @Test
+    void getMimeTypeFromBytesDetectsDocx() {
+        byte[] bytes = FileFixtures.minimalDocx();
+
+        assertThat(service.getMimeType(bytes, "doc.docx"))
+                .isEqualTo(SupportedMimeTypes.MIME_DOCX.getContentType());
+    }
+
+    @Test
+    void getMimeTypeFromBytesDetectsXlsx() {
+        byte[] bytes = FileFixtures.minimalXlsx();
+
+        assertThat(service.getMimeType(bytes, "sheet.xlsx"))
+                .isEqualTo(SupportedMimeTypes.MIME_XSLX.getContentType());
+    }
+
+    @Test
+    void getMimeTypeFromBytesDoesNotReturnSupportedForPlainText() {
+        byte[] bytes = "plain text".getBytes();
+
+        assertThat(SupportedMimeTypes.isSupported(service.getMimeType(bytes, "notes.txt"))).isFalse();
+    }
 }

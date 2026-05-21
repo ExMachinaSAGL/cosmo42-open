@@ -1,7 +1,6 @@
 package ch.exmachina.cosmo42.services.kb;
 
 import ch.exmachina.cosmo42.services.MimeTypeService;
-import ch.exmachina.cosmo42.services.MimeTypeServiceImpl;
 import ch.exmachina.cosmo42.utils.SupportedMimeTypes;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
@@ -62,7 +61,7 @@ public class FileConverter {
     }
 
     public byte[] convertSupportedFileToPdfFromBytes(byte[] bytes, String filename) {
-        String mimeType = MimeTypeServiceImpl.getMimeType(bytes, filename);
+        String mimeType = mimeTypeService.getMimeType(bytes, filename);
         if (SupportedMimeTypes.MIME_DOCX.matches(mimeType) || SupportedMimeTypes.MIME_XSLX.matches(mimeType)) {
             log.info("Converting docx/xlsx bytes to PDF for {}", filename);
             return convertOfficeFileToPdf(bytes, filename);

@@ -21,7 +21,8 @@ public class MimeTypeServiceImpl implements MimeTypeService {
         return SupportedMimeTypes.isSupported(getMimeType(file));
     }
 
-    public static String getMimeType(byte[] bytes, String fileName) {
+    @Override
+    public String getMimeType(byte[] bytes, String fileName) {
         return detect(TikaInputStream.get(bytes), fileName);
     }
 

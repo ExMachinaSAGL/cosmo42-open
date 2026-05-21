@@ -8,4 +8,6 @@ public interface MimeTypeService {
     boolean isSupportedMimeType(MultipartFile file);
 
     boolean isMimeType(MultipartFile file, SupportedMimeTypes mimeType);
+
+    String getMimeType(byte[] bytes, String fileName);
 }
