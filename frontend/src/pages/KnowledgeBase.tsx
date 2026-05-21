@@ -93,10 +93,6 @@ export function KnowledgeBase() {
     }
   };
 
-  const handleDownload = (uuid: string, fileName: string) => {
-    downloadDocument(uuid, fileName);
-  };
-
   return (
     <div className="kb-container">
       <div className="kb-content-wrapper">
@@ -177,7 +173,7 @@ export function KnowledgeBase() {
                   <button 
                     className="kb-action-button" 
                     title="Download"
-                    onClick={() => handleDownload(doc.fileUuid, doc.fileName)}
+                    onClick={() => downloadDocument(doc.fileUuid, doc.fileName)}
                   >
                     <Download className="kb-action-button-icon" />
                   </button>
