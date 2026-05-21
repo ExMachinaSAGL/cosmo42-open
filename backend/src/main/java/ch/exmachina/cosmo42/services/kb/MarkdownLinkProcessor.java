@@ -4,30 +4,28 @@ import ch.exmachina.cosmo42.entities.KBDocument;
 
 import java.text.MessageFormat;
 import java.util.List;
+import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 public class MarkdownLinkProcessor {
 
     Pattern pattern = Pattern.compile("REF_FILE_[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}", Pattern.MULTILINE);
 
     public String replaceFileReferenceLinks(String messageChunk, List<KBDocument> allKBDocument) {
+        Set<String> allUuids = allKBDocument.stream().map(KBDocument::getUuid).collect(Collectors.toSet());
         final Matcher matcher = pattern.matcher(messageChunk);
         while (matcher.find()) {
             String fullMatch = matcher.group(0);
             String uuid = fullMatch.replace("REF_FILE_", "");
-            boolean fileExists = fileWithUuidExists(uuid, allKBDocument);
-            if(fileExists) {
+            if(allUuids.contains(uuid)) {
                 messageChunk = messageChunk.replace(fullMatch, buildMarkdownLink(uuid));
             } else {
                 messageChunk = messageChunk.replace(fullMatch, "");
             }
         }
         return messageChunk;
-    }
-
-    private boolean fileWithUuidExists(String uuid, List<KBDocument> allKBDocument) {
-        return allKBDocument.stream().anyMatch(doc -> doc.getUuid().equals(uuid));
     }
 
     private String buildMarkdownLink(String uuid) {
