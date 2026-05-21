@@ -2,14 +2,15 @@ package ch.exmachina.cosmo42.services.chat.processors;
 
 import ch.exmachina.cosmo42.dto.ChatEventType;
 import ch.exmachina.cosmo42.dto.ChatResponseDTO;
-import ch.exmachina.cosmo42.services.chat.*;
+import ch.exmachina.cosmo42.services.chat.ChatContext;
+import ch.exmachina.cosmo42.services.chat.ChatConversationService;
+import ch.exmachina.cosmo42.services.chat.TitleSanitizer;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.model.ChatModel;
-import org.springframework.ai.chat.prompt.Prompt;
 import org.springframework.ai.openai.OpenAiChatOptions;
 import org.springframework.http.codec.ServerSentEvent;
 import org.springframework.stereotype.Service;
@@ -55,16 +56,14 @@ public class TitleProcessor implements ChatProcessor {
                 .defaultSystem(TITLE_SYSTEM_INSTRUCTION)
                 .build();
 
-        return Mono.fromCallable(() -> client.prompt(new Prompt(message)).call().content())
+        return Mono.fromCallable(() -> client.prompt().user(message).call().content())
                 .subscribeOn(Schedulers.boundedElastic())
-                .flatMap(raw -> {
-                    log.info("Title generation succeeded uuid={} titleLength={} titlePreview='{}'",
-                            uuid,
-                            raw.length(),
-                            preview(raw));
-                    chatConversationService.persistGeneratedTitle(uuid, raw);
-                    return Mono.justOrEmpty(titleSanitizer.sanitize(raw));
-                })
+                .doOnNext(raw -> log.info("Title generation succeeded uuid={} titleLength={} titlePreview='{}'",
+                        uuid,
+                        raw.length(),
+                        preview(raw)))
+                .mapNotNull(raw -> titleSanitizer.sanitize(raw).orElse(generateFallbackTitle()))
+                .doOnNext(title -> chatConversationService.persistGeneratedTitle(uuid, title))
                 .map(title -> ServerSentEvent.<ChatResponseDTO>builder()
                         .data(ChatResponseDTO.builder()
                                 .type(ChatEventType.TITLE)
@@ -99,5 +98,10 @@ public class TitleProcessor implements ChatProcessor {
             return normalized;
         }
         return normalized.substring(0, 77) + "...";
+    }
+
+    private String generateFallbackTitle() {
+        return "Chat " + java.time.LocalDateTime.now()
+                .format(java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm"));
     }
 }

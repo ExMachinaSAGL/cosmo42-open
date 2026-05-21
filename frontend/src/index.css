@@ -1,0 +1,412 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  /* Base colors */
+  --text: #6b6375;
+  --text-h: #08060d;
+  --bg: #fff;
+  --border: #e5e4e7;
+  --code-bg: #f4f3ec;
+  --accent: #aa3bff;
+  --accent-bg: rgba(170, 59, 255, 0.1);
+  --accent-border: rgba(170, 59, 255, 0.5);
+  --social-bg: rgba(244, 243, 236, 0.5);
+  --shadow:
+    rgba(0, 0, 0, 0.1) 0 10px 15px -3px, rgba(0, 0, 0, 0.05) 0 4px 6px -2px;
+
+  /* Grays */
+  --gray-50: #f9fafb;
+  --gray-100: #f7fafc;
+  --gray-200: #e2e8f0;
+  --gray-300: #d2d6dc;
+  --gray-400: #a0aec0;
+  --gray-500: #718096;
+  --gray-800: #2d3748;
+  --gray-900: #1a202c;
+
+  /* Blues */
+  --blue-50: #eff6ff;
+  --blue-600: #2563eb;
+  --blue-700: #2b6cb0;
+  --blue-900: #1e40af;
+
+  /* Greens */
+  --green-100: #d1fae5;
+  --green-600: #059669;
+  --green-800: #065f46;
+
+  /* Reds */
+  --red-50: #fef2f2;
+  --red-100: #fee2e2;
+  --red-600: #dc2626;
+  --red-700: #b91c1c;
+  --red-800: #991b1b;
+
+  /* Yellows */
+  --yellow-100: #fefcbf;
+  --yellow-800: #92400e;
+
+  /* Fonts */
+  --sans: system-ui, 'Segoe UI', Roboto, sans-serif;
+  --heading: system-ui, 'Segoe UI', Roboto, sans-serif;
+  --mono: ui-monospace, Consolas, monospace;
+
+  font: 16px/145% var(--sans);
+  letter-spacing: 0.18px;
+  color-scheme: light dark;
+  color: var(--text);
+  background: var(--bg);
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+
+  @media (max-width: 1024px) {
+    font-size: 16px;
+  }
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --text: #9ca3af;
+    --text-h: #f3f4f6;
+    --bg: #16171d;
+    --border: #2e303a;
+    --code-bg: #1f2028;
+    --accent: #c084fc;
+    --accent-bg: rgba(192, 132, 252, 0.15);
+    --accent-border: rgba(192, 132, 252, 0.5);
+    --social-bg: rgba(47, 48, 58, 0.5);
+    --shadow:
+      rgba(0, 0, 0, 0.4) 0 10px 15px -3px, rgba(0, 0, 0, 0.25) 0 4px 6px -2px;
+  }
+}
+
+#root {
+  width: 100%;
+  margin: 0;
+  text-align: left;
+  min-height: 100svh;
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+}
+
+/* Remove default large margins and sizes that might conflict with our custom layout */
+h1 {
+  margin: 0;
+}
+h2 {
+  margin: 0;
+}
+
+/* Utilities */
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.animate-spin {
+  animation: spin 1s linear infinite;
+}
+
+/* --- Consolidated App.css Styles --- */
+
+.layout-container {
+  display: flex;
+  height: 100vh;
+  width: 100%;
+  background-color: var(--gray-50);
+  color: var(--gray-900);
+}
+
+.main-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* KnowledgeBase styles */
+.kb-container {
+  flex: 1;
+  padding: 2rem; /* p-8 */
+  overflow-y: auto;
+}
+
+.kb-content-wrapper {
+  max-w: 64rem; /* max-w-5xl */
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.kb-content-wrapper > div + div {
+  margin-top: 2rem; /* space-y-8 */
+}
+
+.kb-header-section {
+  /* No direct styles, just a container */
+}
+
+.kb-title {
+  font-size: 1.5rem; /* text-2xl */
+  line-height: 2rem; /* text-2xl */
+  font-weight: 700; /* font-bold */
+  color: var(--gray-900);
+}
+
+.kb-subtitle {
+  color: var(--gray-500);
+  margin-top: 0.25rem; /* mt-1 */
+}
+
+.kb-upload-zone {
+  border: 2px dashed var(--gray-300);
+  border-radius: 0.5rem; /* rounded-lg */
+  padding: 3rem; /* p-12 */
+  text-align: center;
+  background-color: var(--gray-50);
+  transition-property: background-color, border-color, color, fill, stroke, opacity, box-shadow, transform, filter, backdrop-filter; /* transition-colors */
+  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1); /* transition-colors */
+  transition-duration: 150ms; /* transition-colors */
+  cursor: pointer;
+}
+
+.kb-upload-zone:hover {
+  background-color: var(--gray-100);
+}
+
+.kb-upload-icon {
+  margin-left: auto;
+  margin-right: auto;
+  height: 3rem; /* h-12 */
+  width: 3rem; /* w-12 */
+  color: var(--gray-400);
+  margin-bottom: 1rem; /* mb-4 */
+}
+
+.kb-upload-title {
+  font-size: 1.125rem; /* text-lg */
+  line-height: 1.75rem; /* text-lg */
+  font-weight: 500; /* font-medium */
+  color: var(--gray-900);
+}
+
+.kb-upload-subtitle {
+  font-size: 0.875rem; /* text-sm */
+  line-height: 1.25rem; /* text-sm */
+  color: var(--gray-500);
+  margin-top: 0.5rem; /* mt-2 */
+}
+
+.kb-table-container {
+  background-color: var(--bg);
+  box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05); /* shadow-sm */
+  border-radius: 0.5rem; /* rounded-lg */
+  border: 1px solid var(--gray-200);
+  overflow: hidden;
+}
+
+.kb-table {
+  min-width: 100%;
+  border-collapse: collapse;
+  table-layout: auto; /* Updated from fixed */
+}
+
+.kb-table-header {
+  background-color: var(--gray-50);
+}
+
+.kb-table-header th {
+  padding: 0.75rem 1.5rem; /* px-6 py-3 */
+  text-align: left;
+  font-size: 0.75rem; /* text-xs */
+  line-height: 1rem; /* text-xs */
+  font-weight: 500; /* font-medium */
+  color: var(--gray-500);
+  text-transform: uppercase;
+  letter-spacing: 0.05em; /* tracking-wider */
+}
+
+.kb-table-body {
+  background-color: var(--bg);
+}
+
+.kb-table-row {
+  transition-property: background-color, border-color, color, fill, stroke, opacity, box-shadow, transform, filter, backdrop-filter; /* transition-colors */
+  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1); /* transition-colors */
+  transition-duration: 150ms; /* transition-colors */
+}
+
+.kb-table-row:hover {
+  background-color: var(--gray-50);
+}
+
+.kb-table-cell {
+  padding: 1rem 1.5rem; /* px-6 py-4 */
+  white-space: nowrap;
+  font-size: 0.875rem; /* text-sm */
+  line-height: 1.25rem; /* text-sm */
+  color: var(--gray-500);
+}
+
+.kb-table-cell.file-name {
+  font-weight: 500; /* font-medium */
+  color: var(--gray-900);
+}
+
+.kb-file-icon {
+  height: 1.25rem; /* h-5 */
+  width: 1.25rem; /* w-5 */
+  color: var(--gray-400);
+  margin-right: 0.75rem; /* mr-3 */
+  display: inline-block; /* To align with text */
+  vertical-align: middle; /* To align with text */
+}
+
+.kb-status-badge {
+  padding-left: 0.5rem; /* px-2 */
+  padding-right: 0.5rem; /* px-2 */
+  display: inline-flex;
+  font-size: 0.75rem; /* text-xs */
+  line-height: 1rem; /* leading-5 */
+  font-weight: 600; /* font-semibold */
+  border-radius: 9999px; /* rounded-full */
+}
+
+.kb-status-badge.indexed {
+  background-color: var(--green-100);
+  color: var(--green-800);
+}
+
+.kb-status-badge.processing {
+  background-color: var(--yellow-100);
+  color: var(--yellow-800);
+}
+
+.kb-actions-cell {
+  text-align: right;
+  font-weight: 500; /* font-medium */
+}
+
+.kb-action-button {
+  color: var(--blue-600);
+  background-color: none;
+  border: none;
+  background: none;
+  transition-property: color, fill, stroke, opacity, transform, filter, backdrop-filter; /* transition-colors */
+  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1); /* transition-colors */
+  transition-duration: 150ms; /* transition-colors */
+}
+
+.kb-action-button:hover {
+  color: var(--blue-900);
+}
+
+.kb-action-button.delete {
+  color: var(--red-600);
+}
+
+.kb-action-button.delete:hover {
+  color: var(--red-800);
+}
+
+.kb-action-button-icon {
+  height: 1rem; /* h-4 */
+  width: 1rem; /* w-4 */
+  display: inline;
+}
+
+.kb-action-button + .kb-action-button {
+  margin-left: 1rem; /* mr-4 (for the first button) */
+}
+
+/* Progress bar styles */
+@keyframes progress-stripes {
+  0% {
+    background-position: 1rem 0;
+  }
+  100% {
+    background-position: 0 0;
+  }
+}
+
+.progress-bar-container {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  width: 100%;
+  max-width: 150px;
+  height: 1rem;
+  background-color: var(--gray-200);
+  background-image: linear-gradient(
+    45deg,
+    rgba(255, 255, 255, 0.6) 25%,
+    transparent 25%,
+    transparent 50%,
+    rgba(255, 255, 255, 0.6) 50%,
+    rgba(255, 255, 255, 0.6) 75%,
+    transparent 75%,
+    transparent
+  );
+  background-size: 1rem 1rem;
+  animation: progress-stripes 1s linear infinite;
+  border-radius: 9999px;
+  overflow: hidden;
+  position: relative;
+}
+
+.progress-bar {
+  height: 100%;
+  background-color: #3b82f6;
+  background-image: linear-gradient(
+    45deg,
+    rgba(255, 255, 255, 0.25) 25%,
+    transparent 25%,
+    transparent 50%,
+    rgba(255, 255, 255, 0.25) 50%,
+    rgba(255, 255, 255, 0.25) 75%,
+    transparent 75%,
+    transparent
+  );
+  background-size: 1rem 1rem;
+  animation: progress-stripes 1s linear infinite;
+  border-radius: 9999px;
+  transition: width 0.3s ease;
+  position: absolute;
+  left: 0;
+  top: 0;
+}
+
+.progress-bar-text {
+  font-size: 0.75rem;
+  color: #4a5568;
+}
+
+td.kb-table-cell > .progress-bar-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.kb-status-badge.error {
+  background-color: var(--red-100);
+  color: var(--red-600);
+  padding: 0.25rem 0.5rem;
+  border-radius: 0.25rem;
+  white-space: normal; /* Allow text to wrap */
+  max-width: 200px; /* Limit width to prevent excessive stretching */
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: block; /* Ensure it takes up full width for tooltip */
+}

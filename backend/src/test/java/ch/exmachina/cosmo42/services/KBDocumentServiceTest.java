@@ -6,6 +6,7 @@ import ch.exmachina.cosmo42.entities.IngestionJob;
 import ch.exmachina.cosmo42.entities.IngestionJobStatus;
 import ch.exmachina.cosmo42.exceptions.FileSaveException;
 import ch.exmachina.cosmo42.mappers.KBDocumentMapper;
+import ch.exmachina.cosmo42.repositories.IngestionJobPageRepository;
 import ch.exmachina.cosmo42.repositories.IngestionJobRepository;
 import ch.exmachina.cosmo42.repositories.KBDocumentChunkRepository;
 import ch.exmachina.cosmo42.repositories.KBDocumentRepository;
@@ -30,6 +31,7 @@ class KBDocumentServiceTest extends BaseTest {
     @Mock KBDocumentRepository kbDocumentRepository;
     @Mock KBDocumentChunkRepository kbDocumentChunkRepository;
     @Mock IngestionJobRepository ingestionJobRepository;
+    @Mock IngestionJobPageRepository ingestionJobPageRepository;
     @Mock FileService fileService;
     @Mock KBDocumentMapper kbDocumentMapper;
     @Mock IngestionJobService ingestionJobService;
@@ -76,6 +78,7 @@ class KBDocumentServiceTest extends BaseTest {
         service.deleteKBDocument("doc-uuid");
 
         verify(ingestionJobRepository).deleteByKbDocumentUuid("doc-uuid");
+        verify(ingestionJobPageRepository).deleteByJob_kbDocumentUuid("doc-uuid");
         verify(kbDocumentChunkRepository).deleteByKbDocument_Uuid("doc-uuid");
         verify(kbDocumentRepository).deleteByUuid("doc-uuid");
         verify(fileService).delete("doc-uuid");
