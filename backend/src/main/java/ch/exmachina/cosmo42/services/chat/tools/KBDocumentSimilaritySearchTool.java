@@ -46,7 +46,7 @@ public class KBDocumentSimilaritySearchTool extends BaseTool {
 
         List<KBDocumentChunk> chunks = kbDocumentChunkRepository.findMostSimilarByCosine(bytesVector, 0.5, 10);
         List<ChunkDTO> chunkDTOs = chunks.stream()
-                .map(c -> new ChunkDTO(c.getKbDocument().getFileName(), c.getContent()))
+                .map(c -> new ChunkDTO(c.getKbDocument().getFileName(), c.getKbDocument().getUuid(), c.getContent()))
                 .toList();
         return new KBSimilaritySearchResponse(chunkDTOs);
     }
@@ -58,6 +58,6 @@ public class KBDocumentSimilaritySearchTool extends BaseTool {
 
     public record KBSimilaritySearchResponse(List<ChunkDTO> chunks) {}
 
-    public record ChunkDTO(String fileName, String content) {}
+    public record ChunkDTO(String fileName, String uuid, String content) {}
 
 }

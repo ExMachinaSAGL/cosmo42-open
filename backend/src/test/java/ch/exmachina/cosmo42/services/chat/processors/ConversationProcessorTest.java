@@ -1,6 +1,7 @@
 package ch.exmachina.cosmo42.services.chat.processors;
 
 import ch.exmachina.cosmo42.dto.ChatRequestDTO;
+import ch.exmachina.cosmo42.repositories.KBDocumentRepository;
 import ch.exmachina.cosmo42.services.chat.ChatContext;
 import ch.exmachina.cosmo42.services.chat.tools.KBDocumentSimilaritySearchTool;
 import org.junit.jupiter.api.BeforeEach;
@@ -33,17 +34,20 @@ class ConversationProcessorTest {
     ChatMemory chatMemory;
     KBDocumentSimilaritySearchTool tool;
     ConversationProcessor processor;
+    KBDocumentRepository  kbDocumentRepository;
 
     @BeforeEach
     void setUp() {
         chatModel = mock(ChatModel.class);
         chatMemory = mock(ChatMemory.class);
         tool = mock(KBDocumentSimilaritySearchTool.class);
+        kbDocumentRepository = mock(KBDocumentRepository.class);
         processor = new ConversationProcessor(
                 chatModel,
                 OpenAiChatOptions.builder().model("test-model"),
                 chatMemory,
-                tool);
+                tool,
+                kbDocumentRepository);
 
         when(chatModel.getDefaultOptions()).thenReturn(OpenAiChatOptions.builder().model("test-model").build());
         when(chatMemory.get("u-1")).thenReturn(List.of());
