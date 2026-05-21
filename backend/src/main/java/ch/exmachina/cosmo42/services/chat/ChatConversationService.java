@@ -12,6 +12,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import jakarta.persistence.EntityManager;
 import java.time.Clock;
 import java.time.LocalDateTime;
 import java.util.Optional;
@@ -24,16 +25,19 @@ public class ChatConversationService {
     private final ChatMemory chatMemory;
     private final TitleSanitizer titleSanitizer;
     private final Clock clock;
+    private final EntityManager entityManager;
 
     public ChatConversationService(
             ChatConversationRepository repository,
             ChatMemory chatMemory,
             TitleSanitizer titleSanitizer,
-            Clock clock) {
+            Clock clock,
+            EntityManager entityManager) {
         this.repository = repository;
         this.chatMemory = chatMemory;
         this.titleSanitizer = titleSanitizer;
         this.clock = clock;
+        this.entityManager = entityManager;
     }
 
     @Transactional
@@ -49,6 +53,7 @@ public class ChatConversationService {
                 return repository.save(c);
             } catch (DataIntegrityViolationException race) {
                 log.debug("Race-condition insert for uuid={}, resolving by re-fetch", uuid);
+                entityManager.clear();
                 return repository.findByUuid(uuid)
                         .orElseThrow(() -> race);
             }

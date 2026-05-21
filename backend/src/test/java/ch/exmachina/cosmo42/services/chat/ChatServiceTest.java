@@ -7,11 +7,13 @@ import ch.exmachina.cosmo42.services.chat.processors.ConversationProcessor;
 import ch.exmachina.cosmo42.services.chat.processors.TitleProcessor;
 import ch.exmachina.cosmo42.services.chat.processors.UuidProcessor;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.springframework.http.codec.ServerSentEvent;
 import reactor.core.publisher.Flux;
 
+import java.time.Duration;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -34,67 +36,137 @@ class ChatServiceTest {
         conversationService = mock(ChatConversationService.class);
         when(uuidProcessor.process(any())).thenReturn(Flux.<ServerSentEvent<ChatResponseDTO>>empty());
         when(titleProcessor.process(any())).thenReturn(Flux.<ServerSentEvent<ChatResponseDTO>>empty());
-        when(conversationProcessor.process(any())).thenReturn(Flux.<ServerSentEvent<ChatResponseDTO>>empty());
         chatService = new ChatService(uuidProcessor, titleProcessor, conversationProcessor,
                 conversationService, () -> "fixed-test-uuid");
     }
 
-    @Test
-    void newChatTriggersCreateIfAbsent() {
-        chatService.processChat(new ChatRequestDTO(null, "hello"))
-                .blockLast();
+    @Nested
+    class Orchestration {
 
-        ArgumentCaptor<String> uuidCap = ArgumentCaptor.forClass(String.class);
-        verify(conversationService).createIfAbsent(uuidCap.capture());
-        assertThat(uuidCap.getValue()).isEqualTo("fixed-test-uuid");
+        @BeforeEach
+        void setUp() {
+            when(conversationProcessor.process(any())).thenReturn(Flux.<ServerSentEvent<ChatResponseDTO>>empty());
+        }
+
+        @Test
+        void newChatTriggersCreateIfAbsent() {
+            chatService.processChat(new ChatRequestDTO(null, "hello"))
+                    .blockLast();
+
+            ArgumentCaptor<String> uuidCap = ArgumentCaptor.forClass(String.class);
+            verify(conversationService).createIfAbsent(uuidCap.capture());
+            assertThat(uuidCap.getValue()).isEqualTo("fixed-test-uuid");
+        }
+
+        @Test
+        void existingChatEnsuresConversationRowExists() {
+            chatService.processChat(new ChatRequestDTO("existing-uuid", "hello"))
+                    .blockLast();
+
+            verify(conversationService).createIfAbsent("existing-uuid");
+        }
+
+        @Test
+        void marksConversationAsActiveOnEachRequest() {
+            chatService.processChat(new ChatRequestDTO("u-active", "hi"))
+                    .blockLast();
+
+            verify(conversationService).markActive("u-active");
+        }
+
+        @Test
+        void emitsStatusEventBeforeProcessorEvents() {
+            List<ChatResponseDTO> events = chatService.processChat(new ChatRequestDTO(null, "hi"))
+                    .map(ServerSentEvent::data)
+                    .take(1)
+                    .collectList()
+                    .block();
+
+            assertThat(events).hasSize(1);
+            assertThat(events.get(0).getType()).isEqualTo(ChatEventType.STATUS);
+            assertThat(events.get(0).getData()).isEqualTo("Analyzing the request...");
+        }
+
+        @Test
+        void invokesAllThreeProcessors() {
+            chatService.processChat(new ChatRequestDTO(null, "hi"))
+                    .blockLast();
+
+            verify(uuidProcessor).process(any());
+            verify(titleProcessor).process(any());
+            verify(conversationProcessor).process(any());
+        }
+
+        @Test
+        void createIfAbsentCalledBeforeMarkActive() {
+            chatService.processChat(new ChatRequestDTO(null, "hi"))
+                    .blockLast();
+
+            var inOrder = inOrder(conversationService);
+            inOrder.verify(conversationService).createIfAbsent(any());
+            inOrder.verify(conversationService).markActive(any());
+        }
     }
 
-    @Test
-    void existingChatEnsuresConversationRowExists() {
-        chatService.processChat(new ChatRequestDTO("existing-uuid", "hello"))
-                .blockLast();
+    @Nested
+    class ErrorHandling {
 
-        verify(conversationService).createIfAbsent("existing-uuid");
-    }
+        @Test
+        void downstreamFailureEmitsErrorEventNotCompleted() {
+            when(conversationProcessor.process(any())).thenReturn(
+                    Flux.error(new RuntimeException("LLM upstream down")));
 
-    @Test
-    void marksConversationAsActiveOnEachRequest() {
-        chatService.processChat(new ChatRequestDTO("u-active", "hi"))
-                .blockLast();
+            List<ChatResponseDTO> events = chatService.processChat(new ChatRequestDTO(null, "hi"))
+                    .map(ServerSentEvent::data)
+                    .collectList()
+                    .block();
 
-        verify(conversationService).markActive("u-active");
-    }
+            assertThat(events).isNotNull();
+            assertThat(events)
+                    .extracting(ChatResponseDTO::getType)
+                    .doesNotContain(ChatEventType.COMPLETED)
+                    .contains(ChatEventType.ERROR);
+        }
 
-    @Test
-    void emitsStatusEventBeforeProcessorEvents() {
-        List<ChatResponseDTO> events = chatService.processChat(new ChatRequestDTO(null, "hi"))
-                .map(ServerSentEvent::data)
-                .take(1)
-                .collectList()
-                .block();
+        @Test
+        void errorEventCarriesUpstreamMessageInData() {
+            when(conversationProcessor.process(any())).thenReturn(
+                    Flux.error(new RuntimeException("LLM upstream down")));
 
-        assertThat(events).hasSize(1);
-        assertThat(events.getFirst().getType()).isEqualTo(ChatEventType.STATUS);
-        assertThat(events.getFirst().getData()).isEqualTo("Analyzing the request...");
-    }
+            ChatResponseDTO errorEvent = chatService.processChat(new ChatRequestDTO(null, "hi"))
+                    .map(ServerSentEvent::data)
+                    .filter(d -> d.getType() == ChatEventType.ERROR)
+                    .blockFirst();
 
-    @Test
-    void invokesAllThreeProcessors() {
-        chatService.processChat(new ChatRequestDTO(null, "hi"))
-                .blockLast();
+            assertThat(errorEvent).isNotNull();
+            assertThat(errorEvent.getData()).isEqualTo("LLM upstream down");
+        }
 
-        verify(uuidProcessor).process(any());
-        verify(titleProcessor).process(any());
-        verify(conversationProcessor).process(any());
-    }
+        @Test
+        void successPathStillEmitsCompletedWithoutError() {
+            when(conversationProcessor.process(any())).thenReturn(Flux.empty());
 
-    @Test
-    void createIfAbsentCalledBeforeMarkActive() {
-        chatService.processChat(new ChatRequestDTO(null, "hi"))
-                .blockLast();
+            List<ChatResponseDTO> events = chatService.processChat(new ChatRequestDTO(null, "hi"))
+                    .map(ServerSentEvent::data)
+                    .collectList()
+                    .block();
 
-        var inOrder = inOrder(conversationService);
-        inOrder.verify(conversationService).createIfAbsent(any());
-        inOrder.verify(conversationService).markActive(any());
+            assertThat(events).isNotNull();
+            assertThat(events).extracting(ChatResponseDTO::getType)
+                    .contains(ChatEventType.COMPLETED)
+                    .doesNotContain(ChatEventType.ERROR);
+        }
+
+        @Test
+        void streamCompletesCleanlyAfterError() {
+            when(conversationProcessor.process(any())).thenReturn(
+                    Flux.error(new RuntimeException("boom")));
+
+            var events = chatService.processChat(new ChatRequestDTO(null, "hi"))
+                    .collectList()
+                    .block(Duration.ofSeconds(3));
+
+            assertThat(events).isNotNull();
+        }
     }
 }

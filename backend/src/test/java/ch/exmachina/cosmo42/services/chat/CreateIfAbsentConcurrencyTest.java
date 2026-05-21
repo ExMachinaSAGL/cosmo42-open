@@ -3,11 +3,13 @@ package ch.exmachina.cosmo42.services.chat;
 import ch.exmachina.cosmo42.AbstractIntegrationTest;
 import ch.exmachina.cosmo42.entities.ChatConversation;
 import ch.exmachina.cosmo42.repositories.ChatConversationRepository;
+import ch.exmachina.cosmo42.testsupport.TestDbCleaner;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.jdbc.core.JdbcTemplate;
 
 import java.util.ArrayList;
@@ -65,7 +67,9 @@ class CreateIfAbsentConcurrencyTest extends AbstractIntegrationTest {
             }));
         }
 
-        ready.await(5, TimeUnit.SECONDS);
+        assertThat(ready.await(5, TimeUnit.SECONDS))
+                .as("All %d threads must reach the start barrier within 5s", THREAD_COUNT)
+                .isTrue();
         start.countDown();
 
         List<RaceResult> results = new ArrayList<>(THREAD_COUNT);
@@ -90,6 +94,12 @@ class CreateIfAbsentConcurrencyTest extends AbstractIntegrationTest {
         results.stream()
                 .filter(r -> r.success)
                 .forEach(r -> assertThat(r.conversation.getUuid()).isEqualTo(sharedUuid));
+
+        results.stream()
+                .filter(r -> !r.success)
+                .forEach(r -> assertThat(r.error)
+                        .as("All failures must be unique-constraint races, not unexpected errors")
+                        .isInstanceOf(DataIntegrityViolationException.class));
     }
 
     @Test

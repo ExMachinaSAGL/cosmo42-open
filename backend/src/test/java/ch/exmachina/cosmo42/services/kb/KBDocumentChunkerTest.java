@@ -138,12 +138,6 @@ class KBDocumentChunkerTest {
 
         @Test
         void summaryFromNewChunkUsedWhenPendingHasNone() {
-            Chunk cutoff = textNoSummary("AAA", true);
-            DocumentPage p1 = page(cutoff);
-            DocumentPage p2 = page(table("BBB", "new summary", false));
-            // Type mismatch text vs table — no merge happens. But what if pending is text with no summary
-            // and new is text with summary? Let's craft that.
-            // (This test variant: same type, pending has no summary, new has summary.)
             Chunk cutoff2 = text("AAA", true);
             DocumentPage p3 = page(cutoff2);
             Chunk withSummary = new Chunk();
@@ -279,10 +273,6 @@ class KBDocumentChunkerTest {
         c.setSummary(null);
         c.setContinuesOnNextPage(continues);
         return c;
-    }
-
-    private static Chunk textNoSummary(String content, boolean continues) {
-        return text(content, continues);
     }
 
     private static Chunk table(String content, String summary, boolean continues) {

@@ -71,9 +71,9 @@ class ChatStreamE2ETest extends AbstractIntegrationTest {
         await().atMost(10, TimeUnit.SECONDS).untilAsserted(() -> {
             var all = repository.findAll();
             assertThat(all).hasSize(1);
-            assertThat(all.get(0).getTitle()).isEqualTo("Deploy Question");
-            assertThat(countMessages(all.get(0).getUuid(), "USER")).isEqualTo(1);
-            assertThat(countMessages(all.get(0).getUuid(), "ASSISTANT")).isEqualTo(1);
+            assertThat(all.getFirst().getTitle()).isEqualTo("Deploy Question");
+            assertThat(countMessages(all.getFirst().getUuid(), "USER")).isEqualTo(1);
+            assertThat(countMessages(all.getFirst().getUuid(), "ASSISTANT")).isEqualTo(1);
         });
     }
 
@@ -96,7 +96,7 @@ class ChatStreamE2ETest extends AbstractIntegrationTest {
         await().atMost(10, TimeUnit.SECONDS).untilAsserted(() -> {
             var all = repository.findAll();
             assertThat(all).hasSize(1);
-            assertThat(all.get(0).getTitle()).isNull();
+            assertThat(all.getFirst().getTitle()).isNull();
         });
     }
 
