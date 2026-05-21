@@ -1,7 +1,7 @@
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { Sidebar } from '../components/Sidebar';
-import { vi } from 'vitest';
+import { vi, type Mock } from 'vitest';
 import toast from 'react-hot-toast';
 import * as apiClient from '../api/client';
 
@@ -37,8 +37,6 @@ describe('Sidebar Component', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     fetchChatListSpy.mockResolvedValue(mockChats);
-    window.prompt = vi.fn();
-    window.confirm = vi.fn();
   });
 
   it('renders sidebar and loads chats', async () => {
@@ -96,13 +94,12 @@ describe('Sidebar Component', () => {
     const newChatButton = screen.getByTitle('New Chat');
     fireEvent.click(newChatButton);
 
-    expect(mockNavigate).toHaveBeenCalledWith('/');
+    expect(mockNavigate).toHaveBeenCalledWith('/chat');
   });
 
   describe('Chat Actions', () => {
     it('renames a chat successfully', async () => {
       const newTitle = 'Renamed Chat 1';
-      (window.prompt as vi.Mock).mockReturnValue(newTitle);
       renameChatSpy.mockResolvedValueOnce({ ...mockChats.content[0], title: newTitle });
 
       render(
@@ -115,10 +112,17 @@ describe('Sidebar Component', () => {
       const optionsButton = screen.getAllByTitle('Options')[0];
       fireEvent.click(optionsButton);
 
-      const renameButton = screen.getByText('Rename');
-      fireEvent.click(renameButton);
+      const renameMenuButton = screen.getByText('Rename');
+      fireEvent.click(renameMenuButton);
 
-      expect(window.prompt).toHaveBeenCalledWith('Enter new chat title:', 'Chat 1');
+      // Verify modal is shown
+      const input = screen.getByDisplayValue('Chat 1');
+      fireEvent.change(input, { target: { value: newTitle } });
+
+      const buttons = screen.getAllByText('Rename');
+      // The modal confirm button will be the last one rendered with "Rename" text
+      fireEvent.click(buttons[buttons.length - 1]);
+
       await waitFor(() => {
         expect(renameChatSpy).toHaveBeenCalledWith('1', newTitle);
         expect(toast.success).toHaveBeenCalledWith('Chat renamed');
@@ -128,7 +132,6 @@ describe('Sidebar Component', () => {
     });
 
     it('deletes a chat successfully', async () => {
-      (window.confirm as vi.Mock).mockReturnValue(true);
       deleteChatSpy.mockResolvedValueOnce(null);
 
       render(
@@ -138,13 +141,16 @@ describe('Sidebar Component', () => {
       );
       await waitFor(() => expect(screen.getByText('Chat 1')).toBeInTheDocument());
 
-      const optionsButton = screen.getAllByTitle('Opzioni')[0];
+      const optionsButton = screen.getAllByTitle('Options')[0];
       fireEvent.click(optionsButton);
 
-      const deleteButton = screen.getByText('Delete');
-      fireEvent.click(deleteButton);
+      const deleteMenuButton = screen.getByText('Delete');
+      fireEvent.click(deleteMenuButton);
 
-      expect(window.confirm).toHaveBeenCalledWith('Are you sure you want to delete this chat?');
+      // Use modal's confirm button
+      const buttons = screen.getAllByText('Delete');
+      fireEvent.click(buttons[buttons.length - 1]);
+
       await waitFor(() => {
         expect(deleteChatSpy).toHaveBeenCalledWith('1');
         expect(toast.success).toHaveBeenCalledWith('Chat deleted');
@@ -154,7 +160,6 @@ describe('Sidebar Component', () => {
 
     it('handles rename failure', async () => {
         const newTitle = 'Renamed Chat 1';
-        (window.prompt as vi.Mock).mockReturnValue(newTitle);
         renameChatSpy.mockRejectedValueOnce(new Error('Rename failed'));
   
         render(
@@ -164,11 +169,18 @@ describe('Sidebar Component', () => {
         );
         await waitFor(() => expect(screen.getByText('Chat 1')).toBeInTheDocument());
   
-        const optionsButton = screen.getAllByTitle('Opzioni')[0];
+        const optionsButton = screen.getAllByTitle('Options')[0];
         fireEvent.click(optionsButton);
   
-        const renameButton = screen.getByText('Rename');
-        fireEvent.click(renameButton);
+        const renameMenuButton = screen.getByText('Rename');
+        fireEvent.click(renameMenuButton);
+  
+        // Change input
+        const input = screen.getByDisplayValue('Chat 1');
+        fireEvent.change(input, { target: { value: newTitle } });
+
+        const buttons = screen.getAllByText('Rename');
+        fireEvent.click(buttons[buttons.length - 1]);
   
         await waitFor(() => {
           expect(toast.error).toHaveBeenCalledWith('Failed to rename chat');
@@ -177,7 +189,6 @@ describe('Sidebar Component', () => {
       });
   
       it('handles delete failure', async () => {
-        (window.confirm as vi.Mock).mockReturnValue(true);
         deleteChatSpy.mockRejectedValueOnce(new Error('Delete failed'));
   
         render(
@@ -187,11 +198,14 @@ describe('Sidebar Component', () => {
         );
         await waitFor(() => expect(screen.getByText('Chat 1')).toBeInTheDocument());
   
-        const optionsButton = screen.getAllByTitle('Opzioni')[0];
+        const optionsButton = screen.getAllByTitle('Options')[0];
         fireEvent.click(optionsButton);
   
-        const deleteButton = screen.getByText('Delete');
-        fireEvent.click(deleteButton);
+        const deleteMenuButton = screen.getByText('Delete');
+        fireEvent.click(deleteMenuButton);
+  
+        const buttons = screen.getAllByText('Delete');
+        fireEvent.click(buttons[buttons.length - 1]);
   
         await waitFor(() => {
           expect(toast.error).toHaveBeenCalledWith('Failed to delete chat');

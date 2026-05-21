@@ -197,11 +197,6 @@ export function Chat() {
           const lastMessage = prev[prev.length - 1];
           // If we haven't created the AI message yet, create it with the status
           if (lastMessage?.role !== 'assistant') {
-            const newMessage: ChatMessageItem = {
-              role: 'assistant',
-              status: event.data,
-              content: '',
-            };
             setTimeout(() => addStatusToQueue(event.data), 0);
             return [...prev, { role: 'assistant', content: '' }];
           } else {

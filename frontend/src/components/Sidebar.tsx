@@ -161,7 +161,7 @@ export function Sidebar() {
                       <button 
                         onClick={(e) => toggleMenu(e, chat.uuid)} 
                         className="sidebar-action-btn"
-                        title="Opzioni"
+                        title="Options"
                       >
                         <MoreVertical size={16} />
                       </button>

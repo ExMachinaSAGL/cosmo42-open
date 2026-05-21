@@ -1,5 +1,5 @@
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
-import { vi, Mock } from 'vitest';
+import { vi, type Mock } from 'vitest';
 import { KnowledgeBase } from '../pages/KnowledgeBase';
 import * as apiClient from '../api/client';
 
@@ -18,8 +18,8 @@ describe('KnowledgeBase', () => {
 
   it('renders and fetches documents on load', async () => {
     const mockDocuments = [
-      { uuid: '1', name: 'document1.pdf' },
-      { uuid: '2', name: 'document2.pdf' },
+      { fileUuid: '1', fileName: 'document1.pdf', uploadedAt: new Date().toISOString(), status: 'ready', progressPercent: 100 },
+      { fileUuid: '2', fileName: 'document2.pdf', uploadedAt: new Date().toISOString(), status: 'ready', progressPercent: 100 },
     ];
     (apiClient.fetchDocuments as Mock).mockResolvedValue(mockDocuments);
 
@@ -39,7 +39,7 @@ describe('KnowledgeBase', () => {
 
     render(<KnowledgeBase />);
 
-    const uploadZone = screen.getByText(/Click or drag your files here/i);
+    // const uploadZone = screen.getByText(/Click or drag your files here/i);
     const file = new File(['dummy content'], 'test.pdf', { type: 'application/pdf' });
     
     // We can't easily simulate clicking the hidden input, so we trigger a change on it directly
@@ -80,7 +80,7 @@ describe('KnowledgeBase', () => {
 
   it('handles document deletion', async () => {
     const mockDocuments = [
-      { uuid: '1', name: 'document1.pdf' },
+      { fileUuid: '1', fileName: 'document1.pdf', uploadedAt: new Date().toISOString(), status: 'ready', progressPercent: 100 },
     ];
     (apiClient.fetchDocuments as Mock).mockResolvedValue(mockDocuments);
     (apiClient.deleteDocument as Mock).mockResolvedValue({});
@@ -103,7 +103,7 @@ describe('KnowledgeBase', () => {
 
   it('handles document download', async () => {
     const mockDocuments = [
-      { uuid: '1', name: 'document1.pdf' },
+      { fileUuid: '1', fileName: 'document1.pdf', uploadedAt: new Date().toISOString(), status: 'ready', progressPercent: 100 },
     ];
     (apiClient.fetchDocuments as Mock).mockResolvedValue(mockDocuments);
 

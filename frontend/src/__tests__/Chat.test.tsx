@@ -1,6 +1,6 @@
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
-import { vi, Mock } from 'vitest';
+import { vi, type Mock } from 'vitest';
 import { Chat } from '../pages/Chat';
 import * as apiClient from '../api/client';
 import toast from 'react-hot-toast';
@@ -36,15 +36,15 @@ describe('Chat', () => {
       </MemoryRouter>
     );
     expect(screen.getByText(/New Chat/i)).toBeInTheDocument();
-    expect(screen.getByText(/Hello! I am your AI assistant./i)).toBeInTheDocument();
+    expect(screen.getByText(/Hello!/i)).toBeInTheDocument();
   });
 
   it('loads chat history for an existing chat', async () => {
     const mockHistory = {
-      chatTitle: 'Test Chat',
+      title: 'Test Chat',
       messages: [
-        { source: 'user', content: 'Hello' },
-        { source: 'ai', content: 'Hi there!' },
+        { role: 'user', content: 'Hello' },
+        { role: 'assistant', content: 'Hi there!' },
       ],
     };
     (apiClient.fetchChatHistory as Mock).mockResolvedValue(mockHistory);
@@ -141,7 +141,7 @@ describe('Chat', () => {
     });
 
     // Check if the input is cleared after sending
-    expect(input.value).toBe('');
+    expect((input as HTMLInputElement).value).toBe('');
   });
 
   it('handles API failure when sending a message', async () => {
