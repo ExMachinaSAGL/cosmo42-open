@@ -19,11 +19,6 @@ export function Sidebar() {
 
   useEffect(() => {
     const handleClickOutside = () => setOpenMenuId(null);
-    document.addEventListener('click', handleClickOutside);
-    return () => document.removeEventListener('click', handleClickOutside);
-  }, []);
-
-  useEffect(() => {
     const handleChatCreated = (event: Event) => {
       const { uuid, title } = (event as CustomEvent).detail;
       setChats(prevChats => {
@@ -34,9 +29,11 @@ export function Sidebar() {
       });
     };
 
+    document.addEventListener('click', handleClickOutside);
     window.addEventListener('chat-created', handleChatCreated);
 
     return () => {
+      document.removeEventListener('click', handleClickOutside);
       window.removeEventListener('chat-created', handleChatCreated);
     };
   }, []);

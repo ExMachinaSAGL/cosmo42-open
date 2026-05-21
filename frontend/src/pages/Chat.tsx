@@ -1,11 +1,12 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Send, User, Bot, Loader2 } from 'lucide-react';
+import { User, Bot } from 'lucide-react';
 import toast from 'react-hot-toast';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { fetchChatHistory, sendChatMessage } from '../api/client';
 import './Chat.css';
+import { ChatInput } from './ChatInput';
 
 type EventType = 'UUID' | 'TITLE' | 'STATUS' | 'CHUNK' | 'COMPLETED' | 'ERROR';
 
@@ -376,32 +377,12 @@ export function Chat() {
         </div>
       </div>
 
-      {/* Input Area anchored to the bottom */}
-      <div className="chat-input-area">
-        <div className="chat-input-form-container">
-          <form onSubmit={handleSubmit} className="chat-input-form flex items-center">
-            <input
-              type="text"
-              value={inputValue}
-              onChange={(e) => setInputValue(e.target.value)}
-              placeholder="Write a message to the AI..."
-              className="chat-input-field flex-grow"
-              disabled={isStreaming}
-            />
-            <button
-              type="submit"
-              disabled={!inputValue.trim() || isStreaming}
-              className="chat-send-button"
-              aria-label="Send"
-            >
-              {isStreaming ? <Loader2 size={18} className="animate-spin" /> : <Send size={18} />}
-            </button>
-          </form>
-          <div className="chat-disclaimer-container">
-            <span className="chat-disclaimer-text">AI can make mistakes. Always check important data.</span>
-          </div>
-        </div>
-      </div>
+      <ChatInput
+        value={inputValue}
+        onChange={setInputValue}
+        onSubmit={handleSubmit}
+        disabled={isStreaming}
+      />
 
     </div>
   );
