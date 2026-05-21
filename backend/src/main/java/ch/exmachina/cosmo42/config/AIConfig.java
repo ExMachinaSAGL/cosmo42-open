@@ -41,7 +41,7 @@ public class AIConfig {
         return OpenAiChatOptions.builder()
                 .temperature(0.3)
                 .topP(0.9)
-                .maxTokens(32)
+                .maxTokens(512)
                 .model(llmModelName);
     }
 
