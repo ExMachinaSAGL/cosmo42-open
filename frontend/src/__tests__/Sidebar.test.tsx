@@ -1,7 +1,7 @@
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { Sidebar } from '../components/Sidebar';
-import { vi, type Mock } from 'vitest';
+import { vi } from 'vitest';
 import toast from 'react-hot-toast';
 import * as apiClient from '../api/client';
 
