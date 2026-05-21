@@ -20,6 +20,7 @@ public class KBDocumentMapper {
                 .fileUuid(job.getStoredFileUuid())
                 .fileName(job.getOriginalFileName())
                 .status(toFrontendStatus(job.getStatus()))
+                .progressPercent(toProgressPercent(job))
                 .uploadedAt(job.getCreatedAt())
                 .errorMessage(job.getStatus() == IngestionJobStatus.FAILED ? job.getErrorMessage() : null)
                 .progressPercent(toProgressPercent(job))
@@ -29,7 +30,7 @@ public class KBDocumentMapper {
     private static String toFrontendStatus(IngestionJobStatus status) {
         return switch (status) {
             case PENDING, PROCESSING, INTERRUPTED -> "loading";
-            case COMPLETED -> "done";
+            case COMPLETED -> "loaded";
             case FAILED -> "error";
         };
     }
