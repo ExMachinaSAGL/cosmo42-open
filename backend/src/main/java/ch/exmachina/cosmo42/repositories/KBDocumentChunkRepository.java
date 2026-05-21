@@ -1,5 +1,6 @@
 package ch.exmachina.cosmo42.repositories;
 
+import ch.exmachina.cosmo42.entities.KBDocument;
 import ch.exmachina.cosmo42.entities.KBDocumentChunk;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
@@ -11,6 +12,8 @@ import java.util.List;
 @Repository
 public interface KBDocumentChunkRepository extends JpaRepository<KBDocumentChunk, Long> {
     void deleteByKbDocument_Uuid(String uuid);
+
+    long countByKbDocument(KBDocument kbDocument);
 
     @Query(value = """
     SELECT c.*

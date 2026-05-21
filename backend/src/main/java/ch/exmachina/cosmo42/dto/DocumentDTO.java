@@ -4,6 +4,8 @@ import com.fasterxml.jackson.annotation.JsonInclude;
 import lombok.*;
 import lombok.experimental.FieldDefaults;
 
+import java.time.LocalDateTime;
+
 @FieldDefaults(level = AccessLevel.PRIVATE)
 @Getter
 @Setter
@@ -12,8 +14,11 @@ import lombok.experimental.FieldDefaults;
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public class DocumentDTO {
 
-    String uuid;
-    String name;
-    byte[] content;
+    String fileUuid;
+    String fileName;
+    LocalDateTime uploadedAt;
+    String status;
+    String errorMessage;
+    Integer progressPercent;
 
 }

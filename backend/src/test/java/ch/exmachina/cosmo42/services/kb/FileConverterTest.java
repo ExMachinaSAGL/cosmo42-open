@@ -5,24 +5,19 @@ import ch.exmachina.cosmo42.testsupport.FileFixtures;
 import ch.exmachina.cosmo42.utils.SupportedMimeTypes;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.test.web.client.MockRestServiceServer;
 import org.springframework.web.client.RestClient;
 
+import java.io.IOException;
+
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
-import static org.springframework.test.web.client.match.MockRestRequestMatchers.content;
-import static org.springframework.test.web.client.match.MockRestRequestMatchers.header;
-import static org.springframework.test.web.client.match.MockRestRequestMatchers.method;
-import static org.springframework.test.web.client.match.MockRestRequestMatchers.requestTo;
-import static org.springframework.test.web.client.response.MockRestResponseCreators.withBadRequest;
-import static org.springframework.test.web.client.response.MockRestResponseCreators.withServerError;
-import static org.springframework.test.web.client.response.MockRestResponseCreators.withSuccess;
+import static org.mockito.Mockito.*;
+import static org.springframework.test.web.client.match.MockRestRequestMatchers.*;
+import static org.springframework.test.web.client.response.MockRestResponseCreators.*;
 
 class FileConverterTest {
 
@@ -31,13 +26,17 @@ class FileConverterTest {
     MockRestServiceServer mockServer;
     FileConverter converter;
     MimeTypeService mimeTypeService;
+    private FileConverter fileConverter;
+    private RestClient restClient;
 
     @BeforeEach
-    void setUp() {
+    void setUp() throws Exception {
         RestClient.Builder builder = RestClient.builder().baseUrl("http://libreoffice-test");
         mockServer = MockRestServiceServer.bindTo(builder).build();
         mimeTypeService = mock(MimeTypeService.class);
         converter = new FileConverter(builder.build(), mimeTypeService);
+        restClient = mock(RestClient.class, RETURNS_DEEP_STUBS);
+        fileConverter = new FileConverter(restClient);
     }
 
     @Test
@@ -128,6 +127,31 @@ class FileConverterTest {
 
         assertThatThrownBy(() -> converter.convertSupportedFileToPdf(file))
                 .isInstanceOf(org.springframework.web.client.HttpClientErrorException.class);
+    }
+
+    @Test
+    void convertSupportedFileToPdfFromBytes_pdfBytes_returnsSameBytes() throws IOException {
+        byte[] pdf = pdfHeader();
+
+        byte[] result = fileConverter.convertSupportedFileToPdfFromBytes(pdf, "doc.pdf");
+
+        assertThat(result).isSameAs(pdf);
+        verifyNoInteractions(restClient);
+    }
+
+    @Test
+    void convertSupportedFileToPdfFromBytes_unsupported_throws() {
+        byte[] txt = "plain text content".getBytes();
+
+        assertThatThrownBy(() -> fileConverter.convertSupportedFileToPdfFromBytes(txt, "note.txt"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("Unsupported");
+    }
+
+    private byte[] pdfHeader() {
+        // Minimal valid PDF magic + EOF marker so Tika detects application/pdf.
+        return ("%PDF-1.4\n%âãÏÓ\n1 0 obj<<>>endobj\nxref\n0 1\n0000000000 65535 f \n"
+                + "trailer<<>>\nstartxref\n0\n%%EOF").getBytes();
     }
 
     private void stubFileType(MockMultipartFile file, SupportedMimeTypes type) {

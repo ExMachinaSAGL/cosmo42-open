@@ -21,6 +21,10 @@ public class MimeTypeServiceImpl implements MimeTypeService {
         return SupportedMimeTypes.isSupported(getMimeType(file));
     }
 
+    public static String getMimeType(byte[] bytes, String fileName) {
+        return detect(TikaInputStream.get(bytes), fileName);
+    }
+
     @Override
     public boolean isMimeType(MultipartFile file, SupportedMimeTypes mimeType) {
         return mimeType.getContentType().equals(getMimeType(file));
@@ -35,6 +39,17 @@ public class MimeTypeServiceImpl implements MimeTypeService {
             TikaInputStream stream = TikaInputStream.get(file.getInputStream());
             MediaType mediaType = detector.detect(stream, metadata);
             return mediaType.toString();
+        } catch (IOException e) {
+            return MimeTypes.OCTET_STREAM;
+        }
+    }
+
+    private static String detect(TikaInputStream stream, String fileName) {
+        try {
+            Detector detector = new AutoDetectParser().getDetector();
+            Metadata metadata = new Metadata();
+            metadata.add(TikaCoreProperties.RESOURCE_NAME_KEY, fileName);
+            return detector.detect(stream, metadata).toString();
         } catch (IOException e) {
             return MimeTypes.OCTET_STREAM;
         }
