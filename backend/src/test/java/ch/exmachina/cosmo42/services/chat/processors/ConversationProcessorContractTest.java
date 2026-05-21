@@ -103,6 +103,17 @@ class ConversationProcessorContractTest {
     }
 
     @Test
+    void responseWithNullResultMappedToEmptyChunkData() {
+        ChatResponse withNullResult = new ChatResponse(List.of());
+        when(chatModel.stream(any(Prompt.class))).thenReturn(Flux.just(withNullResult));
+        ChatContext ctx = newContext("u-1", "hi");
+
+        StepVerifier.create(processor.process(ctx))
+                .assertNext(sse -> assertChunkEvent(sse, ""))
+                .verifyComplete();
+    }
+
+    @Test
     void conversationIdParameterPropagatedToChatMemoryAdvisor() {
         when(chatModel.stream(any(Prompt.class))).thenReturn(Flux.just(response("ok")));
         ChatContext ctx = newContext("conv-xyz", "hi");

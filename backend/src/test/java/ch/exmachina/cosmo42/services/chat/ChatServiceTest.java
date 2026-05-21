@@ -1,5 +1,6 @@
 package ch.exmachina.cosmo42.services.chat;
 
+import ch.exmachina.cosmo42.dto.ChatEventType;
 import ch.exmachina.cosmo42.dto.ChatRequestDTO;
 import ch.exmachina.cosmo42.dto.ChatResponseDTO;
 import ch.exmachina.cosmo42.services.chat.processors.ConversationProcessor;
@@ -11,7 +12,7 @@ import org.mockito.ArgumentCaptor;
 import org.springframework.http.codec.ServerSentEvent;
 import reactor.core.publisher.Flux;
 
-import java.util.function.Supplier;
+import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
@@ -54,5 +55,46 @@ class ChatServiceTest {
                 .blockLast();
 
         verify(conversationService).createIfAbsent("existing-uuid");
+    }
+
+    @Test
+    void marksConversationAsActiveOnEachRequest() {
+        chatService.processChat(new ChatRequestDTO("u-active", "hi"))
+                .blockLast();
+
+        verify(conversationService).markActive("u-active");
+    }
+
+    @Test
+    void emitsStatusEventBeforeProcessorEvents() {
+        List<ChatResponseDTO> events = chatService.processChat(new ChatRequestDTO(null, "hi"))
+                .map(ServerSentEvent::data)
+                .take(1)
+                .collectList()
+                .block();
+
+        assertThat(events).hasSize(1);
+        assertThat(events.getFirst().getType()).isEqualTo(ChatEventType.STATUS);
+        assertThat(events.getFirst().getData()).isEqualTo("Analyzing the request...");
+    }
+
+    @Test
+    void invokesAllThreeProcessors() {
+        chatService.processChat(new ChatRequestDTO(null, "hi"))
+                .blockLast();
+
+        verify(uuidProcessor).process(any());
+        verify(titleProcessor).process(any());
+        verify(conversationProcessor).process(any());
+    }
+
+    @Test
+    void createIfAbsentCalledBeforeMarkActive() {
+        chatService.processChat(new ChatRequestDTO(null, "hi"))
+                .blockLast();
+
+        var inOrder = inOrder(conversationService);
+        inOrder.verify(conversationService).createIfAbsent(any());
+        inOrder.verify(conversationService).markActive(any());
     }
 }

@@ -84,6 +84,20 @@ class ChatConversationServiceTest {
     }
 
     @Test
+    void createIfAbsentPropagatesExceptionWhenRetryAlsoFails() {
+        when(repository.findByUuid("u-double-fail"))
+                .thenReturn(Optional.empty())
+                .thenReturn(Optional.empty());
+        when(repository.save(any())).thenThrow(new DataIntegrityViolationException("dup"));
+
+        assertThatThrownBy(() -> service.createIfAbsent("u-double-fail"))
+                .isInstanceOf(DataIntegrityViolationException.class)
+                .hasMessage("dup");
+
+        verify(repository, times(2)).findByUuid("u-double-fail");
+    }
+
+    @Test
     void persistGeneratedTitleUpdatesWhenLlmReturnsValidText() {
         when(repository.updateTitleByUuid(eq("u-1"), eq("Clean Title"), eq(NOW))).thenReturn(1);
 
