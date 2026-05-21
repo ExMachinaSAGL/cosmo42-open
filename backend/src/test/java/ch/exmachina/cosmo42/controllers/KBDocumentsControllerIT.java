@@ -56,7 +56,7 @@ class KBDocumentsControllerIT extends BaseIT {
                 .expectStatus().isOk()
                 .expectBody(DocumentDTO.class)
                 .value(dto -> {
-                    assertThat(dto.getStatus()).isEqualTo("done");
+                    assertThat(dto.getStatus()).isEqualTo("loaded");
                 });
     }
 
@@ -104,7 +104,7 @@ class KBDocumentsControllerIT extends BaseIT {
 
         assertThat(result).hasSize(2);
         assertThat(result).extracting(DocumentDTO::getStatus)
-                .containsExactlyInAnyOrder("loading", "done");
+                .containsExactlyInAnyOrder("loading", "loaded");
     }
 
     @Test

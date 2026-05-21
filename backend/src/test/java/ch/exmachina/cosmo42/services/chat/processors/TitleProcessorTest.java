@@ -24,6 +24,7 @@ import reactor.test.StepVerifier;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.startsWith;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(OutputCaptureExtension.class)
@@ -192,7 +193,7 @@ class TitleProcessorTest {
 
         ArgumentCaptor<String> raw = ArgumentCaptor.forClass(String.class);
         verify(conversationService).persistGeneratedTitle(eq("u-2"), raw.capture());
-        assertThat(raw.getValue()).isEqualTo("Title: \"Quoted\"\nextra");
+        assertThat(raw.getValue()).isEqualTo("Quoted");
     }
 
     @Test
@@ -207,9 +208,11 @@ class TitleProcessorTest {
                 .eventSink(Sinks.many().multicast().onBackpressureBuffer())
                 .build();
 
-        StepVerifier.create(processor.process(ctx)).verifyComplete();
+        StepVerifier.create(processor.process(ctx))
+                .expectNextCount(1)
+                .verifyComplete();
 
-        verify(conversationService).persistGeneratedTitle("u-blank", "   ");
+        verify(conversationService).persistGeneratedTitle(eq("u-blank"), startsWith("Chat "));
     }
 
     @Test
