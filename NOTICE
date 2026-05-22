@@ -1,0 +1,6 @@
+Cosmo42
+Copyright 2026 Ex Machina SAGL
+
+Third-party components are distributed under their own licenses.
+See backend/pom.xml and frontend/package.json for the full list
+of dependencies.
