@@ -1,6 +1,5 @@
 package ch.exmachina.cosmo42.config;
 
-import lombok.RequiredArgsConstructor;
 import org.springframework.ai.chat.memory.ChatMemory;
 import org.springframework.ai.chat.memory.MessageWindowChatMemory;
 import org.springframework.ai.chat.memory.repository.jdbc.JdbcChatMemoryRepository;
@@ -11,10 +10,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
 @Configuration
-@RequiredArgsConstructor
 public class AIConfig {
-
-    private final ChatProperties chatProps;
 
     @Value("${cosmo42.model.llm.name}")
     private String llmModelName;
@@ -28,9 +24,9 @@ public class AIConfig {
     @Bean
     public OpenAiChatOptions.Builder chatModelOptionsBuilder() {
         return OpenAiChatOptions.builder()
-                .temperature(chatProps.getTemperature())
-                .topP(chatProps.getTopP())
-                .maxTokens(chatProps.getMaxTokens())
+                .temperature(0.2)
+                .topP(0.9)
+                .maxTokens(1024)
                 .model(llmModelName);
     }
 
@@ -63,7 +59,8 @@ public class AIConfig {
     public ChatMemory chatMemory(JdbcChatMemoryRepository jdbcRepository) {
         return MessageWindowChatMemory.builder()
                 .chatMemoryRepository(jdbcRepository)
-                .maxMessages(chatProps.getMaxMessages())
+                .maxMessages(25)
                 .build();
     }
+
 }

@@ -1,6 +1,5 @@
 package ch.exmachina.cosmo42.services.chat.tools;
 
-import ch.exmachina.cosmo42.config.ChatProperties;
 import ch.exmachina.cosmo42.dto.ChatEventType;
 import ch.exmachina.cosmo42.dto.ChatResponseDTO;
 import ch.exmachina.cosmo42.entities.KBDocument;
@@ -39,7 +38,6 @@ class KBDocumentSimilaritySearchToolTest {
     VectorAttributeConverter converter;
     KBDocumentChunkRepository chunkRepository;
     KBDocumentSimilaritySearchTool tool;
-    ChatProperties chatProps;
 
     @BeforeEach
     void setUp() {
@@ -47,16 +45,8 @@ class KBDocumentSimilaritySearchToolTest {
         embeddingOptions = OpenAiEmbeddingOptions.builder().model("test-embedding").build();
         converter = new VectorAttributeConverter();
         chunkRepository = mock(KBDocumentChunkRepository.class);
-        chatProps = new ChatProperties();
-        chatProps.setSimilaritySearchMaxDistance(0.5);
-        chatProps.setSimilaritySearchLimit(10);
         tool = new KBDocumentSimilaritySearchTool(
-                embeddingModel,
-                embeddingOptions,
-                converter,
-                chunkRepository,
-                chatProps
-        );
+                embeddingModel, embeddingOptions, converter, chunkRepository);
     }
 
     @Test
@@ -171,7 +161,7 @@ class KBDocumentSimilaritySearchToolTest {
         when(throwingConverter.convertToDatabaseColumn(queryVec))
                 .thenThrow(new IllegalArgumentException("Invalid vector"));
         KBDocumentSimilaritySearchTool toolWithFailingConverter = new KBDocumentSimilaritySearchTool(
-                embeddingModel, embeddingOptions, throwingConverter, chunkRepository, chatProps);
+                embeddingModel, embeddingOptions, throwingConverter, chunkRepository);
 
         assertThatThrownBy(() -> toolWithFailingConverter.search(request("q"), emptyContext()))
                 .isInstanceOf(IllegalArgumentException.class)

@@ -1,7 +1,6 @@
 package ch.exmachina.cosmo42.services.kb;
 
 import ch.exmachina.cosmo42.entities.KBDocument;
-import org.springframework.stereotype.Component;
 
 import java.text.MessageFormat;
 import java.util.List;
@@ -10,7 +9,6 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
-@Component
 public class MarkdownLinkProcessor {
 
     Pattern pattern = Pattern.compile("REF_FILE_[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}", Pattern.MULTILINE);
