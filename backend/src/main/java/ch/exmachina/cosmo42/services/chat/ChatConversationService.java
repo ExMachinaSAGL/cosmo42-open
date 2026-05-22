@@ -112,17 +112,12 @@ public class ChatConversationService {
         List<KBDocument> allKbDocuments = kbDocumentRepository.findAll();
 
         messages = messages.stream().map(msg -> {
-            MessageType type = msg.getMessageType();
-            String newContent = markdownLinkProcessor.replaceFileReferenceLinks(msg.getText(), allKbDocuments);
-            Message newMessage = null;
-            switch (type) {
-                case USER -> newMessage = new UserMessage(newContent);
-                case ASSISTANT -> newMessage = new AssistantMessage(newContent);
-                case SYSTEM -> newMessage = new SystemMessage(newContent);
-                case TOOL -> newMessage = ToolResponseMessage.builder().responses(List.of()).build();
-                default -> throw new IncompatibleClassChangeError();
+            if(msg instanceof AssistantMessage) {
+                String newContent = markdownLinkProcessor.replaceFileReferenceLinks(msg.getText(), allKbDocuments);
+                return new AssistantMessage(newContent);
+            } else {
+                return msg;
             }
-            return newMessage;
         }).toList();
         return new ChatConversationWithMessages(c, messages);
     }
