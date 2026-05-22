@@ -35,10 +35,9 @@ class MarkdownLinkProcessorTest {
                 buildKBDocument("f9da77ff-9838-4c5f-898f-0e3e1232f255", "filename.doc")
         );
 
-        String messageChunk = "bla bla REF_FILE_xxxxxxxx-9838-4c5f-898f-0e3e1232f255\n\nbla bla";
-        String newMessageChunk = markdownLinkProcessor.replaceFileReferenceLinks(messageChunk, allKBDocument);
+        String expectedMessageChunk = "bla bla REF_FILE_xxxxxxxx-9838-4c5f-898f-0e3e1232f255\n\nbla bla";
+        String newMessageChunk = markdownLinkProcessor.replaceFileReferenceLinks(expectedMessageChunk, allKBDocument);
 
-        String expectedMessageChunk = messageChunk;
         assertThat(newMessageChunk).isEqualTo(expectedMessageChunk);
     }
 

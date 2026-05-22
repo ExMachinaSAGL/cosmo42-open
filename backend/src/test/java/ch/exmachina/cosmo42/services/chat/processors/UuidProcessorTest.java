@@ -45,8 +45,6 @@ class UuidProcessorTest {
 
     @Test
     void gatesOnRequestUuidNotContextNewChatFlag() {
-        // The processor decides based on request.uuid(), not context.isNewChat() —
-        // pin this so a future refactor that conflates the two trips a test.
         ChatContext ctx = ChatContext.builder()
                 .newChat(true)
                 .chatUuid("ignored")

@@ -6,11 +6,14 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.Optional;
 import java.util.UUID;
+import java.util.stream.IntStream;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -31,7 +34,7 @@ class ChatConversationRepositoryTest extends AbstractIntegrationTest {
         ChatConversation c = newConversation("First chat");
         repository.save(c);
 
-        var found = repository.findByUuid(c.getUuid());
+        Optional<ChatConversation> found = repository.findByUuid(c.getUuid());
 
         assertThat(found).isPresent();
         assertThat(found.get().getTitle()).isEqualTo("First chat");
@@ -45,14 +48,14 @@ class ChatConversationRepositoryTest extends AbstractIntegrationTest {
     @Test
     void findAllByOrderByUpdatedAtDescPaginates() {
         LocalDateTime now = LocalDateTime.now();
-        for (int i = 0; i < 5; i++) {
+        IntStream.range(0, 5).forEachOrdered(i -> {
             ChatConversation c = newConversation("Chat " + i);
             c.setCreatedAt(now.minusMinutes(i));
             c.setUpdatedAt(now.minusMinutes(i));
             repository.save(c);
-        }
+        });
 
-        var page = repository.findAllByOrderByCreatedAtDesc(PageRequest.of(0, 3));
+        Page<ChatConversation> page = repository.findAllByOrderByCreatedAtDesc(PageRequest.of(0, 3));
 
         assertThat(page.getContent()).hasSize(3);
         assertThat(page.getContent().get(0).getTitle()).isEqualTo("Chat 0");
@@ -69,7 +72,7 @@ class ChatConversationRepositoryTest extends AbstractIntegrationTest {
         int updated = repository.updateTitleByUuid(c.getUuid(), "Renamed", newTs);
 
         assertThat(updated).isEqualTo(1);
-        var refreshed = repository.findByUuid(c.getUuid()).orElseThrow();
+        ChatConversation refreshed = repository.findByUuid(c.getUuid()).orElseThrow();
         assertThat(refreshed.getTitle()).isEqualTo("Renamed");
         assertThat(refreshed.getUpdatedAt()).isEqualToIgnoringNanos(newTs);
     }
@@ -93,7 +96,7 @@ class ChatConversationRepositoryTest extends AbstractIntegrationTest {
         int updated = repository.updateActivityByUuid(c.getUuid(), newTs);
 
         assertThat(updated).isEqualTo(1);
-        var refreshed = repository.findByUuid(c.getUuid()).orElseThrow();
+        ChatConversation refreshed = repository.findByUuid(c.getUuid()).orElseThrow();
         assertThat(refreshed.getTitle()).isEqualTo("Still titled");
         assertThat(refreshed.getUpdatedAt()).isEqualToIgnoringNanos(newTs);
     }

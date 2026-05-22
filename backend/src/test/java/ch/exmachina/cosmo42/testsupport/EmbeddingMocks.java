@@ -14,7 +14,8 @@ import static org.mockito.Mockito.when;
 
 public final class EmbeddingMocks {
 
-    private EmbeddingMocks() {}
+    private EmbeddingMocks() {
+    }
 
     public static EmbeddingModel returningFixed(float[] vector) {
         EmbeddingModel model = mock(EmbeddingModel.class);

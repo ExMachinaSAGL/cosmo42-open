@@ -3,7 +3,6 @@ package ch.exmachina.cosmo42.services.chat;
 import ch.exmachina.cosmo42.AbstractIntegrationTest;
 import ch.exmachina.cosmo42.entities.ChatConversation;
 import ch.exmachina.cosmo42.repositories.ChatConversationRepository;
-import ch.exmachina.cosmo42.testsupport.TestDbCleaner;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -15,11 +14,9 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.Future;
-import java.util.concurrent.TimeUnit;
+import java.util.concurrent.*;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -28,9 +25,12 @@ class CreateIfAbsentConcurrencyTest extends AbstractIntegrationTest {
 
     private static final int THREAD_COUNT = 50;
 
-    @Autowired ChatConversationService service;
-    @Autowired ChatConversationRepository repository;
-    @Autowired JdbcTemplate jdbcTemplate;
+    @Autowired
+    ChatConversationService service;
+    @Autowired
+    ChatConversationRepository repository;
+    @Autowired
+    JdbcTemplate jdbcTemplate;
 
     ExecutorService executor;
 
@@ -53,19 +53,16 @@ class CreateIfAbsentConcurrencyTest extends AbstractIntegrationTest {
         CountDownLatch start = new CountDownLatch(1);
         CountDownLatch ready = new CountDownLatch(THREAD_COUNT);
 
-        List<Future<RaceResult>> futures = new ArrayList<>(THREAD_COUNT);
-        for (int i = 0; i < THREAD_COUNT; i++) {
-            futures.add(executor.submit(() -> {
-                ready.countDown();
-                start.await();
-                try {
-                    ChatConversation result = service.createIfAbsent(sharedUuid);
-                    return RaceResult.success(result);
-                } catch (RuntimeException e) {
-                    return RaceResult.failure(e);
-                }
-            }));
-        }
+        List<Future<RaceResult>> futures = IntStream.range(0, THREAD_COUNT).mapToObj(i -> executor.submit(() -> {
+            ready.countDown();
+            start.await();
+            try {
+                ChatConversation result = service.createIfAbsent(sharedUuid);
+                return RaceResult.success(result);
+            } catch (RuntimeException e) {
+                return RaceResult.failure(e);
+            }
+        })).collect(Collectors.toCollection(() -> new ArrayList<>(THREAD_COUNT)));
 
         assertThat(ready.await(5, TimeUnit.SECONDS))
                 .as("All %d threads must reach the start barrier within 5s", THREAD_COUNT)
@@ -115,13 +112,10 @@ class CreateIfAbsentConcurrencyTest extends AbstractIntegrationTest {
 
         // Wave 2 — race 50 threads, all expected to find the existing row.
         CountDownLatch start = new CountDownLatch(1);
-        List<Future<ChatConversation>> futures = new ArrayList<>(THREAD_COUNT);
-        for (int i = 0; i < THREAD_COUNT; i++) {
-            futures.add(executor.submit(() -> {
-                start.await();
-                return service.createIfAbsent(sharedUuid);
-            }));
-        }
+        List<Future<ChatConversation>> futures = IntStream.range(0, THREAD_COUNT).mapToObj(i -> executor.submit(() -> {
+            start.await();
+            return service.createIfAbsent(sharedUuid);
+        })).collect(Collectors.toCollection(() -> new ArrayList<>(THREAD_COUNT)));
         start.countDown();
 
         for (Future<ChatConversation> f : futures) {
@@ -140,14 +134,15 @@ class CreateIfAbsentConcurrencyTest extends AbstractIntegrationTest {
         CountDownLatch start = new CountDownLatch(1);
         List<Future<ChatConversation>> futures = new ArrayList<>(THREAD_COUNT);
         List<String> uuids = new ArrayList<>(THREAD_COUNT);
-        for (int i = 0; i < THREAD_COUNT; i++) {
-            String uuid = UUID.randomUUID().toString();
-            uuids.add(uuid);
-            futures.add(executor.submit(() -> {
-                start.await();
-                return service.createIfAbsent(uuid);
-            }));
-        }
+        IntStream.range(0, THREAD_COUNT)
+                .mapToObj(_ -> UUID.randomUUID().toString())
+                .forEachOrdered(uuid -> {
+                    uuids.add(uuid);
+                    futures.add(executor.submit(() -> {
+                        start.await();
+                        return service.createIfAbsent(uuid);
+                    }));
+                });
         start.countDown();
 
         for (Future<ChatConversation> f : futures) {
@@ -164,6 +159,7 @@ class CreateIfAbsentConcurrencyTest extends AbstractIntegrationTest {
         static RaceResult success(ChatConversation c) {
             return new RaceResult(true, c, null);
         }
+
         static RaceResult failure(RuntimeException e) {
             return new RaceResult(false, null, e);
         }

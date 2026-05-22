@@ -22,16 +22,20 @@ import java.time.LocalDateTime;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.Mockito.when;
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 class ChatConversationCrudE2ETest extends AbstractIntegrationTest {
 
-    @LocalServerPort int port;
-    @MockitoBean ChatModel chatModel;
-    @MockitoBean EmbeddingModel embeddingModel;
-    @Autowired ChatConversationRepository repository;
-    @Autowired JdbcTemplate jdbcTemplate;
+    @LocalServerPort
+    int port;
+    @MockitoBean
+    ChatModel chatModel;
+    @MockitoBean
+    EmbeddingModel embeddingModel;
+    @Autowired
+    ChatConversationRepository repository;
+    @Autowired
+    JdbcTemplate jdbcTemplate;
 
     WebTestClient client;
 
@@ -45,13 +49,13 @@ class ChatConversationCrudE2ETest extends AbstractIntegrationTest {
         ChatModelMocks.stubDefaultOptions(chatModel);
     }
 
-    private ChatConversation seed(String uuid, String title, LocalDateTime createdAt) {
+    private void seed(String uuid, String title, LocalDateTime createdAt) {
         ChatConversation c = new ChatConversation();
         c.setUuid(uuid);
         c.setTitle(title);
         c.setCreatedAt(createdAt);
         c.setUpdatedAt(createdAt);
-        return repository.save(c);
+        repository.save(c);
     }
 
     @Test

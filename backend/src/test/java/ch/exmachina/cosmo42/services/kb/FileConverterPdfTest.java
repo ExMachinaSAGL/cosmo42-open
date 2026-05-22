@@ -34,7 +34,7 @@ class FileConverterPdfTest {
         List<byte[]> pages = converter.convertPdfToImages(FileFixtures.singlePagePdf("hello"));
 
         assertThat(pages).hasSize(1);
-        assertThat(pages.get(0)).startsWith(PNG_MAGIC);
+        assertThat(pages.getFirst()).startsWith(PNG_MAGIC);
     }
 
     @Test
@@ -55,7 +55,7 @@ class FileConverterPdfTest {
         List<byte[]> pages = converter.convertPdfToImages(pdf);
 
         assertThat(pages).hasSize(1);
-        BufferedImage img = ImageIO.read(new ByteArrayInputStream(pages.get(0)));
+        BufferedImage img = ImageIO.read(new ByteArrayInputStream(pages.getFirst()));
         assertThat(img.getWidth()).isLessThanOrEqualTo(MAX_SIDE_PX);
         assertThat(img.getHeight()).isLessThanOrEqualTo(MAX_SIDE_PX);
         assertThat(Math.max(img.getWidth(), img.getHeight())).isEqualTo(MAX_SIDE_PX);
@@ -68,7 +68,7 @@ class FileConverterPdfTest {
 
         List<byte[]> pages = converter.convertPdfToImages(pdf);
 
-        BufferedImage img = ImageIO.read(new ByteArrayInputStream(pages.get(0)));
+        BufferedImage img = ImageIO.read(new ByteArrayInputStream(pages.getFirst()));
         assertThat(img.getWidth()).isLessThan(MAX_SIDE_PX);
         assertThat(img.getHeight()).isLessThan(MAX_SIDE_PX);
     }

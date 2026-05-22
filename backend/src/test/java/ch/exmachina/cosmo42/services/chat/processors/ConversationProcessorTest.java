@@ -27,15 +27,11 @@ import reactor.core.publisher.Sinks;
 import reactor.test.StepVerifier;
 
 import java.util.List;
+import java.util.Objects;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.argThat;
-import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
+import static org.mockito.ArgumentMatchers.*;
+import static org.mockito.Mockito.*;
 
 class ConversationProcessorTest {
 
@@ -171,7 +167,7 @@ class ConversationProcessorTest {
             ChatContext ctx = newContext("u-1", "hi");
 
             StepVerifier.create(processor.process(ctx))
-                    .assertNext(sse -> assertThat((String) sse.data().getData())
+                    .assertNext(sse -> assertThat((String) Objects.requireNonNull(sse.data()).getData())
                             .doesNotContain("REF_FILE_")
                             .doesNotContain(fakeUuid))
                     .verifyComplete();

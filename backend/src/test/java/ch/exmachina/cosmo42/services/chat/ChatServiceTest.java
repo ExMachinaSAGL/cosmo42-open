@@ -34,10 +34,15 @@ class ChatServiceTest {
         titleProcessor = mock(TitleProcessor.class);
         conversationProcessor = mock(ConversationProcessor.class);
         conversationService = mock(ChatConversationService.class);
-        when(uuidProcessor.process(any())).thenReturn(Flux.<ServerSentEvent<ChatResponseDTO>>empty());
-        when(titleProcessor.process(any())).thenReturn(Flux.<ServerSentEvent<ChatResponseDTO>>empty());
-        chatService = new ChatService(uuidProcessor, titleProcessor, conversationProcessor,
-                conversationService, () -> "fixed-test-uuid");
+        when(uuidProcessor.process(any())).thenReturn(Flux.empty());
+        when(titleProcessor.process(any())).thenReturn(Flux.empty());
+        chatService = new ChatService(
+                uuidProcessor,
+                titleProcessor,
+                conversationProcessor,
+                conversationService,
+                () -> "fixed-test-uuid"
+        );
     }
 
     @Nested
@@ -45,7 +50,7 @@ class ChatServiceTest {
 
         @BeforeEach
         void setUp() {
-            when(conversationProcessor.process(any())).thenReturn(Flux.<ServerSentEvent<ChatResponseDTO>>empty());
+            when(conversationProcessor.process(any())).thenReturn(Flux.empty());
         }
 
         @Test
@@ -83,8 +88,8 @@ class ChatServiceTest {
                     .block();
 
             assertThat(events).hasSize(1);
-            assertThat(events.get(0).getType()).isEqualTo(ChatEventType.STATUS);
-            assertThat(events.get(0).getData()).isEqualTo("Analyzing the request...");
+            assertThat(events.getFirst().getType()).isEqualTo(ChatEventType.STATUS);
+            assertThat(events.getFirst().getData()).isEqualTo("Analyzing the request...");
         }
 
         @Test

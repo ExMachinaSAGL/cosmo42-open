@@ -19,13 +19,15 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.ai.embedding.Embedding;
+import org.springframework.ai.embedding.EmbeddingModel;
 import org.springframework.ai.embedding.EmbeddingRequest;
 import org.springframework.ai.embedding.EmbeddingResponse;
-import org.springframework.ai.embedding.EmbeddingModel;
 import org.springframework.ai.openai.OpenAiEmbeddingOptions;
 
 import java.io.IOException;
-import java.util.*;
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Optional;
 import java.util.function.BiConsumer;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -37,14 +39,22 @@ import static org.mockito.Mockito.*;
 @ExtendWith(MockitoExtension.class)
 class KBDocumentIngestionProcessorTest {
 
-    @Mock IngestionJobService ingestionJobService;
-    @Mock KBDocumentChunker kbDocumentChunker;
-    @Mock FileConverter fileConverter;
-    @Mock FileService fileService;
-    @Mock KBDocumentRepository kbDocumentRepository;
-    @Mock KBDocumentChunkRepository kbDocumentChunkRepository;
-    @Mock EmbeddingModel embeddingModel;
-    @Mock OpenAiEmbeddingOptions embeddingModelOptions;
+    @Mock
+    IngestionJobService ingestionJobService;
+    @Mock
+    KBDocumentChunker kbDocumentChunker;
+    @Mock
+    FileConverter fileConverter;
+    @Mock
+    FileService fileService;
+    @Mock
+    KBDocumentRepository kbDocumentRepository;
+    @Mock
+    KBDocumentChunkRepository kbDocumentChunkRepository;
+    @Mock
+    EmbeddingModel embeddingModel;
+    @Mock
+    OpenAiEmbeddingOptions embeddingModelOptions;
 
     private KBDocumentIngestionProcessor processor;
 
@@ -69,9 +79,15 @@ class KBDocumentIngestionProcessorTest {
         when(fileConverter.convertSupportedFileToPdfFromBytes(any(), eq("doc.pdf"))).thenReturn(new byte[]{2});
         when(fileConverter.convertPdfToImages(any())).thenReturn(List.of(new byte[]{}, new byte[]{}));
 
-        doAnswer(inv -> { job.setTotalPages(inv.getArgument(1)); return null; })
+        doAnswer(inv -> {
+            job.setTotalPages(inv.getArgument(1));
+            return null;
+        })
                 .when(ingestionJobService).setTotalPages(eq("j1"), anyInt());
-        doAnswer(inv -> { job.setKbDocumentUuid(inv.getArgument(1)); return null; })
+        doAnswer(inv -> {
+            job.setKbDocumentUuid(inv.getArgument(1));
+            return null;
+        })
                 .when(ingestionJobService).setKbDocumentUuid(eq("j1"), anyString());
 
         when(ingestionJobService.findRetryablePageIndices(any(), eq(MAX_ATTEMPTS)))
@@ -116,12 +132,18 @@ class KBDocumentIngestionProcessorTest {
         when(fileService.load(any())).thenReturn(new byte[]{1});
         when(fileConverter.convertSupportedFileToPdfFromBytes(any(), any())).thenReturn(new byte[]{2});
         when(fileConverter.convertPdfToImages(any())).thenReturn(List.of(new byte[]{}));
-        doAnswer(inv -> { job.setTotalPages(inv.getArgument(1)); return null; })
+        doAnswer(inv -> {
+            job.setTotalPages(inv.getArgument(1));
+            return null;
+        })
                 .when(ingestionJobService).setTotalPages(eq("j2"), anyInt());
 
         when(ingestionJobService.findRetryablePageIndices(any(), eq(MAX_ATTEMPTS)))
                 .thenReturn(new LinkedHashSet<>(List.of(0)));
-        doAnswer(inv -> { ((BiConsumer<Integer, DocumentPage>) inv.getArgument(2)).accept(0, null); return null; })
+        doAnswer(inv -> {
+            ((BiConsumer<Integer, DocumentPage>) inv.getArgument(2)).accept(0, null);
+            return null;
+        })
                 .when(kbDocumentChunker).processPages(any(), any(), any());
         when(ingestionJobService.countExhaustedFailures(any(), eq(MAX_ATTEMPTS))).thenReturn(1L);
 
@@ -139,12 +161,18 @@ class KBDocumentIngestionProcessorTest {
         when(fileService.load(any())).thenReturn(new byte[]{1});
         when(fileConverter.convertSupportedFileToPdfFromBytes(any(), any())).thenReturn(new byte[]{2});
         when(fileConverter.convertPdfToImages(any())).thenReturn(List.of(new byte[]{}));
-        doAnswer(inv -> { job.setTotalPages(inv.getArgument(1)); return null; })
+        doAnswer(inv -> {
+            job.setTotalPages(inv.getArgument(1));
+            return null;
+        })
                 .when(ingestionJobService).setTotalPages(eq("j3"), anyInt());
 
         when(ingestionJobService.findRetryablePageIndices(any(), eq(MAX_ATTEMPTS)))
                 .thenReturn(new LinkedHashSet<>(List.of(0)));
-        doAnswer(inv -> { ((BiConsumer<Integer, DocumentPage>) inv.getArgument(2)).accept(0, null); return null; })
+        doAnswer(inv -> {
+            ((BiConsumer<Integer, DocumentPage>) inv.getArgument(2)).accept(0, null);
+            return null;
+        })
                 .when(kbDocumentChunker).processPages(any(), any(), any());
         when(ingestionJobService.countExhaustedFailures(any(), eq(MAX_ATTEMPTS))).thenReturn(0L);
 

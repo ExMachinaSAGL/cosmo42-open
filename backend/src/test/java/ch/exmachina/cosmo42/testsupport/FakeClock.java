@@ -6,7 +6,8 @@ import java.time.ZoneId;
 
 public final class FakeClock {
 
-    private FakeClock() {}
+    private FakeClock() {
+    }
 
     public static Clock fixedAt(LocalDateTime instant) {
         return Clock.fixed(
@@ -14,7 +15,4 @@ public final class FakeClock {
                 ZoneId.systemDefault());
     }
 
-    public static Clock fixedAtFixedNow() {
-        return fixedAt(Fixtures.FIXED_NOW);
-    }
 }

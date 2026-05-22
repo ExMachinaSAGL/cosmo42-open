@@ -32,11 +32,16 @@ import static org.mockito.Mockito.when;
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 class ChatStreamE2ETest extends AbstractIntegrationTest {
 
-    @LocalServerPort int port;
-    @MockitoBean ChatModel chatModel;
-    @MockitoBean EmbeddingModel embeddingModel;
-    @Autowired ChatConversationRepository repository;
-    @Autowired JdbcTemplate jdbcTemplate;
+    @LocalServerPort
+    int port;
+    @MockitoBean
+    ChatModel chatModel;
+    @MockitoBean
+    EmbeddingModel embeddingModel;
+    @Autowired
+    ChatConversationRepository repository;
+    @Autowired
+    JdbcTemplate jdbcTemplate;
 
     WebTestClient client;
 

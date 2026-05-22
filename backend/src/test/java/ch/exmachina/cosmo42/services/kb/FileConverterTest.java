@@ -10,18 +10,15 @@ import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.test.web.client.MockRestServiceServer;
 import org.springframework.web.client.RestClient;
 
+import java.util.Arrays;
+
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
-import static org.springframework.test.web.client.match.MockRestRequestMatchers.content;
-import static org.springframework.test.web.client.match.MockRestRequestMatchers.header;
-import static org.springframework.test.web.client.match.MockRestRequestMatchers.method;
-import static org.springframework.test.web.client.match.MockRestRequestMatchers.requestTo;
-import static org.springframework.test.web.client.response.MockRestResponseCreators.withBadRequest;
-import static org.springframework.test.web.client.response.MockRestResponseCreators.withServerError;
-import static org.springframework.test.web.client.response.MockRestResponseCreators.withSuccess;
+import static org.springframework.test.web.client.match.MockRestRequestMatchers.*;
+import static org.springframework.test.web.client.response.MockRestResponseCreators.*;
 
 class FileConverterTest {
 
@@ -183,8 +180,9 @@ class FileConverterTest {
     }
 
     private void stubFileType(MockMultipartFile file, SupportedMimeTypes type) {
-        for (SupportedMimeTypes t : SupportedMimeTypes.values()) {
-            when(mimeTypeService.isMimeType(file, t)).thenReturn(t == type);
-        }
+        Arrays.stream(SupportedMimeTypes.values())
+                .forEachOrdered(t -> when(mimeTypeService.isMimeType(file, t))
+                        .thenReturn(t == type)
+                );
     }
 }

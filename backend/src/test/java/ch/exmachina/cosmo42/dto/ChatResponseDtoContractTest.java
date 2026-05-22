@@ -14,7 +14,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 @JsonTest
 class ChatResponseDtoContractTest {
 
-    @Autowired JacksonTester<ChatResponseDTO> json;
+    @Autowired
+    JacksonTester<ChatResponseDTO> json;
 
     @Nested
     class Shape {

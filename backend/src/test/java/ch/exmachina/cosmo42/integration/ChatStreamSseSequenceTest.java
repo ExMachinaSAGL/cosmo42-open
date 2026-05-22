@@ -2,7 +2,6 @@ package ch.exmachina.cosmo42.integration;
 
 import ch.exmachina.cosmo42.AbstractIntegrationTest;
 import ch.exmachina.cosmo42.dto.ChatEventType;
-import ch.exmachina.cosmo42.repositories.ChatConversationRepository;
 import ch.exmachina.cosmo42.testsupport.ChatModelMocks;
 import ch.exmachina.cosmo42.testsupport.TestDbCleaner;
 import org.junit.jupiter.api.BeforeEach;
@@ -32,11 +31,14 @@ import static org.mockito.Mockito.when;
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 class ChatStreamSseSequenceTest extends AbstractIntegrationTest {
 
-    @LocalServerPort int port;
-    @MockitoBean ChatModel chatModel;
-    @MockitoBean EmbeddingModel embeddingModel;
-    @Autowired ChatConversationRepository repository;
-    @Autowired JdbcTemplate jdbcTemplate;
+    @LocalServerPort
+    int port;
+    @MockitoBean
+    ChatModel chatModel;
+    @MockitoBean
+    EmbeddingModel embeddingModel;
+    @Autowired
+    JdbcTemplate jdbcTemplate;
 
     WebTestClient client;
 
@@ -136,7 +138,9 @@ class ChatStreamSseSequenceTest extends AbstractIntegrationTest {
         return parseEventTypes(raw);
     }
 
-    /** Extract each `"type":"X"` from the concatenated SSE payload in source order. */
+    /**
+     * Extract each `"type":"X"` from the concatenated SSE payload in source order.
+     */
     private static List<ChatEventType> parseEventTypes(String raw) {
         java.util.regex.Matcher m = java.util.regex.Pattern.compile("\"type\":\"([A-Z]+)\"").matcher(raw);
         List<ChatEventType> out = new java.util.ArrayList<>();

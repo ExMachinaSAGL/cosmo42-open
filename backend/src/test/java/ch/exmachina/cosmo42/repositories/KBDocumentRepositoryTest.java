@@ -19,7 +19,8 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 @Transactional
 class KBDocumentRepositoryTest extends AbstractIntegrationTest {
 
-    @Autowired KBDocumentRepository repository;
+    @Autowired
+    KBDocumentRepository repository;
 
     @BeforeEach
     void cleanUp() {
@@ -55,7 +56,6 @@ class KBDocumentRepositoryTest extends AbstractIntegrationTest {
 
     @Test
     void deleteByUuidOnUnknownUuidIsNoOp() {
-        // No throw expected; derived delete on no matching row is a clean no-op.
         repository.deleteByUuid("00000000-0000-0000-0000-000000000000");
         repository.flush();
 

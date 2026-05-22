@@ -1,17 +1,15 @@
 package ch.exmachina.cosmo42.mappers;
 
 import ch.exmachina.cosmo42.entities.IngestionJob;
-import ch.exmachina.cosmo42.entities.IngestionJobPage;
-import ch.exmachina.cosmo42.entities.IngestionJobPageStatus;
 import ch.exmachina.cosmo42.entities.IngestionJobStatus;
-import ch.exmachina.cosmo42.services.kb.schema.DocumentPage;
-import tools.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
+import tools.jackson.databind.ObjectMapper;
+
+import java.time.LocalDateTime;
+import java.time.temporal.ChronoUnit;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.within;
-import java.time.LocalDateTime;
-import java.time.temporal.ChronoUnit;
 
 class IngestionJobMapperTest {
 

@@ -16,7 +16,8 @@ import static org.mockito.Mockito.when;
 
 public final class ChatModelMocks {
 
-    private ChatModelMocks() {}
+    private ChatModelMocks() {
+    }
 
     public static ChatModel replyingWith(String content) {
         ChatModel chatModel = mock(ChatModel.class);
@@ -24,15 +25,6 @@ public final class ChatModelMocks {
                 .thenReturn(OpenAiChatOptions.builder().model("test-model").build());
         when(chatModel.call(any(Prompt.class))).thenReturn(chatResponse(content));
         when(chatModel.stream(any(Prompt.class))).thenReturn(Flux.just(chatResponse(content)));
-        return chatModel;
-    }
-
-    public static ChatModel streamingChunks(String... chunks) {
-        ChatModel chatModel = mock(ChatModel.class);
-        when(chatModel.getDefaultOptions())
-                .thenReturn(OpenAiChatOptions.builder().model("test-model").build());
-        Flux<ChatResponse> stream = Flux.fromArray(chunks).map(ChatModelMocks::chatResponse);
-        when(chatModel.stream(any(Prompt.class))).thenReturn(stream);
         return chatModel;
     }
 

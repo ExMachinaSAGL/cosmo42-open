@@ -26,14 +26,12 @@ class KBDocumentChunkRepositoryTest extends AbstractIntegrationTest {
 
     private final VectorAttributeConverter converter = new VectorAttributeConverter();
 
-    @Autowired KBDocumentChunkRepository chunkRepository;
-    @Autowired KBDocumentRepository documentRepository;
+    @Autowired
+    KBDocumentChunkRepository chunkRepository;
+    @Autowired
+    KBDocumentRepository documentRepository;
 
     private KBDocument document;
-    private KBDocumentChunk identical;
-    private KBDocumentChunk near;
-    private KBDocumentChunk orthogonal;
-    private KBDocumentChunk opposite;
 
     @BeforeEach
     void cleanAndSeed() {
@@ -47,10 +45,10 @@ class KBDocumentChunkRepositoryTest extends AbstractIntegrationTest {
         document.setCreationTimestamp(LocalDateTime.now());
         documentRepository.saveAndFlush(document);
 
-        identical = persistChunk("identical", basis(0));
-        near = persistChunk("near", normalized(basis(0), basis(1)));
-        orthogonal = persistChunk("orthogonal", basis(1));
-        opposite = persistChunk("opposite", normalized(negate(basis(0)), basis(1)));
+        persistChunk("identical", basis(0));
+        persistChunk("near", normalized(basis(0), basis(1)));
+        persistChunk("orthogonal", basis(1));
+        persistChunk("opposite", normalized(negate(basis(0)), basis(1)));
     }
 
     @Test
@@ -87,12 +85,6 @@ class KBDocumentChunkRepositoryTest extends AbstractIntegrationTest {
 
     @Test
     void filtersByMaxDistanceThreshold() {
-        // Expected cosine distances against basis(0):
-        //   identical    = 0.0
-        //   near         ≈ 1 - 1/√2 ≈ 0.293
-        //   orthogonal   = 1.0
-        //   opposite     ≈ 1 + 1/√2 ≈ 1.707
-        // maxDistance=0.5 must keep identical + near and drop the other two.
         byte[] query = converter.convertToDatabaseColumn(basis(0));
 
         List<KBDocumentChunk> results = chunkRepository.findMostSimilarByCosine(query, 0.5, 10);
@@ -118,14 +110,14 @@ class KBDocumentChunkRepositoryTest extends AbstractIntegrationTest {
         assertThat(chunkRepository.findAll()).isEmpty();
     }
 
-    private KBDocumentChunk persistChunk(String content, float[] embedding) {
+    private void persistChunk(String content, float[] embedding) {
         KBDocumentChunk c = new KBDocumentChunk();
         c.setUuid(UUID.randomUUID().toString());
         c.setKbDocument(document);
         c.setType(KBDocumentChunkType.TEXT);
         c.setContent(content);
         c.setEmbedding(embedding);
-        return chunkRepository.saveAndFlush(c);
+        chunkRepository.saveAndFlush(c);
     }
 
     private static float[] basis(int axis) {
