@@ -143,7 +143,7 @@ public class KBDocumentIngestionProcessor {
                 KBDocumentChunk kbChunk = new KBDocumentChunk();
                 kbChunk.setUuid(UUID.randomUUID().toString());
                 kbChunk.setKbDocument(kbDocument);
-                kbChunk.setType(KBDocumentChunkType.fromLabel(chunk.getType()));
+                kbChunk.setType(KBDocumentChunkType.fromLabel(chunk.getType(), KBDocumentChunkType.TEXT));
                 kbChunk.setContent(chunk.getContent());
                 kbChunk.setSummary(chunk.getSummary());
                 chunks.add(kbChunk);

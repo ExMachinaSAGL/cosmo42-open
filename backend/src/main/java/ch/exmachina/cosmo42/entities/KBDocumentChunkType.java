@@ -13,10 +13,10 @@ public enum KBDocumentChunkType {
         this.label = label;
     }
 
-    public static KBDocumentChunkType fromLabel(String label){
+    public static KBDocumentChunkType fromLabel(String label, KBDocumentChunkType fallbackValue){
         return Arrays.stream(KBDocumentChunkType.values())
                 .filter(t -> t.label.equalsIgnoreCase(label))
                 .findFirst()
-                .orElseThrow(() -> new IllegalArgumentException("Unknown KBDocumentChunkType: " + label));
+                .orElse(fallbackValue);
     }
 }
