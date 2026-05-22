@@ -1,6 +1,7 @@
 package ch.exmachina.cosmo42.services.chat;
 
 import ch.exmachina.cosmo42.entities.ChatConversation;
+import ch.exmachina.cosmo42.entities.KBDocument;
 import ch.exmachina.cosmo42.exceptions.ChatConversationNotFoundException;
 import ch.exmachina.cosmo42.exceptions.InvalidChatTitleException;
 import ch.exmachina.cosmo42.repositories.ChatConversationRepository;
@@ -14,9 +15,12 @@ import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.springframework.ai.chat.memory.ChatMemory;
+import org.springframework.ai.chat.messages.AssistantMessage;
+import org.springframework.ai.chat.messages.Message;
 import org.springframework.dao.DataIntegrityViolationException;
 
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -175,7 +179,51 @@ class ChatConversationServiceTest {
             var result = service.get("u-1");
 
             assertThat(result.conversation()).isSameAs(c);
-            assertThat(result.messages()).isSameAs(msgs);
+            assertThat(result.messages()).isEqualTo(msgs);
+        }
+
+        @Test
+        void getReplacesRefFileTokensInAssistantMessages() {
+            String refUuid = "f9da77ff-9838-4c5f-898f-0e3e1232f255";
+            ChatConversation c = new ChatConversation();
+            c.setUuid("u-1");
+            when(repository.findByUuid("u-1")).thenReturn(Optional.of(c));
+            var msgs = List.<Message>of(
+                    new org.springframework.ai.chat.messages.UserMessage("hi"),
+                    new AssistantMessage("answer REF_FILE_" + refUuid + " test")
+            );
+            when(chatMemory.get("u-1")).thenReturn(msgs);
+            KBDocument kbDoc = new KBDocument();
+            kbDoc.setUuid(refUuid);
+            kbDoc.setFileName("test.pdf");
+            when(kbDocumentRepository.findAll()).thenReturn(List.of(kbDoc));
+
+            var result = service.get("u-1");
+
+            assertThat(result.conversation()).isSameAs(c);
+            assertThat(result.messages().get(0).getText()).isEqualTo("hi");
+            assertThat(result.messages().get(1).getText())
+                    .contains("(/api/v1/kb/documents/" + refUuid + "/download)")
+                    .doesNotContain("REF_FILE_");
+        }
+
+        @Test
+        void getStripsUnknownRefFileTokens() {
+            String refUuid = "f9da77ff-9838-4c5f-898f-0e3e1232f255";
+            ChatConversation c = new ChatConversation();
+            c.setUuid("u-1");
+            when(repository.findByUuid("u-1")).thenReturn(Optional.of(c));
+            var msgs = List.<Message>of(
+                    new AssistantMessage("answer REF_FILE_" + refUuid + " test")
+            );
+            when(chatMemory.get("u-1")).thenReturn(msgs);
+            when(kbDocumentRepository.findAll()).thenReturn(List.of());
+
+            var result = service.get("u-1");
+
+            assertThat(result.messages().get(0).getText())
+                    .isEqualTo("answer  test")
+                    .doesNotContain("REF_FILE_");
         }
 
         @Test

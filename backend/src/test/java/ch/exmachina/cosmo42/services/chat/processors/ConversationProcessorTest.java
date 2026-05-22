@@ -39,7 +39,6 @@ class ConversationProcessorTest {
     ChatModel chatModel;
     ChatMemory chatMemory;
     KBDocumentSimilaritySearchTool tool;
-    KBDocumentRepository kbDocumentRepository;
     ConversationProcessor processor;
     KBDocumentRepository kbDocumentRepository;
     MarkdownLinkProcessor markdownLinkProcessor;
