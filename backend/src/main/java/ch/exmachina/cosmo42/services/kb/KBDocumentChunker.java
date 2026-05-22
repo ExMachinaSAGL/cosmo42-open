@@ -123,7 +123,7 @@ public class KBDocumentChunker {
             return chunkSinglePage(chatClient, media, pageIndex, totalPages);
         } catch (Exception e) {
             log.error("Failed to extract chunks for page {}. Skipping.", pageIndex + 1, e);
-            return null;
+            return new DocumentPage(null);
         }
     }
 

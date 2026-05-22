@@ -7,6 +7,7 @@ import ch.exmachina.cosmo42.entities.KBDocument;
 import ch.exmachina.cosmo42.repositories.KBDocumentRepository;
 import ch.exmachina.cosmo42.services.chat.ChatContext;
 import ch.exmachina.cosmo42.services.chat.tools.KBDocumentSimilaritySearchTool;
+import ch.exmachina.cosmo42.services.kb.MarkdownLinkProcessor;
 import ch.exmachina.cosmo42.testsupport.ChatModelMocks;
 import ch.exmachina.cosmo42.testsupport.Fixtures;
 import org.junit.jupiter.api.BeforeEach;
@@ -40,6 +41,8 @@ class ConversationProcessorTest {
     KBDocumentSimilaritySearchTool tool;
     KBDocumentRepository kbDocumentRepository;
     ConversationProcessor processor;
+    KBDocumentRepository kbDocumentRepository;
+    MarkdownLinkProcessor markdownLinkProcessor;
 
     @BeforeEach
     void setUp() {
@@ -49,12 +52,14 @@ class ConversationProcessorTest {
         kbDocumentRepository = mock(KBDocumentRepository.class);
         when(chatMemory.get(any())).thenReturn(List.of());
         when(kbDocumentRepository.findAll()).thenReturn(List.of());
+        markdownLinkProcessor = new MarkdownLinkProcessor();
         processor = new ConversationProcessor(
                 chatModel,
                 OpenAiChatOptions.builder().model("test-model").temperature(0.2),
                 chatMemory,
                 tool,
-                kbDocumentRepository
+                kbDocumentRepository,
+                markdownLinkProcessor
         );
     }
 

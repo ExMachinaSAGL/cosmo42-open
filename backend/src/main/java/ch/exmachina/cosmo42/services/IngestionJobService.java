@@ -109,7 +109,7 @@ public class IngestionJobService {
             return;
         }
         entity.setAttemptCount(entity.getAttemptCount() + 1);
-        if (page == null) {
+        if (page == null || page.getChunks() == null) {
             entity.setStatus(IngestionJobPageStatus.FAILED);
             ingestionJobPageRepository.save(entity);
             return;

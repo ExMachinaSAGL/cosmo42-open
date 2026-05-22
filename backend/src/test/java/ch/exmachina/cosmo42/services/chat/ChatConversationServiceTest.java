@@ -4,6 +4,8 @@ import ch.exmachina.cosmo42.entities.ChatConversation;
 import ch.exmachina.cosmo42.exceptions.ChatConversationNotFoundException;
 import ch.exmachina.cosmo42.exceptions.InvalidChatTitleException;
 import ch.exmachina.cosmo42.repositories.ChatConversationRepository;
+import ch.exmachina.cosmo42.repositories.KBDocumentRepository;
+import ch.exmachina.cosmo42.services.kb.MarkdownLinkProcessor;
 import ch.exmachina.cosmo42.testsupport.FakeClock;
 import ch.exmachina.cosmo42.testsupport.Fixtures;
 import jakarta.persistence.EntityManager;
@@ -28,6 +30,8 @@ class ChatConversationServiceTest {
     ChatMemory chatMemory;
     EntityManager entityManager;
     ChatConversationService service;
+    KBDocumentRepository kbDocumentRepository;
+    MarkdownLinkProcessor markdownLinkProcessor;
 
     static final LocalDateTime NOW = Fixtures.FIXED_NOW;
 
@@ -35,9 +39,11 @@ class ChatConversationServiceTest {
     void setUp() {
         repository = mock(ChatConversationRepository.class);
         chatMemory = mock(ChatMemory.class);
+        kbDocumentRepository = mock(KBDocumentRepository.class);
+        markdownLinkProcessor = new MarkdownLinkProcessor();
         entityManager = mock(EntityManager.class);
         service = new ChatConversationService(
-                repository, chatMemory, new TitleSanitizer(), FakeClock.fixedAt(NOW), entityManager);
+                repository, chatMemory, new TitleSanitizer(), FakeClock.fixedAt(NOW), kbDocumentRepository, markdownLinkProcessor, entityManager);
     }
 
     @Nested

@@ -35,6 +35,7 @@ public class ConversationProcessor implements ChatProcessor {
     ChatMemory chatMemory;
     KBDocumentSimilaritySearchTool kbDocumentSimilaritySearchTool;
     KBDocumentRepository kbDocumentRepository;
+    MarkdownLinkProcessor markdownLinkProcessor;
 
     private static final String system_instruction = """
                 You are cosmo42, an expert in retrieving information from a private knowledge base.
@@ -68,7 +69,6 @@ public class ConversationProcessor implements ChatProcessor {
                 .order(20)
                 .build();
 
-        MarkdownLinkProcessor markdownLinkProcessor = new MarkdownLinkProcessor();
         List<KBDocument> allKbDocuments = kbDocumentRepository.findAll();
 
         return chatClient.prompt()
