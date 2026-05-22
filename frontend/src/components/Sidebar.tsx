@@ -1,5 +1,5 @@
 import { NavLink, useNavigate } from 'react-router-dom';
-import { Database, MessageSquare, Plus, PanelLeftClose, MoreVertical, Edit2, Trash2 } from 'lucide-react';
+import { Database, MessageSquare, PanelLeftClose, MoreVertical, Edit2, Trash2, FlaskConical } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import toast from 'react-hot-toast';
 import logo from '../assets/Cosmo42logo_128x128.jpg';
@@ -132,6 +132,11 @@ export function Sidebar() {
             <NavLink to="/kb" className={({ isActive }) => `sidebar-nav-link ${isCollapsed ? 'justify-center' : ''} ${isActive ? 'active' : ''}`} title="Knowledge Base">
               <Database size={18}/>
               {!isCollapsed && <span className="sidebar-nav-item-text">Knowledge Base</span>}
+            </NavLink>
+
+            <NavLink to="/studio" className={({ isActive }) => `sidebar-nav-link ${isCollapsed ? 'justify-center' : ''} ${isActive ? 'active' : ''}`} title="Studio">
+              <FlaskConical size={18}/>
+              {!isCollapsed && <span className="sidebar-nav-item-text">Studio</span>}
             </NavLink>
           </div>
 
