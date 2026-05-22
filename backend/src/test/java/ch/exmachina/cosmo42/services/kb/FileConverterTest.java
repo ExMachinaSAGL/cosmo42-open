@@ -6,15 +6,11 @@ import ch.exmachina.cosmo42.utils.SupportedMimeTypes;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.MediaType;
-import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.test.web.client.MockRestServiceServer;
 import org.springframework.web.client.RestClient;
 
-import java.util.Arrays;
-
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.*;
@@ -37,62 +33,55 @@ class FileConverterTest {
     }
 
     @Test
-    void docxRoutesThroughLibreofficeAndReturnsConvertedPdf() throws Exception {
+    void docxRoutesThroughLibreofficeAndReturnsConvertedPdf() {
         byte[] docxBytes = FileFixtures.minimalDocx();
-        MockMultipartFile file = new MockMultipartFile(
-                "file", "doc.docx", "application/octet-stream", docxBytes);
+        when(mimeTypeService.getMimeType(docxBytes, "doc.docx"))
+                .thenReturn(SupportedMimeTypes.MIME_DOCX.getContentType());
         mockServer.expect(requestTo("http://libreoffice-test/convert"))
                 .andExpect(method(org.springframework.http.HttpMethod.POST))
                 .andExpect(header("Content-Type", MediaType.APPLICATION_OCTET_STREAM_VALUE))
                 .andExpect(content().bytes(docxBytes))
                 .andRespond(withSuccess(PDF_FROM_LIBREOFFICE, MediaType.APPLICATION_OCTET_STREAM));
 
-        stubFileType(file, SupportedMimeTypes.MIME_DOCX);
-
-        byte[] result = converter.convertSupportedFileToPdf(file);
+        byte[] result = converter.convertSupportedFileToPdfFromBytes(docxBytes, "doc.docx");
 
         assertThat(result).containsExactly(PDF_FROM_LIBREOFFICE);
         mockServer.verify();
     }
 
     @Test
-    void xlsxRoutesThroughLibreoffice() throws Exception {
+    void xlsxRoutesThroughLibreoffice() {
         byte[] xlsxBytes = FileFixtures.minimalXlsx();
-        MockMultipartFile file = new MockMultipartFile(
-                "file", "sheet.xlsx", "application/octet-stream", xlsxBytes);
+        when(mimeTypeService.getMimeType(xlsxBytes, "sheet.xlsx"))
+                .thenReturn(SupportedMimeTypes.MIME_XSLX.getContentType());
         mockServer.expect(requestTo("http://libreoffice-test/convert"))
                 .andExpect(method(org.springframework.http.HttpMethod.POST))
                 .andRespond(withSuccess(PDF_FROM_LIBREOFFICE, MediaType.APPLICATION_OCTET_STREAM));
 
-        stubFileType(file, SupportedMimeTypes.MIME_XSLX);
-
-        byte[] result = converter.convertSupportedFileToPdf(file);
+        byte[] result = converter.convertSupportedFileToPdfFromBytes(xlsxBytes, "sheet.xlsx");
 
         assertThat(result).containsExactly(PDF_FROM_LIBREOFFICE);
         mockServer.verify();
     }
 
     @Test
-    void pdfPassthroughDoesNotCallLibreoffice() throws Exception {
+    void pdfPassthroughDoesNotCallLibreoffice() {
         byte[] pdfBytes = FileFixtures.singlePagePdf("hello");
-        MockMultipartFile file = new MockMultipartFile(
-                "file", "x.pdf", "application/pdf", pdfBytes);
+        when(mimeTypeService.getMimeType(pdfBytes, "x.pdf"))
+                .thenReturn(SupportedMimeTypes.MIME_PDF.getContentType());
 
-        stubFileType(file, SupportedMimeTypes.MIME_PDF);
+        byte[] result = converter.convertSupportedFileToPdfFromBytes(pdfBytes, "x.pdf");
 
-        byte[] result = converter.convertSupportedFileToPdf(file);
-
-        assertThat(result).containsExactly(pdfBytes);
+        assertThat(result).isSameAs(pdfBytes);
         mockServer.verify();
     }
 
     @Test
     void unsupportedFileTypeThrowsIllegalArgument() {
-        MockMultipartFile file = new MockMultipartFile(
-                "file", "notes.txt", "text/plain", "just text".getBytes());
-        when(mimeTypeService.isMimeType(any(), any())).thenReturn(false);
+        byte[] txt = "just text".getBytes();
+        when(mimeTypeService.getMimeType(txt, "notes.txt")).thenReturn("text/plain");
 
-        assertThatThrownBy(() -> converter.convertSupportedFileToPdf(file))
+        assertThatThrownBy(() -> converter.convertSupportedFileToPdfFromBytes(txt, "notes.txt"))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("Unsupported file type");
     }
@@ -100,28 +89,24 @@ class FileConverterTest {
     @Test
     void libreofficeServerErrorPropagates() {
         byte[] docxBytes = FileFixtures.minimalDocx();
-        MockMultipartFile file = new MockMultipartFile(
-                "file", "doc.docx", "application/octet-stream", docxBytes);
+        when(mimeTypeService.getMimeType(docxBytes, "doc.docx"))
+                .thenReturn(SupportedMimeTypes.MIME_DOCX.getContentType());
         mockServer.expect(requestTo("http://libreoffice-test/convert"))
                 .andRespond(withServerError());
 
-        stubFileType(file, SupportedMimeTypes.MIME_DOCX);
-
-        assertThatThrownBy(() -> converter.convertSupportedFileToPdf(file))
+        assertThatThrownBy(() -> converter.convertSupportedFileToPdfFromBytes(docxBytes, "doc.docx"))
                 .isInstanceOf(org.springframework.web.client.HttpServerErrorException.class);
     }
 
     @Test
     void libreofficeClientErrorPropagates() {
         byte[] docxBytes = FileFixtures.minimalDocx();
-        MockMultipartFile file = new MockMultipartFile(
-                "file", "doc.docx", "application/octet-stream", docxBytes);
+        when(mimeTypeService.getMimeType(docxBytes, "doc.docx"))
+                .thenReturn(SupportedMimeTypes.MIME_DOCX.getContentType());
         mockServer.expect(requestTo("http://libreoffice-test/convert"))
                 .andRespond(withBadRequest());
 
-        stubFileType(file, SupportedMimeTypes.MIME_DOCX);
-
-        assertThatThrownBy(() -> converter.convertSupportedFileToPdf(file))
+        assertThatThrownBy(() -> converter.convertSupportedFileToPdfFromBytes(docxBytes, "doc.docx"))
                 .isInstanceOf(org.springframework.web.client.HttpClientErrorException.class);
     }
 
@@ -177,12 +162,5 @@ class FileConverterTest {
         assertThatThrownBy(() -> converter.convertSupportedFileToPdfFromBytes(txt, "note.txt"))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("Unsupported");
-    }
-
-    private void stubFileType(MockMultipartFile file, SupportedMimeTypes type) {
-        Arrays.stream(SupportedMimeTypes.values())
-                .forEachOrdered(t -> when(mimeTypeService.isMimeType(file, t))
-                        .thenReturn(t == type)
-                );
     }
 }

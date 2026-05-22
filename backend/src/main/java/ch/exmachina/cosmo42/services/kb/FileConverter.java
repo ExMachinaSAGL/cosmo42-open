@@ -13,7 +13,7 @@ import org.apache.pdfbox.rendering.PDFRenderer;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
-import org.springframework.web.multipart.MultipartFile;
+
 
 import javax.imageio.ImageIO;
 import java.awt.*;
@@ -39,25 +39,7 @@ public class FileConverter {
                 .contentType(MediaType.APPLICATION_OCTET_STREAM)
                 .body(fileBytes)
                 .retrieve()
-                .body(byte[].class)
-                ;
-    }
-
-    public byte[] convertSupportedFileToPdf(MultipartFile file) throws IOException {
-        byte[] pdfBytes;
-        boolean isDocx = mimeTypeService.isMimeType(file, SupportedMimeTypes.MIME_DOCX);
-        boolean isXslx = mimeTypeService.isMimeType(file, SupportedMimeTypes.MIME_XSLX);
-        boolean isPdf = mimeTypeService.isMimeType(file, SupportedMimeTypes.MIME_PDF);
-
-        if (isDocx || isXslx) {
-            log.info("Converting docx/xlsx to PDF");
-            pdfBytes = convertOfficeFileToPdf(file.getBytes(), file.getName());
-        } else if (isPdf) {
-            pdfBytes = file.getBytes();
-        } else {
-            throw new IllegalArgumentException("Unsupported file type: " + file.getName());
-        }
-        return pdfBytes;
+                .body(byte[].class);
     }
 
     public byte[] convertSupportedFileToPdfFromBytes(byte[] bytes, String filename) {
@@ -76,9 +58,11 @@ public class FileConverter {
         return convertPdfToImages(pdfBytes, 300f, 4096);
     }
 
-    private List<byte[]> convertPdfToImages(byte[] pdfBytes,
-                                            float dpi,
-                                            int maxSidePx) throws IOException {
+    private List<byte[]> convertPdfToImages(
+            byte[] pdfBytes,
+            float dpi,
+            int maxSidePx
+    ) throws IOException {
         List<byte[]> pages = new ArrayList<>();
 
         try (PDDocument document = Loader.loadPDF(pdfBytes)) {
