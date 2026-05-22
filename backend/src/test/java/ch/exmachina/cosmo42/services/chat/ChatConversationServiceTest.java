@@ -200,6 +200,58 @@ class ChatConversationServiceTest {
         assertThat(result.messages().get(1).getText()).isEqualTo(expectedMsg2);
     }
 
+
+    @Test
+    void getReturnsConversationWithReplacedRefLinks_missingUuid() {
+        String refUuid = "f9da77ff-9838-4c5f-898f-0e3e1232f255";
+        ChatConversation c = new ChatConversation();
+        c.setUuid("u-1");
+        when(repository.findByUuid("u-1")).thenReturn(Optional.of(c));
+        var msgs = java.util.List.<org.springframework.ai.chat.messages.Message>of(
+                new org.springframework.ai.chat.messages.UserMessage("hi REF_FILE_"+refUuid),
+                new org.springframework.ai.chat.messages.AssistantMessage("answer REF_FILE_"+refUuid+" test")
+        );
+        when(chatMemory.get("u-1")).thenReturn(msgs);
+        KBDocument kbDoc1 = new KBDocument();
+        kbDoc1.setUuid("u-1");
+        kbDoc1.setFileName("test1.pdf");
+
+        when(kbDocumentRepository.findAll()).thenReturn(List.of(
+                kbDoc1
+        ));
+
+        var result = service.get("u-1");
+
+        assertThat(result.conversation()).isSameAs(c);
+        assertThat(result.messages().get(0).getText()).isEqualTo(msgs.get(0).getText());
+
+        String expectedMsg2 = "answer  test";
+        assertThat(result.messages().get(1).getText()).isEqualTo(expectedMsg2);
+    }
+
+
+    @Test
+    void getReturnsConversationWithReplacedRefLinks_noKbDocs() {
+        String refUuid = "f9da77ff-9838-4c5f-898f-0e3e1232f255";
+        ChatConversation c = new ChatConversation();
+        c.setUuid("u-1");
+        when(repository.findByUuid("u-1")).thenReturn(Optional.of(c));
+        var msgs = java.util.List.<org.springframework.ai.chat.messages.Message>of(
+                new org.springframework.ai.chat.messages.UserMessage("hi"),
+                new org.springframework.ai.chat.messages.AssistantMessage("answer REF_FILE_"+refUuid+" test")
+        );
+        when(chatMemory.get("u-1")).thenReturn(msgs);
+        when(kbDocumentRepository.findAll()).thenReturn(List.of());
+
+        var result = service.get("u-1");
+
+        assertThat(result.conversation()).isSameAs(c);
+        assertThat(result.messages().get(0).getText()).isEqualTo(msgs.get(0).getText());
+
+        String expectedMsg2 = "answer  test";
+        assertThat(result.messages().get(1).getText()).isEqualTo(expectedMsg2);
+    }
+
     @Test
     void getThrowsNotFoundWhenMissing() {
         when(repository.findByUuid("missing")).thenReturn(Optional.empty());
