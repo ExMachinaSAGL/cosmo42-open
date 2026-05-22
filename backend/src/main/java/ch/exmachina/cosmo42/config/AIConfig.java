@@ -59,6 +59,15 @@ public class AIConfig {
     }
 
     @Bean
+    public OpenAiChatOptions.Builder studioOptionsBuilder() {
+        return OpenAiChatOptions.builder()
+                .temperature(0.5)
+                .topP(0.9)
+                .maxTokens(24000)
+                .model(llmModelName);
+    }
+
+    @Bean
     public ChatMemory chatMemory(JdbcChatMemoryRepository jdbcRepository) {
         return MessageWindowChatMemory.builder()
                 .chatMemoryRepository(jdbcRepository)
