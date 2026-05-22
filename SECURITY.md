@@ -2,13 +2,7 @@
 
 ## Supported versions
 
-Cosmo42 is currently in active development. Security fixes are applied to the `main` branch. Tagged releases are not yet
-receiving long-term support.
-
-| Version  | Supported |
-|----------|-----------|
-| `main`   | ✅         |
-| `< main` | ❌         |
+Cosmo42 is currently in active development. Security fixes are applied to the `main` branch. Tagged releases are not yet receiving long-term support.
 
 ## Reporting a vulnerability
 

@@ -80,9 +80,13 @@ spring.ai.openai.base-url=http://<ollama-host>:11434/v1
 cosmo42.model.llm.name=gemma-4-e2b
 ```
 
+Ollama pulls its own GGUF build of Gemma 4 E2B (default quantization `Q4_K_M`), so size, latency and output quality differ slightly from the `Q4_K_XL` build used in the llama.cpp example above.
+
 > Ollama's OpenAI compatibility is partial; verify that vision and tool calling work with the model you chose before committing to it.
 
 ## Serving the embedding model
+
+`BAAI/bge-m3` can be served by either of the runtimes below. TEI is Hugging Face's dedicated embeddings server, lighter and simpler when embeddings are the only workload. vLLM in `--task embed` mode reuses the same runtime as the chat server, so a single stack can handle both LLM and embeddings.
 
 ### Hugging Face `text-embeddings-inference` (TEI)
 

@@ -7,7 +7,7 @@ Cosmo42 is a Spring Boot 4 application that exposes a REST + SSE API for a RAG w
 ```mermaid
 graph TD
     FE["React frontend\n(Vite, port 80)"]
-    BE["Spring Boot backend\n(port 8080)\n─────────────────\nKBDocumentService · FileConverter\nKBDocumentChunker · ChatService\nConversationProcessor · UuidProcessor\nKBDocumentSimilaritySearchTool"]
+    BE["Spring Boot backend\n(port 8080)\n─────────────────\nREST + SSE API\nDocument ingestion pipeline\nChat / RAG pipeline"]
     LO["LibreOffice sidecar\n:3000"]
     LLM["LLM / Embedding\ninference server"]
     DB["MariaDB 11.8\nkb_document · kb_document_chunk\nembedding VECTOR(1024)\nchat memory tables"]
@@ -22,13 +22,30 @@ graph TD
 `KBDocumentService` → `KBDocumentChunker` → `FileConverter`
 
 ```mermaid
-flowchart TD
-    A["Client\nPOST /api/v1/kb/documents"] --> B["KBDocumentService"]
-    B --> C["FileConverter\nLibreOffice sidecar → PDF\nPDFBox → PNG pages @ 300dpi"]
-    C --> D["KBDocumentChunker\npool size: cosmo42.chunking.pool.size"]
-    D -->|"one task per page"| E["Vision LLM\nDocumentPage → Chunks\ntext · table · image"]
-    E --> F["Embedding model\nVECTOR 1024"]
-    F --> G["MariaDB\nkb_document_chunk"]
+sequenceDiagram
+    participant C as Client
+    participant KS as KBDocumentService
+    participant FC as FileConverter
+    participant LO as LibreOffice sidecar
+    participant KC as KBDocumentChunker
+    participant LLM as Vision LLM
+    participant EM as Embedding model
+    participant DB as MariaDB
+
+    C->>KS: 1. POST /api/v1/kb/documents
+    KS->>+FC: 2. convert file
+    FC->>LO: HTTP /convert
+    LO-->>FC: PDF
+    FC-->>-KS: PNG pages (300 dpi, max 4096 px)
+    loop one task per page
+        KS->>+KC: 3. page image
+        KC->>LLM: page image
+        LLM-->>KC: DocumentPage (Chunks)
+        KC-->>-KS: typed Chunks (text · table · image)
+    end
+    KS->>EM: 4. embed chunks
+    EM-->>KS: VECTOR(1024)
+    KS->>DB: persist kb_document_chunk
 ```
 
 1. Client uploads a file via `POST /api/v1/kb/documents` (multipart, PDF / DOCX / XLSX).
@@ -60,13 +77,14 @@ sequenceDiagram
     U-->>C: SSE: UUID
     U->>CP: forward
     CP->>LLM: ChatClient + MessageChatMemoryAdvisor
-    LLM->>T: search(query)
+    LLM->>+T: search(query)
     T->>DB: cosine similarity  threshold 0.5  top 10
     DB-->>T: matching chunks
     T-->>C: SSE: STATUS
-    T-->>LLM: chunks
-    LLM-->>C: SSE: CHUNK (streamed tokens)
-    LLM-->>C: SSE: COMPLETED
+    T-->>-LLM: chunks
+    LLM-->>CP: streamed tokens
+    CP-->>C: SSE: CHUNK (streamed tokens)
+    CP-->>C: SSE: COMPLETED
 ```
 
 1. Client calls `POST /api/v1/chat/stream`. The response is `Flux<ServerSentEvent<ChatResponseDTO>>`.
