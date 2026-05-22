@@ -37,18 +37,22 @@ public class ChatConversationService {
     private final TitleSanitizer titleSanitizer;
     private final Clock clock;
     private final KBDocumentRepository kbDocumentRepository;
+    private final MarkdownLinkProcessor markdownLinkProcessor;
+
 
     public ChatConversationService(
             ChatConversationRepository repository,
             ChatMemory chatMemory,
             TitleSanitizer titleSanitizer,
             Clock clock,
-            KBDocumentRepository kbDocumentRepository) {
+            KBDocumentRepository kbDocumentRepository,
+            MarkdownLinkProcessor markdownLinkProcessor) {
         this.repository = repository;
         this.chatMemory = chatMemory;
         this.titleSanitizer = titleSanitizer;
         this.clock = clock;
         this.kbDocumentRepository = kbDocumentRepository;
+        this.markdownLinkProcessor = markdownLinkProcessor;
     }
 
     @Transactional
@@ -107,7 +111,6 @@ public class ChatConversationService {
         ChatConversation c = repository.findByUuid(uuid)
                 .orElseThrow(() -> new ChatConversationNotFoundException(uuid));
         List<Message> messages = chatMemory.get(uuid);
-        MarkdownLinkProcessor markdownLinkProcessor = new MarkdownLinkProcessor();
         List<KBDocument> allKbDocuments = kbDocumentRepository.findAll();
 
         messages = messages.stream().map(msg -> {
