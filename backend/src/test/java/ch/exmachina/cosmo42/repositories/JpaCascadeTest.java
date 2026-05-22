@@ -21,8 +21,10 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 @Transactional
 class JpaCascadeTest extends AbstractIntegrationTest {
 
-    @Autowired KBDocumentRepository documentRepo;
-    @Autowired KBDocumentChunkRepository chunkRepo;
+    @Autowired
+    KBDocumentRepository documentRepo;
+    @Autowired
+    KBDocumentChunkRepository chunkRepo;
 
     @BeforeEach
     void cleanState() {
@@ -35,11 +37,7 @@ class JpaCascadeTest extends AbstractIntegrationTest {
         KBDocument doc = newDocument("with-chunks.pdf");
         documentRepo.saveAndFlush(doc);
         chunkRepo.saveAndFlush(newChunk(doc, "chunk-1"));
-
-        // Hibernate's transient-reference check fires before the JPQL DELETE reaches the DB
-        // (it sees that an existing chunk references the to-be-removed doc). The DB-level FK
-        // would also reject the operation, but Hibernate blocks earlier — both surface as
-        // DataAccessException subclasses, so we assert at that boundary.
+        
         assertThatThrownBy(() -> {
             documentRepo.deleteByUuid(doc.getUuid());
             documentRepo.flush();
