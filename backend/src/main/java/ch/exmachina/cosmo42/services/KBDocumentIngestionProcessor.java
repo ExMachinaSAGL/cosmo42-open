@@ -146,9 +146,15 @@ public class KBDocumentIngestionProcessor {
                 kbChunk.setType(KBDocumentChunkType.fromLabel(chunk.getType()));
                 kbChunk.setContent(chunk.getContent());
                 kbChunk.setSummary(chunk.getSummary());
-                chunks.add(kbChunk);
-                toEmbed.add(kbChunk.getType() == KBDocumentChunkType.TABLE
-                        ? kbChunk.getSummary() : kbChunk.getContent());
+
+                boolean isTable = kbChunk.getType() == KBDocumentChunkType.TABLE;
+                if(isTable && kbChunk.getSummary() != null) {
+                    chunks.add(kbChunk);
+                    toEmbed.add(kbChunk.getSummary());
+                } else if(!isTable && kbChunk.getContent() != null) {
+                    chunks.add(kbChunk);
+                    toEmbed.add(kbChunk.getContent());
+                }
             }
         }
 
