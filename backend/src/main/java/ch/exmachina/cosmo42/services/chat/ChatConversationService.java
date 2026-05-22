@@ -107,7 +107,6 @@ public class ChatConversationService {
         ChatConversation c = repository.findByUuid(uuid)
                 .orElseThrow(() -> new ChatConversationNotFoundException(uuid));
         List<Message> messages = chatMemory.get(uuid);
-
         MarkdownLinkProcessor markdownLinkProcessor = new MarkdownLinkProcessor();
         List<KBDocument> allKbDocuments = kbDocumentRepository.findAll();
 
