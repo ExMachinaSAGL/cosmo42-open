@@ -3,13 +3,14 @@ package ch.exmachina.cosmo42.config;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
-import java.time.Clock;
+import java.util.UUID;
+import java.util.function.Supplier;
 
 @Configuration
-public class TimeConfig {
+public class UuidConfig {
 
     @Bean
-    public Clock systemClock() {
-        return Clock.systemDefaultZone();
+    public Supplier<String> uuidSupplier() {
+        return () -> UUID.randomUUID().toString();
     }
 }
