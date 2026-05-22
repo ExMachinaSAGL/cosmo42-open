@@ -20,11 +20,11 @@ services:
 
     command:
       - "-m"
-      - "/models/gemma-4-26B-A4B-it-UD-Q4_K_XL.gguf"
+      - "/models/gemma-4-E2B-it-UD-Q4_K_XL.gguf"
       - "--mmproj"
-      - "/models/gemma-4-26B-mmproj-BF16.gguf"
+      - "/models/gemma-4-E2B-mmproj-BF16.gguf"
       - "--alias"
-      - "gemma-4-26B"
+      - "gemma-4-E2B"
       - "--host"
       - "0.0.0.0"
       - "--port"

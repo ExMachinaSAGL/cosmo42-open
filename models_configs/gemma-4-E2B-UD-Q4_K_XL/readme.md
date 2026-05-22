@@ -1,7 +1,7 @@
-# Offline Multimodal AI Server: Gemma 4 26B (llama.cpp)
+# Offline Multimodal AI Server: Gemma 4 E2B (llama.cpp)
 
-This repository contains the configuration to deploy an air-gapped, offline, multimodal AI server using **Gemma 4 26B**.
-It is heavily optimized for a **24GB VRAM GPU to support up to 3 concurrent users with a 24K context window each**.
+This repository contains the configuration to deploy an air-gapped, offline, multimodal AI server using **Gemma 4 E2B**.
+It is heavily optimized for a **4GB VRAM GPU to support just one request at time, with a 24K context window**.
 It utilizes `llama.cpp` for native GGUF execution, offering 100% compatibility with the OpenAI API standard, hardware acceleration (NVIDIA CUDA), and concurrent request handling via continuous batching.
 
 ## 1. Prerequisites & Asset Downloads
@@ -9,13 +9,13 @@ It utilizes `llama.cpp` for native GGUF execution, offering 100% compatibility w
 Before starting the server, you need to download the model weights and the visual projector.
 
 ### 📦 Download the Model
-**Gemma 4 26B (Q4_K_XL Quantization)**
-*   **Source:** [unsloth/gemma-4-26B-A4B-it-GGUF](https://huggingface.co/unsloth/gemma-4-26B-A4B-it-GGUF)
-*   **Direct File:** [gemma-4-26B-A4B-it-UD-Q4_K_XL.gguf](https://huggingface.co/unsloth/gemma-4-26B-A4B-it-GGUF?show_file_info=gemma-4-26B-A4B-it-UD-Q4_K_XL.gguf)
+**Gemma 4 E2B (Q4_K_XL Quantization)**
+*   **Source:** [unsloth/gemma-4-E2B-it-GGUF](https://huggingface.co/unsloth/gemma-4-E2B-it-GGUF)
+*   **Direct File:** [gemma-4-E2B-it-GGUF.gguf](https://huggingface.co/unsloth/gemma-4-E2B-it-GGUF?show_file_info=gemma-4-E2B-it-UD-Q4_K_XL.gguf)
 
 ### 👁️ Download the Visual Projector (Required for Image parsing)
-*   **Source:** [unsloth/gemma-4-26B-A4B-it-GGUF/tree/main](https://huggingface.co/unsloth/gemma-4-26B-A4B-it-GGUF/tree/main)
-*   **Direct File:** `mmproj-BF16.gguf` *(Rename to `gemma-4-26B-mmproj-BF16.gguf`)*
+*   **Source:** [unsloth/gemma-4-E2B-it-GGUF/tree/main](https://huggingface.co/unsloth/gemma-4-E2B-it-GGUF/tree/main)
+*   **Direct File:** `mmproj-BF16.gguf` *(Rename to `gemma-4-E2B-mmproj-BF16.gguf`)*
 
 
 ## 2. Server Directory Structure
@@ -26,14 +26,14 @@ Copy the downloaded assets to your server and organize them into a `models` dire
 /project-root
  ├── docker-compose.yml
  └── /models
-      ├── gemma-4-26B-A4B-it-UD-Q4_K_XL.gguf
-      └── gemma-4-26B-mmproj-BF16.gguf
+      ├── gemma-4-E2B-it-UD-Q4_K_XL.gguf
+      └── gemma-4-E2B-mmproj-BF16.gguf
 ```
 
 ## 3. Configuration (llama.cpp)
 
 The included `docker-compose.yml` configures `llama.cpp` as an API server.
-It is heavily optimized for a 24GB VRAM GPU to support up to 3 concurrent users with a 24K context window each.
+It is heavily optimized for a **4GB VRAM GPU to support just one request at time, with a 24K context window**.
 
 ### `docker-compose.yml`
 
@@ -60,20 +60,20 @@ services:
 
     command:
       - "-m"
-      - "/models/gemma-4-26B-A4B-it-UD-Q4_K_XL.gguf"
+      - "/models/gemma-4-E2B-it-UD-Q4_K_XL.gguf"
       - "--mmproj"
-      - "/models/gemma-4-26B-mmproj-BF16.gguf"
+      - "/models/gemma-4-E2B-mmproj-BF16.gguf"
       - "--alias"
-      - "gemma-4-26B"
+      - "gemma-4-E2B"
       - "--host"
       - "0.0.0.0"
       - "--port"
       - "8000"
       - "--parallel"
-      - "3"
+      - "1"                # No concurrent elaborations
       - "--cont-batching"
       - "-c"
-      - "73728"            # Total context (24.576 x 3 users)
+      - "24576"            # Total context (24.576 x 1 user)
       - "-ngl"
       - "99"               # All layers to the GPU
       - "-fa"              # Flash Attention
