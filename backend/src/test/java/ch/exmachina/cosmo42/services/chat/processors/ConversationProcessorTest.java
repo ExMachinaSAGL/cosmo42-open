@@ -4,6 +4,7 @@ import ch.exmachina.cosmo42.dto.ChatRequestDTO;
 import ch.exmachina.cosmo42.repositories.KBDocumentRepository;
 import ch.exmachina.cosmo42.services.chat.ChatContext;
 import ch.exmachina.cosmo42.services.chat.tools.KBDocumentSimilaritySearchTool;
+import ch.exmachina.cosmo42.services.kb.MarkdownLinkProcessor;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.ai.chat.memory.ChatMemory;
@@ -35,6 +36,7 @@ class ConversationProcessorTest {
     KBDocumentSimilaritySearchTool tool;
     ConversationProcessor processor;
     KBDocumentRepository  kbDocumentRepository;
+    MarkdownLinkProcessor markdownLinkProcessor;
 
     @BeforeEach
     void setUp() {
@@ -42,12 +44,14 @@ class ConversationProcessorTest {
         chatMemory = mock(ChatMemory.class);
         tool = mock(KBDocumentSimilaritySearchTool.class);
         kbDocumentRepository = mock(KBDocumentRepository.class);
+        markdownLinkProcessor = new MarkdownLinkProcessor();
         processor = new ConversationProcessor(
                 chatModel,
                 OpenAiChatOptions.builder().model("test-model"),
                 chatMemory,
                 tool,
-                kbDocumentRepository);
+                kbDocumentRepository,
+                markdownLinkProcessor);
 
         when(chatModel.getDefaultOptions()).thenReturn(OpenAiChatOptions.builder().model("test-model").build());
         when(chatMemory.get("u-1")).thenReturn(List.of());

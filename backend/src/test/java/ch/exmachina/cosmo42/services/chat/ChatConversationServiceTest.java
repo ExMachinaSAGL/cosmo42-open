@@ -1,7 +1,10 @@
 package ch.exmachina.cosmo42.services.chat;
 
 import ch.exmachina.cosmo42.entities.ChatConversation;
+import ch.exmachina.cosmo42.entities.KBDocument;
 import ch.exmachina.cosmo42.repositories.ChatConversationRepository;
+import ch.exmachina.cosmo42.repositories.KBDocumentRepository;
+import ch.exmachina.cosmo42.services.kb.MarkdownLinkProcessor;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
@@ -11,6 +14,7 @@ import org.springframework.dao.DataIntegrityViolationException;
 import java.time.Clock;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
+import java.util.List;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -26,6 +30,8 @@ class ChatConversationServiceTest {
     TitleSanitizer sanitizer;
     Clock fixedClock;
     ChatConversationService service;
+    KBDocumentRepository kbDocumentRepository;
+    MarkdownLinkProcessor markdownLinkProcessor;
 
     static final LocalDateTime NOW = LocalDateTime.parse("2026-05-15T12:00:00");
 
@@ -33,10 +39,12 @@ class ChatConversationServiceTest {
     void setUp() {
         repository = mock(ChatConversationRepository.class);
         chatMemory = mock(ChatMemory.class);
+        kbDocumentRepository = mock(KBDocumentRepository.class);
+        markdownLinkProcessor = new MarkdownLinkProcessor();
         sanitizer = new TitleSanitizer();
         fixedClock = Clock.fixed(NOW.atZone(ZoneId.systemDefault()).toInstant(), ZoneId.systemDefault());
         service = new ChatConversationService(
-                repository, chatMemory, sanitizer, fixedClock);
+                repository, chatMemory, sanitizer, fixedClock, kbDocumentRepository, markdownLinkProcessor);
     }
 
     @Test
@@ -161,7 +169,90 @@ class ChatConversationServiceTest {
         var result = service.get("u-1");
 
         assertThat(result.conversation()).isSameAs(c);
-        assertThat(result.messages()).isSameAs(msgs);
+        assertThat(result.messages()).isEqualTo(msgs);
+    }
+
+    @Test
+    void getReturnsConversationWithReplacedRefLinks() {
+        String refUuid = "f9da77ff-9838-4c5f-898f-0e3e1232f255";
+        ChatConversation c = new ChatConversation();
+        c.setUuid("u-1");
+        when(repository.findByUuid("u-1")).thenReturn(Optional.of(c));
+        var msgs = java.util.List.<org.springframework.ai.chat.messages.Message>of(
+                new org.springframework.ai.chat.messages.UserMessage("hi REF_FILE_"+refUuid),
+                new org.springframework.ai.chat.messages.AssistantMessage("answer REF_FILE_"+refUuid+" test")
+        );
+        when(chatMemory.get("u-1")).thenReturn(msgs);
+        KBDocument kbDoc1 = new KBDocument();
+        kbDoc1.setUuid("u-1");
+        kbDoc1.setFileName("test1.pdf");
+        KBDocument kbDoc2 = new KBDocument();
+        kbDoc2.setUuid(refUuid);
+        kbDoc2.setFileName("test2.pdf");
+
+        when(kbDocumentRepository.findAll()).thenReturn(List.of(
+                kbDoc1, kbDoc2
+        ));
+
+        var result = service.get("u-1");
+
+        assertThat(result.conversation()).isSameAs(c);
+        assertThat(result.messages().get(0).getText()).isEqualTo(msgs.get(0).getText());
+
+        String expectedMsg2 = "answer [&#128279;](/api/v1/kb/documents/"+refUuid+"/download) test";
+        assertThat(result.messages().get(1).getText()).isEqualTo(expectedMsg2);
+    }
+
+
+    @Test
+    void getReturnsConversationWithReplacedRefLinks_missingUuid() {
+        String refUuid = "f9da77ff-9838-4c5f-898f-0e3e1232f255";
+        ChatConversation c = new ChatConversation();
+        c.setUuid("u-1");
+        when(repository.findByUuid("u-1")).thenReturn(Optional.of(c));
+        var msgs = java.util.List.<org.springframework.ai.chat.messages.Message>of(
+                new org.springframework.ai.chat.messages.UserMessage("hi REF_FILE_"+refUuid),
+                new org.springframework.ai.chat.messages.AssistantMessage("answer REF_FILE_"+refUuid+" test")
+        );
+        when(chatMemory.get("u-1")).thenReturn(msgs);
+        KBDocument kbDoc1 = new KBDocument();
+        kbDoc1.setUuid("u-1");
+        kbDoc1.setFileName("test1.pdf");
+
+        when(kbDocumentRepository.findAll()).thenReturn(List.of(
+                kbDoc1
+        ));
+
+        var result = service.get("u-1");
+
+        assertThat(result.conversation()).isSameAs(c);
+        assertThat(result.messages().get(0).getText()).isEqualTo(msgs.get(0).getText());
+
+        String expectedMsg2 = "answer  test";
+        assertThat(result.messages().get(1).getText()).isEqualTo(expectedMsg2);
+    }
+
+
+    @Test
+    void getReturnsConversationWithReplacedRefLinks_noKbDocs() {
+        String refUuid = "f9da77ff-9838-4c5f-898f-0e3e1232f255";
+        ChatConversation c = new ChatConversation();
+        c.setUuid("u-1");
+        when(repository.findByUuid("u-1")).thenReturn(Optional.of(c));
+        var msgs = java.util.List.<org.springframework.ai.chat.messages.Message>of(
+                new org.springframework.ai.chat.messages.UserMessage("hi"),
+                new org.springframework.ai.chat.messages.AssistantMessage("answer REF_FILE_"+refUuid+" test")
+        );
+        when(chatMemory.get("u-1")).thenReturn(msgs);
+        when(kbDocumentRepository.findAll()).thenReturn(List.of());
+
+        var result = service.get("u-1");
+
+        assertThat(result.conversation()).isSameAs(c);
+        assertThat(result.messages().get(0).getText()).isEqualTo(msgs.get(0).getText());
+
+        String expectedMsg2 = "answer  test";
+        assertThat(result.messages().get(1).getText()).isEqualTo(expectedMsg2);
     }
 
     @Test
