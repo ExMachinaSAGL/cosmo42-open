@@ -7,7 +7,7 @@ on:
       - main
 
 concurrency:
-  group: backend-test-${{ github.workflow }}-${{ github.ref }}
+  group: ci-cd-test-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -61,4 +61,5 @@ jobs:
 
       - run: npm ci
       - run: npm test -- --run
+      - run: npm run lint
       - run: npm run build

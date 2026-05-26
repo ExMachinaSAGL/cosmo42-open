@@ -20,7 +20,7 @@ export interface ChatMessageItem {
 
 interface StreamEvent {
   type: EventType;
-  data?: any;
+  data?: string;
 }
 
 export function Chat() {
@@ -44,6 +44,33 @@ export function Chat() {
   const justCreatedChatRef = useRef(false);
   const isNewChat = !chatId;
 
+  const loadMessagesInit = useCallback(() => {
+    const isNewChat = !chatId;
+    if (isNewChat) {
+      // Setup for a new chat
+      setMessages([{ role: 'assistant', content: 'Hello! How can I help you today by looking at your documents?' }]);
+      setChatTitle('New Chat');
+      setCurrentChatUUID(null);
+    }  else {
+      // Load an existing chat
+      setMessages([]);
+      setChatTitle('Loading...');
+      const loadHistory = async () => {
+        try {
+          const data = await fetchChatHistory(chatId);
+          setChatTitle(data.title || 'Chat');
+          setMessages(data.messages || []);
+          setCurrentChatUUID(chatId);
+        } catch (err) {
+          toast.error('Could not load history.');
+          console.error(err);
+        }
+      };
+      loadHistory();
+    }
+}, [chatId]);
+
+
   // Refs to hold the latest state for use in callbacks without dependency issues
   const chatUUIDRef = useRef(currentChatUUID);
   useEffect(() => {
@@ -63,29 +90,9 @@ export function Chat() {
       return;
     }
 
-    if (isNewChat) {
-      // Setup for a new chat
-      setMessages([{ role: 'assistant', content: 'Hello! How can I help you today by looking at your documents?' }]);
-      setChatTitle('New Chat');
-      setCurrentChatUUID(null);
-    } else {
-      // Load an existing chat
-      setMessages([]);
-      setChatTitle('Loading...');
-      const loadHistory = async () => {
-        try {
-          const data = await fetchChatHistory(chatId);
-          setChatTitle(data.title || 'Chat');
-          setMessages(data.messages || []);
-          setCurrentChatUUID(chatId);
-        } catch (err) {
-          toast.error('Could not load history.');
-          console.error(err);
-        }
-      };
-      loadHistory();
-    }
-  }, [chatId, isNewChat]);
+    loadMessagesInit(); 
+    
+  }, [chatId, isNewChat, loadMessagesInit]);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -135,10 +142,14 @@ export function Chat() {
       return prev;
     });
 
+    
+  }, []);
+
+  useEffect(() => {
     statusTimerRef.current = setTimeout(() => {
       processNextStatus();
     }, 2000);
-  }, []);
+  }, [processNextStatus]);
 
   const addStatusToQueue = useCallback((status: string) => {
     statusQueueRef.current.push(status);
@@ -172,6 +183,7 @@ export function Chat() {
           }
         } catch (e) {
           // ignore parsing error for non-JSON lines
+          console.warn(e);
         }
       }
     }
