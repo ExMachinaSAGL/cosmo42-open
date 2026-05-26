@@ -8,13 +8,13 @@ import org.springframework.mock.web.MockMultipartFile;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-class MimeTypeServiceImplTest {
+class MimeTypeServiceTest {
 
     MimeTypeService service;
 
     @BeforeEach
     void setUp() {
-        service = new MimeTypeServiceImpl();
+        service = new MimeTypeService();
     }
 
     @Test

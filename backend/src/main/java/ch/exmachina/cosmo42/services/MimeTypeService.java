@@ -1,13 +1,55 @@
 package ch.exmachina.cosmo42.services;
 
 import ch.exmachina.cosmo42.utils.SupportedMimeTypes;
+import org.apache.tika.detect.Detector;
+import org.apache.tika.io.TikaInputStream;
+import org.apache.tika.metadata.Metadata;
+import org.apache.tika.metadata.TikaCoreProperties;
+import org.apache.tika.mime.MediaType;
+import org.apache.tika.mime.MimeTypes;
+import org.apache.tika.parser.AutoDetectParser;
+import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
-public interface MimeTypeService {
+import java.io.IOException;
 
-    boolean isSupportedMimeType(MultipartFile file);
+@Service
+public class MimeTypeService {
 
-    boolean isMimeType(MultipartFile file, SupportedMimeTypes mimeType);
+    public boolean isSupportedMimeType(MultipartFile file) {
+        return SupportedMimeTypes.isSupported(getMimeType(file));
+    }
 
-    String getMimeType(byte[] bytes, String fileName);
+    public String getMimeType(byte[] bytes, String fileName) {
+        return detect(TikaInputStream.get(bytes), fileName);
+    }
+
+    public boolean isMimeType(MultipartFile file, SupportedMimeTypes mimeType) {
+        return mimeType.getContentType().equals(getMimeType(file));
+    }
+
+    private String getMimeType(MultipartFile file) {
+        AutoDetectParser parser = new AutoDetectParser();
+        Detector detector = parser.getDetector();
+        try {
+            Metadata metadata = new Metadata();
+            metadata.add(TikaCoreProperties.RESOURCE_NAME_KEY, file.getName());
+            TikaInputStream stream = TikaInputStream.get(file.getInputStream());
+            MediaType mediaType = detector.detect(stream, metadata);
+            return mediaType.toString();
+        } catch (IOException e) {
+            return MimeTypes.OCTET_STREAM;
+        }
+    }
+
+    private static String detect(TikaInputStream stream, String fileName) {
+        try {
+            Detector detector = new AutoDetectParser().getDetector();
+            Metadata metadata = new Metadata();
+            metadata.add(TikaCoreProperties.RESOURCE_NAME_KEY, fileName);
+            return detector.detect(stream, metadata).toString();
+        } catch (IOException e) {
+            return MimeTypes.OCTET_STREAM;
+        }
+    }
 }
