@@ -3,7 +3,8 @@ name: backend-test
 on:
   pull_request:
   push:
-    branches: main
+    branches:
+      - main
 
 concurrency:
   group: backend-test-${{ github.workflow }}-${{ github.ref }}
