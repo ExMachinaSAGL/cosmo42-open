@@ -2,6 +2,8 @@ package ch.exmachina.cosmo42.integration;
 
 import ch.exmachina.cosmo42.AbstractIntegrationTest;
 import ch.exmachina.cosmo42.repositories.ChatConversationRepository;
+import ch.exmachina.cosmo42.testsupport.ChatModelMocks;
+import ch.exmachina.cosmo42.testsupport.TestDbCleaner;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.ai.chat.messages.AssistantMessage;
@@ -10,7 +12,6 @@ import org.springframework.ai.chat.model.ChatResponse;
 import org.springframework.ai.chat.model.Generation;
 import org.springframework.ai.chat.prompt.Prompt;
 import org.springframework.ai.embedding.EmbeddingModel;
-import org.springframework.ai.openai.OpenAiChatOptions;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.server.LocalServerPort;
@@ -31,11 +32,16 @@ import static org.mockito.Mockito.when;
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 class ChatStreamE2ETest extends AbstractIntegrationTest {
 
-    @LocalServerPort int port;
-    @MockitoBean ChatModel chatModel;
-    @MockitoBean EmbeddingModel embeddingModel;
-    @Autowired ChatConversationRepository repository;
-    @Autowired JdbcTemplate jdbcTemplate;
+    @LocalServerPort
+    int port;
+    @MockitoBean
+    ChatModel chatModel;
+    @MockitoBean
+    EmbeddingModel embeddingModel;
+    @Autowired
+    ChatConversationRepository repository;
+    @Autowired
+    JdbcTemplate jdbcTemplate;
 
     WebTestClient client;
 
@@ -45,9 +51,8 @@ class ChatStreamE2ETest extends AbstractIntegrationTest {
                 .baseUrl("http://localhost:" + port)
                 .responseTimeout(Duration.ofSeconds(30))
                 .build();
-        jdbcTemplate.update("DELETE FROM SPRING_AI_CHAT_MEMORY");
-        jdbcTemplate.update("DELETE FROM chat_conversation");
-        when(chatModel.getDefaultOptions()).thenReturn(OpenAiChatOptions.builder().model("test-model").build());
+        TestDbCleaner.cleanChatTables(jdbcTemplate);
+        ChatModelMocks.stubDefaultOptions(chatModel);
         when(embeddingModel.embed(any(String.class))).thenReturn(new float[1024]);
     }
 
@@ -71,9 +76,9 @@ class ChatStreamE2ETest extends AbstractIntegrationTest {
         await().atMost(10, TimeUnit.SECONDS).untilAsserted(() -> {
             var all = repository.findAll();
             assertThat(all).hasSize(1);
-            assertThat(all.get(0).getTitle()).isEqualTo("Deploy Question");
-            assertThat(countMessages(all.get(0).getUuid(), "USER")).isEqualTo(1);
-            assertThat(countMessages(all.get(0).getUuid(), "ASSISTANT")).isEqualTo(1);
+            assertThat(all.getFirst().getTitle()).isEqualTo("Deploy Question");
+            assertThat(countMessages(all.getFirst().getUuid(), "USER")).isEqualTo(1);
+            assertThat(countMessages(all.getFirst().getUuid(), "ASSISTANT")).isEqualTo(1);
         });
     }
 
@@ -96,7 +101,7 @@ class ChatStreamE2ETest extends AbstractIntegrationTest {
         await().atMost(10, TimeUnit.SECONDS).untilAsserted(() -> {
             var all = repository.findAll();
             assertThat(all).hasSize(1);
-            assertThat(all.get(0).getTitle()).isNull();
+            assertThat(all.getFirst().getTitle()).isNull();
         });
     }
 

@@ -23,6 +23,7 @@ public class KBDocumentMapper {
                 .progressPercent(toProgressPercent(job))
                 .uploadedAt(job.getCreatedAt())
                 .errorMessage(job.getStatus() == IngestionJobStatus.FAILED ? job.getErrorMessage() : null)
+                .progressPercent(toProgressPercent(job))
                 .build();
     }
 

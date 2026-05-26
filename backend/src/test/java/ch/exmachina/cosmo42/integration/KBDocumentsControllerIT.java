@@ -1,6 +1,6 @@
-package ch.exmachina.cosmo42.controllers;
+package ch.exmachina.cosmo42.integration;
 
-import ch.exmachina.cosmo42.BaseIT;
+import ch.exmachina.cosmo42.AbstractWebIntegrationTest;
 import ch.exmachina.cosmo42.dto.DocumentDTO;
 import ch.exmachina.cosmo42.entities.IngestionJob;
 import ch.exmachina.cosmo42.entities.IngestionJobStatus;
@@ -11,11 +11,12 @@ import org.springframework.beans.factory.annotation.Autowired;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Objects;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-class KBDocumentsControllerIT extends BaseIT {
+class KBDocumentsControllerIT extends AbstractWebIntegrationTest {
 
     @Autowired
     IngestionJobRepository ingestionJobRepository;
@@ -35,10 +36,10 @@ class KBDocumentsControllerIT extends BaseIT {
                 .expectStatus().isOk()
                 .expectBody(DocumentDTO.class)
                 .value(dto -> {
-                    assertThat(dto.getFileUuid()).isEqualTo(job.getStoredFileUuid());
-                    assertThat(dto.getFileName()).isEqualTo(job.getOriginalFileName());
-                    assertThat(dto.getUploadedAt()).isNotNull();
-                    assertThat(dto.getStatus()).isEqualTo("loading");
+                    assertThat(Objects.requireNonNull(dto).getFileUuid()).isEqualTo(job.getStoredFileUuid());
+                    assertThat(Objects.requireNonNull(dto).getFileName()).isEqualTo(job.getOriginalFileName());
+                    assertThat(Objects.requireNonNull(dto).getUploadedAt()).isNotNull();
+                    assertThat(Objects.requireNonNull(dto).getStatus()).isEqualTo("loading");
                 });
     }
 
@@ -55,9 +56,7 @@ class KBDocumentsControllerIT extends BaseIT {
                 .exchange()
                 .expectStatus().isOk()
                 .expectBody(DocumentDTO.class)
-                .value(dto -> {
-                    assertThat(dto.getStatus()).isEqualTo("loaded");
-                });
+                .value(dto -> assertThat(Objects.requireNonNull(dto).getStatus()).isEqualTo("loaded"));
     }
 
     @Test
@@ -73,8 +72,8 @@ class KBDocumentsControllerIT extends BaseIT {
                 .expectStatus().isOk()
                 .expectBody(DocumentDTO.class)
                 .value(dto -> {
-                    assertThat(dto.getStatus()).isEqualTo("error");
-                    assertThat(dto.getErrorMessage()).isEqualTo("conversion failed");
+                    assertThat(Objects.requireNonNull(dto).getStatus()).isEqualTo("error");
+                    assertThat(Objects.requireNonNull(dto).getErrorMessage()).isEqualTo("conversion failed");
                 });
     }
 
@@ -116,8 +115,6 @@ class KBDocumentsControllerIT extends BaseIT {
                 .expectBodyList(DocumentDTO.class)
                 .hasSize(0);
     }
-
-    // --- helpers ---
 
     private IngestionJob pendingJob(String fileName) {
         IngestionJob job = new IngestionJob();

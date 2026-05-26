@@ -5,8 +5,9 @@ import ch.exmachina.cosmo42.exceptions.ChatConversationNotFoundException;
 import ch.exmachina.cosmo42.exceptions.GlobalExceptionHandler;
 import ch.exmachina.cosmo42.mappers.ChatConversationMapper;
 import ch.exmachina.cosmo42.services.chat.ChatConversationService;
-import ch.exmachina.cosmo42.services.chat.ChatService;
 import ch.exmachina.cosmo42.services.chat.ChatConversationWithMessages;
+import ch.exmachina.cosmo42.services.chat.ChatService;
+import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
@@ -23,15 +24,19 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @WebMvcTest(controllers = ChatController.class)
 @Import({GlobalExceptionHandler.class, ChatConversationMapper.class})
 class ChatConversationControllerTest {
 
-    @Autowired MockMvc mockMvc;
-    @MockitoBean ChatConversationService service;
-    @MockitoBean ChatService chatService;
+    @Autowired
+    MockMvc mockMvc;
+    @MockitoBean
+    ChatConversationService service;
+    @MockitoBean
+    ChatService chatService;
 
     private ChatConversation conv(String uuid, String title) {
         ChatConversation c = new ChatConversation();
@@ -42,81 +47,107 @@ class ChatConversationControllerTest {
         return c;
     }
 
-    @Test
-    void getListReturnsPage() throws Exception {
-        when(service.list(any())).thenReturn(new PageImpl<>(List.of(conv("u-1", "First"))));
+    @Nested
+    class Crud {
 
-        mockMvc.perform(get("/api/v1/chat?page=0&size=10"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.content[0].uuid").value("u-1"))
-                .andExpect(jsonPath("$.content[0].title").value("First"));
+        @Test
+        void getListReturnsPage() throws Exception {
+            when(service.list(any())).thenReturn(new PageImpl<>(List.of(conv("u-1", "First"))));
+
+            mockMvc.perform(get("/api/v1/chat?page=0&size=10"))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.content[0].uuid").value("u-1"))
+                    .andExpect(jsonPath("$.content[0].title").value("First"));
+        }
+
+        @Test
+        void getOneReturnsDetail() throws Exception {
+            when(service.get("u-1")).thenReturn(new ChatConversationWithMessages(
+                    conv("u-1", "First"), List.of()));
+
+            mockMvc.perform(get("/api/v1/chat/u-1"))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.uuid").value("u-1"))
+                    .andExpect(jsonPath("$.title").value("First"));
+        }
+
+        @Test
+        void getOneReturns404WhenUnknown() throws Exception {
+            when(service.get("missing")).thenThrow(new ChatConversationNotFoundException("missing"));
+
+            mockMvc.perform(get("/api/v1/chat/missing"))
+                    .andExpect(status().isNotFound());
+        }
+
+        @Test
+        void patchRenamesTitle() throws Exception {
+            when(service.rename(eq("u-1"), eq("New"))).thenReturn(conv("u-1", "New"));
+
+            mockMvc.perform(patch("/api/v1/chat/u-1/title")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content("{\"title\":\"New\"}"))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.title").value("New"));
+        }
+
+        @Test
+        void deleteReturns204() throws Exception {
+            doNothing().when(service).delete("u-1");
+
+            mockMvc.perform(delete("/api/v1/chat/u-1"))
+                    .andExpect(status().isNoContent());
+
+            verify(service).delete("u-1");
+        }
+
+        @Test
+        void deleteReturns404WhenUnknown() throws Exception {
+            doThrow(new ChatConversationNotFoundException("missing")).when(service).delete("missing");
+
+            mockMvc.perform(delete("/api/v1/chat/missing"))
+                    .andExpect(status().isNotFound());
+        }
     }
 
-    @Test
-    void getOneReturnsDetail() throws Exception {
-        when(service.get("u-1")).thenReturn(new ChatConversationWithMessages(
-                conv("u-1", "First"), List.of()));
+    @Nested
+    class Validation {
 
-        mockMvc.perform(get("/api/v1/chat/u-1"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.uuid").value("u-1"))
-                .andExpect(jsonPath("$.title").value("First"));
-    }
+        @Test
+        void patchValidationFailsOnBlankTitle() throws Exception {
+            mockMvc.perform(patch("/api/v1/chat/u-1/title")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content("{\"title\":\"\"}"))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.fields.title").exists());
 
-    @Test
-    void getOneReturns404WhenUnknown() throws Exception {
-        when(service.get("missing")).thenThrow(new ChatConversationNotFoundException("missing"));
+            verifyNoInteractions(service);
+        }
 
-        mockMvc.perform(get("/api/v1/chat/missing"))
-                .andExpect(status().isNotFound());
-    }
+        @Test
+        void patchValidationFailsOnTooLongTitle() throws Exception {
+            String tooLong = "x".repeat(81);
+            mockMvc.perform(patch("/api/v1/chat/u-1/title")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content("{\"title\":\"" + tooLong + "\"}"))
+                    .andExpect(status().isBadRequest());
+        }
 
-    @Test
-    void patchRenamesTitle() throws Exception {
-        when(service.rename(eq("u-1"), eq("New"))).thenReturn(conv("u-1", "New"));
+        @Test
+        void emptyMessageReturns400() throws Exception {
+            mockMvc.perform(post("/api/v1/chat/stream")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content("{\"uuid\":null,\"message\":\"\"}"))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.error").value("validation_failed"))
+                    .andExpect(jsonPath("$.fields.message").exists());
+        }
 
-        mockMvc.perform(patch("/api/v1/chat/u-1/title")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"title\":\"New\"}"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.title").value("New"));
-    }
-
-    @Test
-    void patchValidationFailsOnBlankTitle() throws Exception {
-        mockMvc.perform(patch("/api/v1/chat/u-1/title")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"title\":\"\"}"))
-                .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.fields.title").exists());
-
-        verifyNoInteractions(service);
-    }
-
-    @Test
-    void patchValidationFailsOnTooLongTitle() throws Exception {
-        String tooLong = "x".repeat(81);
-        mockMvc.perform(patch("/api/v1/chat/u-1/title")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"title\":\"" + tooLong + "\"}"))
-                .andExpect(status().isBadRequest());
-    }
-
-    @Test
-    void deleteReturns204() throws Exception {
-        doNothing().when(service).delete("u-1");
-
-        mockMvc.perform(delete("/api/v1/chat/u-1"))
-                .andExpect(status().isNoContent());
-
-        verify(service).delete("u-1");
-    }
-
-    @Test
-    void deleteReturns404WhenUnknown() throws Exception {
-        doThrow(new ChatConversationNotFoundException("missing")).when(service).delete("missing");
-
-        mockMvc.perform(delete("/api/v1/chat/missing"))
-                .andExpect(status().isNotFound());
+        @Test
+        void whitespaceMessageReturns400() throws Exception {
+            mockMvc.perform(post("/api/v1/chat/stream")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content("{\"uuid\":null,\"message\":\"   \"}"))
+                    .andExpect(status().isBadRequest());
+        }
     }
 }

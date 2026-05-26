@@ -17,7 +17,7 @@ class TitleSanitizerTest {
 
     @ParameterizedTest
     @NullAndEmptySource
-    @ValueSource(strings = { "   ", "\t\n", "\n\n\n" })
+    @ValueSource(strings = {"   ", "\t\n", "\n\n\n"})
     void returnsEmptyOnBlankInput(String input) {
         assertThat(sanitizer.sanitize(input)).isEmpty();
     }
