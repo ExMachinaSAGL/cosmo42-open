@@ -1,14 +1,18 @@
 package ch.exmachina.cosmo42.services;
 
-import ch.exmachina.cosmo42.BaseTest;
-import ch.exmachina.cosmo42.entities.*;
+import ch.exmachina.cosmo42.entities.IngestionJob;
+import ch.exmachina.cosmo42.entities.IngestionJobPage;
+import ch.exmachina.cosmo42.entities.IngestionJobPageStatus;
+import ch.exmachina.cosmo42.entities.IngestionJobStatus;
 import ch.exmachina.cosmo42.mappers.IngestionJobMapper;
 import ch.exmachina.cosmo42.repositories.IngestionJobPageRepository;
 import ch.exmachina.cosmo42.repositories.IngestionJobRepository;
 import ch.exmachina.cosmo42.services.kb.schema.DocumentPage;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.util.List;
 import java.util.Optional;
@@ -18,7 +22,8 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.*;
 
-class IngestionJobServiceTest extends BaseTest {
+@ExtendWith(MockitoExtension.class)
+class IngestionJobServiceTest {
 
     @Mock
     IngestionJobRepository ingestionJobRepository;
@@ -229,20 +234,10 @@ class IngestionJobServiceTest extends BaseTest {
         assertThat(result).isEmpty();
     }
 
-    // --- helpers ---
-
-    private IngestionJob jobWith(IngestionJobStatus status) {
-        IngestionJob job = new IngestionJob();
-        job.setUuid("test-uuid");
-        job.setStatus(status);
-        return job;
-    }
-
     private IngestionJobPage pageWith(IngestionJobPageStatus status, String chunksJson) {
         IngestionJobPage page = new IngestionJobPage();
         page.setStatus(status);
         page.setChunksJson(chunksJson);
         return page;
     }
-
 }

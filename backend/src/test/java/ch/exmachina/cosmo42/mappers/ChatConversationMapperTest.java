@@ -1,5 +1,8 @@
 package ch.exmachina.cosmo42.mappers;
 
+import ch.exmachina.cosmo42.dto.ChatConversationDTO;
+import ch.exmachina.cosmo42.dto.ChatConversationListItemDTO;
+import ch.exmachina.cosmo42.dto.ChatMessageDTO;
 import ch.exmachina.cosmo42.entities.ChatConversation;
 import org.junit.jupiter.api.Test;
 import org.springframework.ai.chat.messages.AssistantMessage;
@@ -24,7 +27,7 @@ class ChatConversationMapperTest {
         c.setCreatedAt(t);
         c.setUpdatedAt(t);
 
-        var dto = mapper.toListItem(c);
+        ChatConversationListItemDTO dto = mapper.toListItem(c);
 
         assertThat(dto.uuid()).isEqualTo("u-1");
         assertThat(dto.title()).isEqualTo("hello");
@@ -40,14 +43,14 @@ class ChatConversationMapperTest {
         c.setCreatedAt(LocalDateTime.now());
         c.setUpdatedAt(LocalDateTime.now());
 
-        var dto = mapper.toListItem(c);
+        ChatConversationListItemDTO dto = mapper.toListItem(c);
 
         assertThat(dto.title()).isNull();
     }
 
     @Test
     void toMessageMapsUserMessage() {
-        var msg = mapper.toMessage(new UserMessage("hi"));
+        ChatMessageDTO msg = mapper.toMessage(new UserMessage("hi"));
         assertThat(msg.role()).isEqualTo("user");
         assertThat(msg.content()).isEqualTo("hi");
     }
@@ -61,7 +64,7 @@ class ChatConversationMapperTest {
 
     @Test
     void toMessageMapsAssistantMessage() {
-        var msg = mapper.toMessage(new AssistantMessage("hello"));
+        ChatMessageDTO msg = mapper.toMessage(new AssistantMessage("hello"));
         assertThat(msg.role()).isEqualTo("assistant");
         assertThat(msg.content()).isEqualTo("hello");
     }
@@ -74,7 +77,7 @@ class ChatConversationMapperTest {
         c.setCreatedAt(LocalDateTime.now());
         c.setUpdatedAt(LocalDateTime.now());
 
-        var detail = mapper.toDetail(c, List.of(
+        ChatConversationDTO detail = mapper.toDetail(c, List.of(
                 new UserMessage("q"), new AssistantMessage("a")
         ));
 

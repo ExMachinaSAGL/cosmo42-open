@@ -44,7 +44,11 @@ public class KBDocumentSimilaritySearchTool extends BaseTool {
         float[] queryVector = embeddingResponse.getResults().getFirst().getOutput();
         byte[] bytesVector = vectorAttributeConverter.convertToDatabaseColumn(queryVector);
 
-        List<KBDocumentChunk> chunks = kbDocumentChunkRepository.findMostSimilarByCosine(bytesVector, 0.5, 10);
+        List<KBDocumentChunk> chunks = kbDocumentChunkRepository.findMostSimilarByCosine(
+                bytesVector,
+                0.5,
+                10
+        );
         List<ChunkDTO> chunkDTOs = chunks.stream()
                 .map(c -> new ChunkDTO(c.getKbDocument().getFileName(), c.getKbDocument().getUuid(), c.getContent()))
                 .toList();

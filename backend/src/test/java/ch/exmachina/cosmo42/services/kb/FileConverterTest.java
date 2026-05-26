@@ -1,49 +1,114 @@
 package ch.exmachina.cosmo42.services.kb;
 
+import ch.exmachina.cosmo42.services.MimeTypeService;
+import ch.exmachina.cosmo42.testsupport.FileFixtures;
+import ch.exmachina.cosmo42.utils.SupportedMimeTypes;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.springframework.http.MediaType;
+import org.springframework.test.web.client.MockRestServiceServer;
 import org.springframework.web.client.RestClient;
-
-import java.io.IOException;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.Mockito.*;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
+import static org.springframework.test.web.client.match.MockRestRequestMatchers.*;
+import static org.springframework.test.web.client.response.MockRestResponseCreators.*;
 
 class FileConverterTest {
 
-    private FileConverter fileConverter;
-    private RestClient restClient;
+    private static final byte[] PDF_FROM_LIBREOFFICE = "fake-libreoffice-pdf".getBytes();
+
+    MockRestServiceServer mockServer;
+    FileConverter converter;
+    MimeTypeService mimeTypeService;
 
     @BeforeEach
-    void setUp() throws Exception {
-        restClient = mock(RestClient.class, RETURNS_DEEP_STUBS);
-        fileConverter = new FileConverter(restClient);
+    void setUp() {
+        RestClient.Builder builder = RestClient.builder().baseUrl("http://libreoffice-test");
+        mockServer = MockRestServiceServer.bindTo(builder).build();
+        mimeTypeService = mock(MimeTypeService.class);
+        converter = new FileConverter(builder.build(), mimeTypeService);
     }
 
     @Test
-    void convertSupportedFileToPdfFromBytes_pdfBytes_returnsSameBytes() throws IOException {
-        byte[] pdf = pdfHeader();
+    void docxRoutesThroughLibreofficeAndReturnsConvertedPdf() {
+        byte[] docxBytes = FileFixtures.minimalDocx();
+        when(mimeTypeService.getMimeType(docxBytes, "doc.docx"))
+                .thenReturn(SupportedMimeTypes.MIME_DOCX.getContentType());
+        mockServer.expect(requestTo("http://libreoffice-test/convert"))
+                .andExpect(method(org.springframework.http.HttpMethod.POST))
+                .andExpect(header("Content-Type", MediaType.APPLICATION_OCTET_STREAM_VALUE))
+                .andExpect(content().bytes(docxBytes))
+                .andRespond(withSuccess(PDF_FROM_LIBREOFFICE, MediaType.APPLICATION_OCTET_STREAM));
 
-        byte[] result = fileConverter.convertSupportedFileToPdfFromBytes(pdf, "doc.pdf");
+        byte[] result = converter.convertSupportedFileToPdfFromBytes(docxBytes, "doc.docx");
 
-        assertThat(result).isSameAs(pdf);
-        verifyNoInteractions(restClient);
+        assertThat(result).containsExactly(PDF_FROM_LIBREOFFICE);
+        mockServer.verify();
     }
 
     @Test
-    void convertSupportedFileToPdfFromBytes_unsupported_throws() {
-        byte[] txt = "plain text content".getBytes();
+    void xlsxRoutesThroughLibreoffice() {
+        byte[] xlsxBytes = FileFixtures.minimalXlsx();
+        when(mimeTypeService.getMimeType(xlsxBytes, "sheet.xlsx"))
+                .thenReturn(SupportedMimeTypes.MIME_XSLX.getContentType());
+        mockServer.expect(requestTo("http://libreoffice-test/convert"))
+                .andExpect(method(org.springframework.http.HttpMethod.POST))
+                .andRespond(withSuccess(PDF_FROM_LIBREOFFICE, MediaType.APPLICATION_OCTET_STREAM));
 
-        assertThatThrownBy(() -> fileConverter.convertSupportedFileToPdfFromBytes(txt, "note.txt"))
+        byte[] result = converter.convertSupportedFileToPdfFromBytes(xlsxBytes, "sheet.xlsx");
+
+        assertThat(result).containsExactly(PDF_FROM_LIBREOFFICE);
+        mockServer.verify();
+    }
+
+    @Test
+    void pdfPassthroughDoesNotCallLibreoffice() {
+        byte[] pdfBytes = FileFixtures.singlePagePdf("hello");
+        when(mimeTypeService.getMimeType(pdfBytes, "x.pdf"))
+                .thenReturn(SupportedMimeTypes.MIME_PDF.getContentType());
+
+        byte[] result = converter.convertSupportedFileToPdfFromBytes(pdfBytes, "x.pdf");
+
+        assertThat(result).isSameAs(pdfBytes);
+        mockServer.verify();
+    }
+
+    @Test
+    void unsupportedFileTypeThrowsIllegalArgument() {
+        byte[] txt = "just text".getBytes();
+        when(mimeTypeService.getMimeType(txt, "notes.txt")).thenReturn("text/plain");
+
+        assertThatThrownBy(() -> converter.convertSupportedFileToPdfFromBytes(txt, "notes.txt"))
                 .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("Unsupported");
+                .hasMessageContaining("Unsupported file type");
     }
 
-    private byte[] pdfHeader() {
-        // Minimal valid PDF magic + EOF marker so Tika detects application/pdf.
-        return ("%PDF-1.4\n%âãÏÓ\n1 0 obj<<>>endobj\nxref\n0 1\n0000000000 65535 f \n"
-                + "trailer<<>>\nstartxref\n0\n%%EOF").getBytes();
+    @Test
+    void libreofficeServerErrorPropagates() {
+        byte[] docxBytes = FileFixtures.minimalDocx();
+        when(mimeTypeService.getMimeType(docxBytes, "doc.docx"))
+                .thenReturn(SupportedMimeTypes.MIME_DOCX.getContentType());
+        mockServer.expect(requestTo("http://libreoffice-test/convert"))
+                .andRespond(withServerError());
+
+        assertThatThrownBy(() -> converter.convertSupportedFileToPdfFromBytes(docxBytes, "doc.docx"))
+                .isInstanceOf(org.springframework.web.client.HttpServerErrorException.class);
     }
+
+    @Test
+    void libreofficeClientErrorPropagates() {
+        byte[] docxBytes = FileFixtures.minimalDocx();
+        when(mimeTypeService.getMimeType(docxBytes, "doc.docx"))
+                .thenReturn(SupportedMimeTypes.MIME_DOCX.getContentType());
+        mockServer.expect(requestTo("http://libreoffice-test/convert"))
+                .andRespond(withBadRequest());
+
+        assertThatThrownBy(() -> converter.convertSupportedFileToPdfFromBytes(docxBytes, "doc.docx"))
+                .isInstanceOf(org.springframework.web.client.HttpClientErrorException.class);
+    }
+
 
 }

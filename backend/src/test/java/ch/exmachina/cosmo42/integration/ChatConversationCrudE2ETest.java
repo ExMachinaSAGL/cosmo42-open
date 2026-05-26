@@ -3,11 +3,12 @@ package ch.exmachina.cosmo42.integration;
 import ch.exmachina.cosmo42.AbstractIntegrationTest;
 import ch.exmachina.cosmo42.entities.ChatConversation;
 import ch.exmachina.cosmo42.repositories.ChatConversationRepository;
+import ch.exmachina.cosmo42.testsupport.ChatModelMocks;
+import ch.exmachina.cosmo42.testsupport.TestDbCleaner;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.ai.embedding.EmbeddingModel;
-import org.springframework.ai.openai.OpenAiChatOptions;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.server.LocalServerPort;
@@ -21,16 +22,20 @@ import java.time.LocalDateTime;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.Mockito.when;
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 class ChatConversationCrudE2ETest extends AbstractIntegrationTest {
 
-    @LocalServerPort int port;
-    @MockitoBean ChatModel chatModel;
-    @MockitoBean EmbeddingModel embeddingModel;
-    @Autowired ChatConversationRepository repository;
-    @Autowired JdbcTemplate jdbcTemplate;
+    @LocalServerPort
+    int port;
+    @MockitoBean
+    ChatModel chatModel;
+    @MockitoBean
+    EmbeddingModel embeddingModel;
+    @Autowired
+    ChatConversationRepository repository;
+    @Autowired
+    JdbcTemplate jdbcTemplate;
 
     WebTestClient client;
 
@@ -40,18 +45,17 @@ class ChatConversationCrudE2ETest extends AbstractIntegrationTest {
                 .baseUrl("http://localhost:" + port)
                 .responseTimeout(Duration.ofSeconds(15))
                 .build();
-        jdbcTemplate.update("DELETE FROM SPRING_AI_CHAT_MEMORY");
-        jdbcTemplate.update("DELETE FROM chat_conversation");
-        when(chatModel.getDefaultOptions()).thenReturn(OpenAiChatOptions.builder().model("test-model").build());
+        TestDbCleaner.cleanChatTables(jdbcTemplate);
+        ChatModelMocks.stubDefaultOptions(chatModel);
     }
 
-    private ChatConversation seed(String uuid, String title, LocalDateTime createdAt) {
+    private void seed(String uuid, String title, LocalDateTime createdAt) {
         ChatConversation c = new ChatConversation();
         c.setUuid(uuid);
         c.setTitle(title);
         c.setCreatedAt(createdAt);
         c.setUpdatedAt(createdAt);
-        return repository.save(c);
+        repository.save(c);
     }
 
     @Test

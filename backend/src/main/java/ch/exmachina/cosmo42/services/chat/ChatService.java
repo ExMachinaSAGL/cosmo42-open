@@ -17,7 +17,7 @@ import reactor.core.publisher.Sinks;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.UUID;
+import java.util.function.Supplier;
 
 @Service
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
@@ -29,10 +29,11 @@ public class ChatService {
     TitleProcessor titleProcessor;
     ConversationProcessor conversationProcessor;
     ChatConversationService chatConversationService;
+    Supplier<String> uuidSupplier;
 
     public Flux<ServerSentEvent<ChatResponseDTO>> processChat(ChatRequestDTO request) {
         boolean isNewChat = request.uuid() == null;
-        String chatUuid = isNewChat ? UUID.randomUUID().toString() : request.uuid();
+        String chatUuid = isNewChat ? uuidSupplier.get() : request.uuid();
 
         chatConversationService.createIfAbsent(chatUuid);
         chatConversationService.markActive(chatUuid);
@@ -71,7 +72,8 @@ public class ChatService {
                     log.error("Chat processing failed", e);
                     eventSink.tryEmitNext(ServerSentEvent.<ChatResponseDTO>builder()
                             .data(ChatResponseDTO.builder()
-                                    .type(ChatEventType.COMPLETED)
+                                    .type(ChatEventType.ERROR)
+                                    .data(e.getMessage())
                                     .build())
                             .build());
                     eventSink.tryEmitComplete();

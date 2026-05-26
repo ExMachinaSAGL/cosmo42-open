@@ -7,15 +7,11 @@ import ch.exmachina.cosmo42.exceptions.InvalidChatTitleException;
 import ch.exmachina.cosmo42.repositories.ChatConversationRepository;
 import ch.exmachina.cosmo42.repositories.KBDocumentRepository;
 import ch.exmachina.cosmo42.services.kb.MarkdownLinkProcessor;
+import jakarta.persistence.EntityManager;
 import lombok.extern.slf4j.Slf4j;
-import org.jspecify.annotations.Nullable;
 import org.springframework.ai.chat.memory.ChatMemory;
 import org.springframework.ai.chat.messages.AssistantMessage;
 import org.springframework.ai.chat.messages.Message;
-import org.springframework.ai.chat.messages.MessageType;
-import org.springframework.ai.chat.messages.SystemMessage;
-import org.springframework.ai.chat.messages.ToolResponseMessage;
-import org.springframework.ai.chat.messages.UserMessage;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -25,7 +21,6 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.Clock;
 import java.time.LocalDateTime;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 
 @Service
@@ -38,7 +33,7 @@ public class ChatConversationService {
     private final Clock clock;
     private final KBDocumentRepository kbDocumentRepository;
     private final MarkdownLinkProcessor markdownLinkProcessor;
-
+    private final EntityManager entityManager;
 
     public ChatConversationService(
             ChatConversationRepository repository,
@@ -46,13 +41,15 @@ public class ChatConversationService {
             TitleSanitizer titleSanitizer,
             Clock clock,
             KBDocumentRepository kbDocumentRepository,
-            MarkdownLinkProcessor markdownLinkProcessor) {
+            MarkdownLinkProcessor markdownLinkProcessor,
+            EntityManager entityManager) {
         this.repository = repository;
         this.chatMemory = chatMemory;
         this.titleSanitizer = titleSanitizer;
         this.clock = clock;
         this.kbDocumentRepository = kbDocumentRepository;
         this.markdownLinkProcessor = markdownLinkProcessor;
+        this.entityManager = entityManager;
     }
 
     @Transactional
@@ -68,6 +65,7 @@ public class ChatConversationService {
                 return repository.save(c);
             } catch (DataIntegrityViolationException race) {
                 log.debug("Race-condition insert for uuid={}, resolving by re-fetch", uuid);
+                entityManager.clear();
                 return repository.findByUuid(uuid)
                         .orElseThrow(() -> race);
             }
@@ -114,7 +112,7 @@ public class ChatConversationService {
         List<KBDocument> allKbDocuments = kbDocumentRepository.findAll();
 
         messages = messages.stream().map(msg -> {
-            if(msg instanceof AssistantMessage) {
+            if (msg instanceof AssistantMessage) {
                 String newContent = markdownLinkProcessor.replaceFileReferenceLinks(msg.getText(), allKbDocuments);
                 return new AssistantMessage(newContent);
             } else {

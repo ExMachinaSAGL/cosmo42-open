@@ -1,9 +1,9 @@
 package ch.exmachina.cosmo42.controllers;
 
+import ch.exmachina.cosmo42.services.MimeTypeService;
 import ch.exmachina.cosmo42.dto.DocumentDTO;
 import ch.exmachina.cosmo42.dto.DownloadDocumentDTO;
 import ch.exmachina.cosmo42.services.KBDocumentService;
-import ch.exmachina.cosmo42.utils.MimeTypeUtils;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -32,6 +32,7 @@ import java.util.UUID;
 public class KBDocumentsController {
 
     KBDocumentService kbDocumentService;
+    MimeTypeService mimeTypeService;
 
     @GetMapping
     @Operation(summary = "List all documents with ingestion status")
@@ -53,11 +54,12 @@ public class KBDocumentsController {
         if (file.isEmpty()) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Empty file.");
         }
-        if (!MimeTypeUtils.isSupportedMimeType(file)) {
+        if (!mimeTypeService.isSupportedMimeType(file)) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
                     "Only PDF, DOCX, and XLSX files are supported.");
         }
-        return ResponseEntity.accepted().body(kbDocumentService.enqueueKBDocument(file));
+        return ResponseEntity.status(HttpStatus.ACCEPTED)
+                .body(kbDocumentService.enqueueKBDocument(file));
     }
 
     @GetMapping("/{uuid}")
