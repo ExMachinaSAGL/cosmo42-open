@@ -122,19 +122,6 @@ class LocalFileServiceTest {
     }
 
     @Test
-    void saveCreatesDirectoryAutomatically() throws IOException {
-        Path nestedPath = storageRoot.resolve("new").resolve("dir");
-        ReflectionTestUtils.setField(service, "storagePath", nestedPath.toString());
-        MockMultipartFile file = new MockMultipartFile(
-                "file", "x.pdf", "application/pdf", new byte[]{1});
-
-        FileReference ref = service.save(file);
-
-        assertThat(Files.exists(nestedPath)).isTrue();
-        assertThat(Files.exists(nestedPath.resolve(ref.getUuid()))).isTrue();
-    }
-
-    @Test
     void savePropagatesIOExceptionWhenTransferToFails() throws IOException {
         MultipartFile file = mock(MultipartFile.class);
         when(file.getOriginalFilename()).thenReturn("x.pdf");

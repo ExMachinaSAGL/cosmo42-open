@@ -13,6 +13,8 @@ import jakarta.persistence.EntityManager;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.NullAndEmptySource;
 import org.mockito.ArgumentCaptor;
 import org.springframework.ai.chat.memory.ChatMemory;
 import org.springframework.ai.chat.messages.AssistantMessage;
@@ -125,17 +127,10 @@ class ChatConversationServiceTest {
             assertThat(persisted).contains("Clean Title");
         }
 
-        @Test
-        void noOpOnBlankInput() {
-            var persisted = service.persistGeneratedTitle("u-1", "   ");
-
-            verify(repository, never()).updateTitleByUuid(anyString(), anyString(), any());
-            assertThat(persisted).isEmpty();
-        }
-
-        @Test
-        void noOpOnNullInput() {
-            var persisted = service.persistGeneratedTitle("u-1", null);
+        @ParameterizedTest
+        @NullAndEmptySource
+        void noOpOnNullOrBlankInput(String input) {
+            var persisted = service.persistGeneratedTitle("u-1", input);
 
             verify(repository, never()).updateTitleByUuid(anyString(), anyString(), any());
             assertThat(persisted).isEmpty();

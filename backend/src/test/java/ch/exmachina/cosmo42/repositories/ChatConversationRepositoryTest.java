@@ -46,7 +46,7 @@ class ChatConversationRepositoryTest extends AbstractIntegrationTest {
     }
 
     @Test
-    void findAllByOrderByUpdatedAtDescPaginates() {
+    void findAllByOrderByCreatedAtDescPaginates() {
         LocalDateTime now = LocalDateTime.now();
         IntStream.range(0, 5).forEachOrdered(i -> {
             ChatConversation c = newConversation("Chat " + i);
