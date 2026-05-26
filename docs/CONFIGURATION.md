@@ -6,15 +6,15 @@ below can be overridden at runtime without rebuilding.
 
 ## Inference (LLM + embeddings)
 
-| Property                                     | Env variable                   | Default       | Description                                                                                              |
-|----------------------------------------------|--------------------------------|---------------|----------------------------------------------------------------------------------------------------------|
-| `spring.ai.openai.base-url`                  | `COSMO42_LLM_BASE_URL`         | —             | OpenAI-compatible chat-completions endpoint. Must include `/v1`. **Required.**                           |
-| `spring.ai.openai.api-key`                   | `COSMO42_LLM_API_KEY`          | —             | API key sent as `Authorization: Bearer`. On-premise servers usually ignore it. **Required.**             |
-| `spring.ai.openai.timeout`                   | `SPRING_AI_OPENAI_TIMEOUT`     | `PT10M`       | HTTP timeout for chat calls.                                                                             |
-| `spring.ai.openai.embedding.base-url`        | `COSMO42_EMBEDDING_BASE_URL`   | —             | OpenAI-compatible embeddings endpoint. **Required.**                                                     |
-| `spring.ai.openai.embedding.embeddings-path` | `COSMO42_EMBEDDING_PATH`       | —             | Path appended to `embedding.base-url`. **Required.**                                                     |
-| `cosmo42.model.llm.name`                     | `COSMO42_MODEL_LLM_NAME`       | `gemma-4-26B` | Model identifier sent to the chat endpoint. Must match what the server exposes.                          |
-| `cosmo42.model.embedding.name`               | `COSMO42_MODEL_EMBEDDING_NAME` | `BAAI/bge-m3` | Model identifier sent to the embeddings endpoint. Must produce 1024-dim vectors (or migrate the schema). |
+| Property                                     | Env variable                   | Default                 | Description                                                                                              |
+|----------------------------------------------|--------------------------------|-------------------------|----------------------------------------------------------------------------------------------------------|
+| `spring.ai.openai.base-url`                  | `COSMO42_LLM_BASE_URL`         | http://localhost:8000   | OpenAI-compatible chat-completions endpoint. Must include `/v1`. **Required.**                           |
+| `spring.ai.openai.api-key`                   | `COSMO42_LLM_API_KEY`          | ON-PREMISE-LLM-FAKE-KEY | API key sent as `Authorization: Bearer`. On-premise servers usually ignore it. **Required.**             |
+| `spring.ai.openai.timeout`                   | `SPRING_AI_OPENAI_TIMEOUT`     | `PT10M`                 | HTTP timeout for chat calls.                                                                             |
+| `spring.ai.openai.embedding.base-url`        | `COSMO42_EMBEDDING_BASE_URL`   | http://localhost:8001   | OpenAI-compatible embeddings endpoint. **Required.**                                                     |
+| `spring.ai.openai.embedding.embeddings-path` | `COSMO42_EMBEDDING_PATH`       | /embeddings             | Path appended to `embedding.base-url`. **Required.**                                                     |
+| `cosmo42.model.llm.name`                     | `COSMO42_MODEL_LLM_NAME`       | `gemma-4-26B`           | Model identifier sent to the chat endpoint. Must match what the server exposes.                          |
+| `cosmo42.model.embedding.name`               | `COSMO42_MODEL_EMBEDDING_NAME` | `BAAI/bge-m3`           | Model identifier sent to the embeddings endpoint. Must produce 1024-dim vectors (or migrate the schema). |
 
 See [MODELS.md](MODELS.md) for tested combinations.
 

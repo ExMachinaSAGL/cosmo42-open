@@ -82,7 +82,7 @@ sequenceDiagram
     DB-->>T: matching chunks
     T-->>C: SSE: STATUS
     T-->>-LLM: chunks
-    LLM-->>CP: streamed tokens
+    LLM-->>CP: streamed response
     CP-->>C: SSE: CHUNK (streamed tokens)
     CP-->>C: SSE: COMPLETED
 ```

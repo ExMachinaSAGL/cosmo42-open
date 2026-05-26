@@ -43,10 +43,10 @@ git clone https://github.com/ExMachinaSAGL/cosmo42.git
 cd cosmo42
 
 # Configure LLM endpoint
-export COSMO42_LLM_BASE_URL=http://<your-llm-host>:8000/v1
-export COSMO42_EMBEDDING_BASE_URL=http://<your-embedding-host>:8001
-export COSMO42_LLM_MODEL=gemma-4-26B
-export COSMO42_EMBEDDING_MODEL=BAAI/bge-m3
+export COSMO42_LLM_BASE_URL=http://<your-llm-host>:<your-llm-port>/v1
+export COSMO42_EMBEDDING_BASE_URL=http://<your-embedding-host>:<your-embedding-model-port>
+export COSMO42_LLM_MODEL=<your-llm-model>
+export COSMO42_EMBEDDING_MODEL=<your-embedding-model>
 
 # Launch full stack: mariadb + libreoffice + backend + frontend
 docker compose -f docker/docker-compose.yml up -d
