@@ -206,16 +206,17 @@ export function Chat() {
 
       case 'STATUS':
         setMessages(prev => {
+          if(!event.data) {
+            return prev;
+          }
           const lastMessage = prev[prev.length - 1];
-          if(event.data) {
-            // If we haven't created the AI message yet, create it with the status
-            if (lastMessage?.role !== 'assistant') {
-              setTimeout(() => addStatusToQueue(event.data!), 0);
-              return [...prev, { role: 'assistant', content: '' }];
-            } else {
-              addStatusToQueue(event.data);
-              return prev;
-            }
+          // If we haven't created the AI message yet, create it with the status
+          if (lastMessage?.role !== 'assistant') {
+            setTimeout(() => addStatusToQueue(event.data!), 0);
+            return [...prev, { role: 'assistant', content: '' }];
+          } else {
+            addStatusToQueue(event.data!);
+            return prev;
           }
         });
         break;
