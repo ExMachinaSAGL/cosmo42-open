@@ -30,6 +30,8 @@ services:
       retries: 3
       interval: 10s
     restart: unless-stopped
+    networks:
+      - cosmo42-network
 
   libreoffice:
     container_name: cosmo42-libreoffice
@@ -41,6 +43,8 @@ services:
     expose:
       - "3000"
     restart: unless-stopped
+    networks:
+      - cosmo42-network
 
   backend:
     container_name: cosmo42-backend
@@ -69,6 +73,8 @@ services:
     volumes:
       - cosmo42-storage:/var/lib/cosmo42
     restart: unless-stopped
+    networks:
+      - cosmo42-network
 
   frontend:
     container_name: cosmo42-frontend
@@ -81,9 +87,15 @@ services:
     ports:
       - "8081:80"
     restart: unless-stopped
+    networks:
+      - cosmo42-network
 
 volumes:
   cosmo42-mariadb-volume:
     name: cosmo42-mariadb-data
   cosmo42-storage:
     name: cosmo42-storage-data
+
+networks:
+  cosmo42-network:
+    driver: bridge
