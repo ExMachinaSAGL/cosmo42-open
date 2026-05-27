@@ -34,7 +34,7 @@ jobs:
       - name: Run tests
         run: ./mvnw -B test
 
-      - name: Upload Surefire reports on failure
+      - name: Upload Surefire reports
         uses: actions/upload-artifact@v4
         with:
           name: surefire-reports
