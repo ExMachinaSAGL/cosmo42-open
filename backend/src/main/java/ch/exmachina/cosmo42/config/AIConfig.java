@@ -21,6 +21,9 @@ public class AIConfig {
     @Value("${cosmo42.chunking.max-tokens}")
     private Integer chunkingMaxTokens;
 
+    @Value("${cosmo42.chat.memory.max-messages}")
+    private Integer chatMemoryMaxMessages;
+
     @Bean
     public OpenAiChatOptions.Builder chatModelOptionsBuilder() {
         return OpenAiChatOptions.builder()
@@ -59,7 +62,7 @@ public class AIConfig {
     public ChatMemory chatMemory(JdbcChatMemoryRepository jdbcRepository) {
         return MessageWindowChatMemory.builder()
                 .chatMemoryRepository(jdbcRepository)
-                .maxMessages(25)
+                .maxMessages(chatMemoryMaxMessages)
                 .build();
     }
 
