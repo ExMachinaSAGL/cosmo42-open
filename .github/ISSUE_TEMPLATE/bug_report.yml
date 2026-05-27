@@ -1,0 +1,57 @@
+name: Bug report
+description: Report a defect in Cosmo42
+labels: ["bug", "triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to file a bug report. Please fill in the sections below.
+
+        For security vulnerabilities, do **not** open an issue,  see [SECURITY.md](../SECURITY.md).
+  - type: input
+    id: version
+    attributes:
+      label: Cosmo42 version / commit
+      placeholder: e.g. 0.0.1-SNAPSHOT @ commit abc1234
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: OS, JDK, Docker, MariaDB, LLM/embedding endpoint and models in use.
+      placeholder: |
+        - OS: Ubuntu 24.04
+        - JDK: Temurin 25
+        - Docker: 24.0
+        - LLM endpoint: vLLM, gemma-4-26B
+        - Embedding endpoint: text-embeddings-inference, BAAI/bge-m3
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. ...
+        2. ...
+        3. ...
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behaviour
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behaviour
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs / stack traces
+      render: shell
