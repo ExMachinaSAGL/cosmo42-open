@@ -30,7 +30,7 @@
         <java.version>25</java.version>
         <spring-ai.version>2.0.0-M6</spring-ai.version>
         <pdfbox.version>3.0.7</pdfbox.version>
-        <spotless.version>3.1.0</spotless.version>
+        <spotless.version>3.5.1</spotless.version>
         <jacoco.version>0.8.13</jacoco.version>
     </properties>
     <dependencyManagement>
