@@ -49,7 +49,10 @@ export const uploadDocument = (data: FormData) => fetch(`${KB_BASE_URL}/document
 // Chat API
 export const fetchChatHistory = (chatId: string) => apiFetch(CHAT_BASE_URL, `/${chatId}`);
 
-export const sendChatMessage = (messageData: any) => fetch(`${CHAT_BASE_URL}/stream`, {
+export const sendChatMessage = (messageData: {
+    uuid?: string,
+    message?: string,
+}) => fetch(`${CHAT_BASE_URL}/stream`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(messageData)
