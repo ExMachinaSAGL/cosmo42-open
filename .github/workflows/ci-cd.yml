@@ -64,7 +64,6 @@ jobs:
   docker:
     name: Docker images build
     runs-on: ubuntu-latest
-    if: github.event_name == 'push'
     needs: [ backend, frontend ]
     steps:
       - uses: actions/checkout@v4
