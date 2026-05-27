@@ -5,7 +5,7 @@
     <parent>
         <groupId>org.springframework.boot</groupId>
         <artifactId>spring-boot-starter-parent</artifactId>
-        <version>4.0.5</version>
+        <version>4.0.6</version>
         <relativePath/> <!-- lookup parent from repository -->
     </parent>
     <groupId>ch.exmachina</groupId>
@@ -30,8 +30,10 @@
         <java.version>25</java.version>
         <spring-ai.version>2.0.0-M7</spring-ai.version>
         <pdfbox.version>3.0.7</pdfbox.version>
-        <spotless.version>3.1.0</spotless.version>
-        <jacoco.version>0.8.13</jacoco.version>
+        <spotless.version>3.5.1</spotless.version>
+        <jacoco.version>0.8.14</jacoco.version>
+        <tika.version>3.3.1</tika.version>
+        <springdoc-openapi-starter-webmvc-ui.version>3.0.3</springdoc-openapi-starter-webmvc-ui.version>
     </properties>
     <dependencyManagement>
         <dependencies>
@@ -102,17 +104,17 @@
         <dependency>
             <groupId>org.apache.tika</groupId>
             <artifactId>tika-core</artifactId>
-            <version>3.0.0</version>
+            <version>${tika.version}</version>
         </dependency>
         <dependency>
             <groupId>org.apache.tika</groupId>
             <artifactId>tika-parsers-standard-package</artifactId>
-            <version>3.0.0</version>
+            <version>${tika.version}</version>
         </dependency>
         <dependency>
             <groupId>org.springdoc</groupId>
             <artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
-            <version>2.8.9</version>
+            <version>${springdoc-openapi-starter-webmvc-ui.version}</version>
         </dependency>
 
         <dependency>
