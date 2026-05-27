@@ -7,7 +7,7 @@ on:
       - main
 
 concurrency:
-  group: ci-cd-test-${{ github.workflow }}-${{ github.ref }}
+  group: ci-cd-test-${{ github.workflow }}
   cancel-in-progress: true
 
 jobs:
@@ -37,7 +37,7 @@ jobs:
         run: ./mvnw -B test
 
       - name: Upload Surefire reports on failure
-        if: failure()
+        ## if: failure()
         uses: actions/upload-artifact@v4
         with:
           name: surefire-reports
