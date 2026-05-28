@@ -2,6 +2,7 @@ const API_BASE_URL = 'http://localhost:8080/api/v1';
 const KB_BASE_URL = `${API_BASE_URL}/kb`;
 const CHAT_BASE_URL = `${API_BASE_URL}/chat`;
 const STUDIO_BASE_URL = `${API_BASE_URL}/studio`;
+const CONFIG_BASE_URL = `${API_BASE_URL}/config`;
 
 async function apiFetch(baseUrl: string, endpoint: string, options: RequestInit = {}) {
     const response = await fetch(`${baseUrl}${endpoint}`, {
@@ -17,6 +18,9 @@ async function apiFetch(baseUrl: string, endpoint: string, options: RequestInit 
     if (response.status === 204) return null;
     return response.json();
 }
+
+// Config API
+export const fetchFeatureFlags = () => apiFetch(CONFIG_BASE_URL, '/features');
 
 // Knowledge Base API
 export const fetchDocuments = () => apiFetch(KB_BASE_URL, '/documents');

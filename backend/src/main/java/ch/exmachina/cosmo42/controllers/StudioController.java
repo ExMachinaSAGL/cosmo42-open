@@ -1,7 +1,7 @@
 package ch.exmachina.cosmo42.controllers;
 
 import ch.exmachina.cosmo42.services.StudioService;
-import ch.exmachina.cosmo42.utils.MimeTypeUtils;
+import ch.exmachina.cosmo42.utils.SupportedMimeTypes;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.AccessLevel;
@@ -42,7 +42,7 @@ public class StudioController {
                 if (file.isEmpty()) {
                     throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Empty file.");
                 }
-                if (!MimeTypeUtils.isSupportedMimeType(file)) {
+                if (!SupportedMimeTypes.isSupported(file.getContentType())) {
                     throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
                             "Only PDF, DOCX, and XLSX files are supported.");
                 }

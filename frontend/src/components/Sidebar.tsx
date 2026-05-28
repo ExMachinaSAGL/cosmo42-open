@@ -7,6 +7,7 @@ import { fetchChatList, renameChat, deleteChat } from '../api/client';
 import type { ChatConversationListItemDTO, Page } from '../types/chat';
 import Modal from './Modal';
 import './Sidebar.css';
+import { useFeatureFlag } from '../hooks/useFeatureFlag';
 
 export function Sidebar() {
   const [isCollapsed, setIsCollapsed] = useState(false);
@@ -16,6 +17,7 @@ export function Sidebar() {
   const [modalContent, setModalContent] = useState<{ type: 'rename' | 'delete', chatId: string, currentTitle?: string } | null>(null);
   const [newTitle, setNewTitle] = useState('');
   const navigate = useNavigate();
+  const isStudioEnabled = useFeatureFlag('studio');
 
   useEffect(() => {
     const handleClickOutside = () => setOpenMenuId(null);
@@ -134,10 +136,12 @@ export function Sidebar() {
               {!isCollapsed && <span className="sidebar-nav-item-text">Knowledge Base</span>}
             </NavLink>
 
-            <NavLink to="/studio" className={({ isActive }) => `sidebar-nav-link ${isCollapsed ? 'justify-center' : ''} ${isActive ? 'active' : ''}`} title="Studio">
-              <FlaskConical size={18}/>
-              {!isCollapsed && <span className="sidebar-nav-item-text">Studio</span>}
-            </NavLink>
+            {isStudioEnabled && (
+              <NavLink to="/studio" className={({ isActive }) => `sidebar-nav-link ${isCollapsed ? 'justify-center' : ''} ${isActive ? 'active' : ''}`} title="Studio">
+                <FlaskConical size={18}/>
+                {!isCollapsed && <span className="sidebar-nav-item-text">Studio</span>}
+              </NavLink>
+            )}
           </div>
 
           {!isCollapsed && (
