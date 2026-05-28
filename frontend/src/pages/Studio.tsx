@@ -68,7 +68,7 @@ export function Studio() {
         try {
           const parsedJson = JSON.parse(response);
           return <pre><code>{JSON.stringify(parsedJson, null, 2)}</code></pre>;
-        } catch (_) {
+        } catch {
           return <p className="error-text">Failed to parse JSON: The response is not valid JSON.</p>;
         }
       case 'raw':
