@@ -1,0 +1,241 @@
+.studio-container {
+  padding: 2rem;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.studio-header {
+  margin-bottom: 2rem;
+}
+
+.studio-header h1 {
+  font-size: 2rem;
+  font-weight: 600;
+  margin-bottom: 0.5rem;
+}
+
+.studio-header p {
+  color: #6c757d;
+}
+
+.studio-content {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 2rem;
+  flex-grow: 1;
+  overflow: hidden;
+}
+
+.studio-workbench, .studio-results {
+  background-color: #fff;
+  border-radius: 8px;
+  padding: 1.5rem;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.studio-form {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.prompt-container {
+  flex-grow: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.prompt-container label {
+  display: block;
+  font-weight: 500;
+  margin-bottom: 0.5rem;
+}
+
+.studio-textarea {
+  padding: 0.75rem;
+  border: 1px solid #ced4da;
+  border-radius: 4px;
+  font-size: 1rem;
+  flex-grow: 1;
+  resize: none;
+}
+
+.studio-controls {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  margin-top: 1rem;
+  gap: 1rem;
+}
+
+.attachment-control {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  flex: 1;
+  min-width: 0;
+}
+
+.file-input-hidden {
+  display: none;
+}
+
+.attachment-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 1rem;
+  background-color: #f8f9fa;
+  border: 1px solid #dee2e6;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background-color 0.2s;
+  flex-shrink: 0;
+}
+
+.attachment-btn:hover {
+  background-color: #e9ecef;
+}
+
+.attachment-list {
+  font-size: 0.875rem;
+  color: #495057;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  flex: 1;
+  min-width: 0;
+}
+
+.attachment-item {
+  background-color: #e9ecef;
+  padding: 0.25rem 0.5rem;
+  border-radius: 4px;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  max-width: 100%;
+}
+
+.attachment-item span {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.remove-attachment-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  margin-left: 0.25rem;
+  font-size: 1.2em;
+  line-height: 1;
+  font-weight: bold;
+  color: #6c757d;
+  flex-shrink: 0;
+}
+
+.remove-attachment-btn:hover {
+  color: #343a40;
+}
+
+.studio-submit-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.6rem 1.5rem;
+  background-color: var(--blue-600);
+  color: var(--bg);
+  border: none;
+  border-radius: 0.5rem;
+  cursor: pointer;
+  font-size: 1rem;
+  font-weight: 500;
+  transition: background-color 0.2s, opacity 0.2s;
+}
+
+.studio-submit-btn:hover {
+  background-color: var(--blue-700);
+}
+
+.studio-submit-btn:disabled {
+  background-color: var(--blue-600);
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.studio-results-header {
+  display: flex;
+  justify-content: flex-start;
+  margin-bottom: 1rem;
+}
+
+.output-format-selector {
+  display: inline-flex;
+  border-radius: 6px;
+  overflow: hidden;
+  border: 1px solid var(--gray-200, #e5e7eb);
+}
+
+.output-format-btn {
+  background-color: #fff;
+  border: none;
+  border-left: 1px solid var(--gray-200, #e5e7eb);
+  padding: 0.4rem 1rem;
+  cursor: pointer;
+  font-size: 0.875rem;
+  color: #495057;
+  transition: background-color 0.2s, color 0.2s;
+}
+
+.output-format-btn:first-child {
+  border-left: none;
+}
+
+.output-format-btn.active {
+  background-color: var(--blue-50);
+  color: var(--blue-700);
+  font-weight: 500;
+}
+
+.output-format-btn:not(.active):hover {
+  background-color: var(--gray-100, #f3f4f6);
+}
+
+.result-box {
+  flex-grow: 1;
+  border: 1px solid #e9ecef;
+  border-radius: 4px;
+  padding: 1rem;
+  background-color: #f8f9fa;
+  overflow-y: auto;
+}
+
+.result-box.empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  color: #6c757d;
+}
+
+.result-box.loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #495057;
+}
+
+.response-text {
+  white-space: pre-wrap;
+  font-family: monospace;
+}
+
+.error-text {
+  color: #dc3545;
+}

@@ -1,5 +1,5 @@
 import { NavLink, useNavigate } from 'react-router-dom';
-import { Database, MessageSquare, Plus, PanelLeftClose, MoreVertical, Edit2, Trash2 } from 'lucide-react';
+import { Database, MessageSquare, PanelLeftClose, MoreVertical, Edit2, Trash2, FlaskConical } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import toast from 'react-hot-toast';
 import logo from '../assets/Cosmo42logo_128x128.jpg';
@@ -7,6 +7,7 @@ import { fetchChatList, renameChat, deleteChat } from '../api/client';
 import type { ChatConversationListItemDTO, Page } from '../types/chat';
 import Modal from './Modal';
 import './Sidebar.css';
+import { useFeatureFlag } from '../hooks/useFeatureFlag';
 
 export function Sidebar() {
   const [isCollapsed, setIsCollapsed] = useState(false);
@@ -16,6 +17,7 @@ export function Sidebar() {
   const [modalContent, setModalContent] = useState<{ type: 'rename' | 'delete', chatId: string, currentTitle?: string } | null>(null);
   const [newTitle, setNewTitle] = useState('');
   const navigate = useNavigate();
+  const isStudioEnabled = useFeatureFlag('studio');
 
   useEffect(() => {
     const handleClickOutside = () => setOpenMenuId(null);
@@ -55,10 +57,6 @@ export function Sidebar() {
     e.preventDefault();
     e.stopPropagation();
     setOpenMenuId(openMenuId === id ? null : id);
-  };
-
-  const handleNewChat = () => {
-    navigate('/chat');
   };
 
   const openRenameModal = (chatId: string, currentTitle: string) => {
@@ -128,28 +126,29 @@ export function Sidebar() {
         <nav className="sidebar-nav">
 
           <div>
+            <NavLink to="/chat" end className={({ isActive }) => `sidebar-nav-link ${isCollapsed ? 'justify-center' : ''} ${isActive ? 'active' : ''}`} title="New Chat">
+              <MessageSquare size={18}/>
+              {!isCollapsed && <span className="sidebar-nav-item-text">New Chat</span>}
+            </NavLink>
+
             <NavLink to="/kb" className={({ isActive }) => `sidebar-nav-link ${isCollapsed ? 'justify-center' : ''} ${isActive ? 'active' : ''}`} title="Knowledge Base">
               <Database size={18}/>
               {!isCollapsed && <span className="sidebar-nav-item-text">Knowledge Base</span>}
             </NavLink>
+
+            {isStudioEnabled && (
+              <NavLink to="/studio" className={({ isActive }) => `sidebar-nav-link ${isCollapsed ? 'justify-center' : ''} ${isActive ? 'active' : ''}`} title="Studio">
+                <FlaskConical size={18}/>
+                {!isCollapsed && <span className="sidebar-nav-item-text">Studio</span>}
+              </NavLink>
+            )}
           </div>
 
-          <div>
-            <div className={`sidebar-section-header ${isCollapsed ? 'justify-center' : ''}`}>
-              {isCollapsed ? (
-                <button onClick={handleNewChat} className="sidebar-new-chat-button" title="New Chat">
-                  <MessageSquare size={16}/>
-                </button>
-              ) : (
-                <>
-                  <h2 className="sidebar-section-title">Chats</h2>
-                  <button onClick={handleNewChat} className="sidebar-new-chat-button" title="New Chat">
-                    <Plus size={16}/>
-                  </button>
-                </>
-              )}
-            </div>
-            {!isCollapsed && (
+          {!isCollapsed && (
+            <div>
+              <div className={`sidebar-section-header ${isCollapsed ? 'justify-center' : ''}`}>
+                <h2 className="sidebar-section-title">Recents</h2>
+              </div>
               <ul className="sidebar-nav-list">
                 {chats.map(chat => (
                   <li key={chat.uuid} className="sidebar-nav-item-container">
@@ -179,8 +178,8 @@ export function Sidebar() {
                   </li>
                 ))}
               </ul>
-            )}
-          </div>
+            </div>
+          )}
 
         </nav>
       </aside>

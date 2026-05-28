@@ -84,19 +84,6 @@ describe('Sidebar Component', () => {
     expect(screen.getByText('Chat 1')).toBeInTheDocument();
   });
 
-  it('navigates to home and shows toast when New Chat is clicked', () => {
-    render(
-      <MemoryRouter>
-        <Sidebar />
-      </MemoryRouter>
-    );
-
-    const newChatButton = screen.getByTitle('New Chat');
-    fireEvent.click(newChatButton);
-
-    expect(mockNavigate).toHaveBeenCalledWith('/chat');
-  });
-
   describe('Chat Actions', () => {
     it('renames a chat successfully', async () => {
       const newTitle = 'Renamed Chat 1';

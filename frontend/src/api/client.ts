@@ -1,6 +1,8 @@
 const API_BASE_URL = 'http://localhost:8080/api/v1';
 const KB_BASE_URL = `${API_BASE_URL}/kb`;
 const CHAT_BASE_URL = `${API_BASE_URL}/chat`;
+const STUDIO_BASE_URL = `${API_BASE_URL}/studio`;
+const CONFIG_BASE_URL = `${API_BASE_URL}/config`;
 
 async function apiFetch(baseUrl: string, endpoint: string, options: RequestInit = {}) {
     const response = await fetch(`${baseUrl}${endpoint}`, {
@@ -16,6 +18,9 @@ async function apiFetch(baseUrl: string, endpoint: string, options: RequestInit 
     if (response.status === 204) return null;
     return response.json();
 }
+
+// Config API
+export const fetchFeatureFlags = () => apiFetch(CONFIG_BASE_URL, '/features');
 
 // Knowledge Base API
 export const fetchDocuments = () => apiFetch(KB_BASE_URL, '/documents');
@@ -68,3 +73,18 @@ export const renameChat = (chatId: string, title: string) => apiFetch(CHAT_BASE_
 export const deleteChat = (chatId: string) => apiFetch(CHAT_BASE_URL, `/${chatId}`, {
     method: 'DELETE'
 });
+
+// Studio API
+export const runStudioExperiment = async (data: FormData) => {
+    const response = await fetch(`${STUDIO_BASE_URL}/run`, {
+        method: 'POST',
+        body: data,
+    });
+    
+    if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Server error: ${response.status} ${response.statusText} - ${errorText}`);
+    }
+    
+    return response.text();
+};
