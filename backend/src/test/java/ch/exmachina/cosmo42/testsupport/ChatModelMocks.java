@@ -21,13 +21,17 @@ public final class ChatModelMocks {
 
     public static ChatModel replyingWith(String content) {
         ChatModel chatModel = mock(ChatModel.class);
+        replyingWith(chatModel, content);
+        return chatModel;
+    }
+    
+    public static void replyingWith(ChatModel chatModel, String content) {
         when(chatModel.getOptions())
                 .thenReturn(OpenAiChatOptions.builder().model("test-model").build());
         when(chatModel.call(any(Prompt.class))).thenReturn(chatResponse(content));
         when(chatModel.stream(any(Prompt.class))).thenReturn(Flux.just(chatResponse(content)));
-        return chatModel;
     }
-
+    
     public static ChatResponse chatResponse(String content) {
         return new ChatResponse(List.of(new Generation(new AssistantMessage(content))));
     }

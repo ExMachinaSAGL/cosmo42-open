@@ -138,20 +138,20 @@ public class KBDocumentIngestionProcessor {
         List<KBDocumentChunk> chunks = new ArrayList<>();
         List<String> toEmbed = new ArrayList<>();
 
-        for (DocumentPage page : pages) {
+        for (var page : pages) {
             for (Chunk chunk : page.getChunks()) {
                 KBDocumentChunk kbChunk = new KBDocumentChunk();
                 kbChunk.setUuid(UUID.randomUUID().toString());
                 kbChunk.setKbDocument(kbDocument);
-                kbChunk.setType(KBDocumentChunkType.fromLabel(chunk.getType(), KBDocumentChunkType.TEXT));
+                kbChunk.setType(KBDocumentChunkType.fromLabel(chunk.getType().name(), KBDocumentChunkType.TEXT));
                 kbChunk.setContent(chunk.getContent());
                 kbChunk.setSummary(chunk.getSummary());
 
                 boolean isTable = kbChunk.getType() == KBDocumentChunkType.TABLE;
-                if(isTable && kbChunk.getSummary() != null) {
+                if(isTable) {
                     chunks.add(kbChunk);
                     toEmbed.add(kbChunk.getSummary());
-                } else if(!isTable && kbChunk.getContent() != null) {
+                } else if(kbChunk.getContent() != null) {
                     chunks.add(kbChunk);
                     toEmbed.add(kbChunk.getContent());
                 }
@@ -166,13 +166,13 @@ public class KBDocumentIngestionProcessor {
         } catch (Exception e) {
             throw new RuntimeException("Embedding model call failed for document " + kbDocument.getUuid(), e);
         }
-        for (int i = 0; i < chunks.size(); i++) {
-            chunks.get(i).setEmbedding(response.getResults().get(i).getOutput());
+        for(var embedding : response.getResults()) {
+        	chunks.get(embedding.getIndex()).setEmbedding(embedding.getOutput());
         }
         kbDocumentChunkRepository.saveAll(chunks);
         log.info("Saved {} chunks for document {}.", chunks.size(), kbDocument.getUuid());
     }
-
+	
     private IngestionJob refresh(String jobUuid) {
         return ingestionJobService.findByUuid(jobUuid).orElseThrow();
     }

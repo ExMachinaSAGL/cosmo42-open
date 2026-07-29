@@ -1,5 +1,6 @@
 package ch.exmachina.cosmo42.services.kb;
 
+import ch.exmachina.cosmo42.services.kb.schema.ChunkType;
 import ch.exmachina.cosmo42.services.kb.schema.DocumentPage;
 import ch.exmachina.cosmo42.testsupport.ChatModelMocks;
 import ch.exmachina.cosmo42.testsupport.Fixtures;
@@ -13,12 +14,16 @@ import org.springframework.ai.chat.prompt.Prompt;
 import org.springframework.ai.openai.OpenAiChatOptions;
 import reactor.core.publisher.Flux;
 
+import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
+import static java.util.Collections.synchronizedMap;
+import static java.util.Map.entry;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
@@ -102,7 +107,7 @@ class KBDocumentChunkerTest {
     void processPages_emptyResponse_returnsNullPage() {
         when(chatModel.stream(any(Prompt.class)))
                 .thenReturn(Flux.just(new ChatResponse(List.of(new Generation(new AssistantMessage(""))))));
-        ConcurrentMap<Integer, DocumentPage> results = new ConcurrentHashMap<>();
+        Map<Integer, DocumentPage> results = synchronizedMap(new HashMap<>());
 
         chunker.processPages(List.of(PAGE_0), null, results::put);
 
@@ -111,9 +116,8 @@ class KBDocumentChunkerTest {
 
     @Test
     void processPages_blankResponse_returnsNullPage() {
-        when(chatModel.stream(any(Prompt.class)))
-                .thenReturn(Flux.just(new ChatResponse(List.of(new Generation(new AssistantMessage("   "))))));
-        ConcurrentMap<Integer, DocumentPage> results = new ConcurrentHashMap<>();
+    	ChatModelMocks.replyingWith(chatModel, "   ");
+        Map<Integer, DocumentPage> results = synchronizedMap(new HashMap<>());
 
         chunker.processPages(List.of(PAGE_0), null, results::put);
 
@@ -122,14 +126,12 @@ class KBDocumentChunkerTest {
 
     @Test
     void processPages_llmError_returnsNullDocumentPage() {
-        when(chatModel.stream(any(Prompt.class)))
-                .thenReturn(Flux.error(new RuntimeException("upstream failure")));
-        ConcurrentMap<Integer, DocumentPage> results = new ConcurrentHashMap<>();
+    	ChatModelMocks.replyingWith(chatModel, "upstream failure");
+        Map<Integer, DocumentPage> results = synchronizedMap(new HashMap<>());
 
         chunker.processPages(List.of(PAGE_0), null, results::put);
 
-        assertThat(results.get(0)).isNotNull();
-        assertThat(results.get(0).getChunks()).isNull();
+        assertThat(results.get(0)).isNull();
     }
 
     @Test
@@ -143,23 +145,22 @@ class KBDocumentChunkerTest {
 
         DocumentPage page = results.get(0);
         assertThat(page.getChunks()).hasSize(1);
-        assertThat(page.getChunks().getFirst().getType()).isEqualTo("table");
+        assertThat(page.getChunks().getFirst().getType()).isEqualTo(ChunkType.table);
         assertThat(page.getChunks().getFirst().getContent()).isEqualTo("| A | B |");
         assertThat(page.getChunks().getFirst().getSummary()).isEqualTo("Sales data");
     }
 
     @Test
-    void processPages_malformedJson_returnsPageWithNullChunks() {
+    void processPages_malformedJson_returnsNullPage() {
         when(chatModel.stream(any(Prompt.class)))
                 .thenReturn(Flux.just(new ChatResponse(List.of(
                         new Generation(new AssistantMessage("not valid json"))))));
-        ConcurrentMap<Integer, DocumentPage> results = new ConcurrentHashMap<>();
+        Map<Integer, DocumentPage> results = synchronizedMap(new HashMap<>());
 
         chunker.processPages(List.of(PAGE_0), null, results::put);
 
         DocumentPage page = results.get(0);
-        assertThat(page).isNotNull();
-        assertThat(page.getChunks()).isNull();
+        assertThat(page).isNull();
     }
 
     @Test
@@ -167,7 +168,7 @@ class KBDocumentChunkerTest {
         DocumentPage page1 = Fixtures.page(Fixtures.textChunk("hello"));
         DocumentPage page2 = Fixtures.page(Fixtures.textChunk("world"));
 
-        List<DocumentPage> result = chunker.mergePages(List.of(page1, page2));
+        var result = chunker.mergePages(List.of(entry(1, page1), entry(2, page2)));
 
         assertThat(result).hasSize(2);
         assertThat(result.get(0).getChunks().getFirst().getContent()).isEqualTo("hello");
@@ -175,8 +176,7 @@ class KBDocumentChunkerTest {
     }
 
     private void stubStreamResponse(String json) {
-        when(chatModel.stream(any(Prompt.class)))
-                .thenReturn(Flux.just(new ChatResponse(List.of(new Generation(new AssistantMessage(json))))));
+    	ChatModelMocks.replyingWith(chatModel, json);
     }
 
     private static String pageJson(String content) {

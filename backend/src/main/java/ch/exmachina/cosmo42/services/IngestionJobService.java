@@ -15,6 +15,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDateTime;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
@@ -134,11 +135,17 @@ public class IngestionJobService {
     }
 
     @Transactional(readOnly = true)
-    public List<DocumentPage> loadCompletedPages(IngestionJob job) {
+    public List<Map.Entry<Integer, DocumentPage>> loadCompletedPages(IngestionJob job) {
         return ingestionJobPageRepository
                 .findByJobOrderByPageIndexAsc(job).stream()
                 .filter(p -> p.getStatus() == IngestionJobPageStatus.COMPLETED)
-                .map(ingestionJobMapper::toDocumentPage)
+                .map(doc -> {
+                    var page = ingestionJobMapper.toDocumentPage(doc);  
+                    if (page != null) {
+                        return Map.entry(doc.getPageIndex(), page);
+                    }
+                    return null;
+                })
                 .filter(Objects::nonNull)
                 .toList();
     }

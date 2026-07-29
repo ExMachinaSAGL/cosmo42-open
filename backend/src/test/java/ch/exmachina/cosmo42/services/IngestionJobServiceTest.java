@@ -209,15 +209,15 @@ class IngestionJobServiceTest {
     @Test
     void loadCompletedPages_returnsOnlyCompletedPages() {
         IngestionJob job = new IngestionJob();
-        IngestionJobPage completed = pageWith(IngestionJobPageStatus.COMPLETED, "{\"chunks\":[]}");
-        IngestionJobPage failed = pageWith(IngestionJobPageStatus.FAILED, null);
-        IngestionJobPage pending = pageWith(IngestionJobPageStatus.PENDING, null);
+        IngestionJobPage completed = pageWith(1, IngestionJobPageStatus.COMPLETED, "{\"chunks\":[]}");
+        IngestionJobPage failed = pageWith(2, IngestionJobPageStatus.FAILED, null);
+        IngestionJobPage pending = pageWith(3, IngestionJobPageStatus.PENDING, null);
         DocumentPage documentPage = new DocumentPage(List.of());
         when(ingestionJobPageRepository.findByJobOrderByPageIndexAsc(job))
                 .thenReturn(List.of(completed, failed, pending));
         when(ingestionJobMapper.toDocumentPage(completed)).thenReturn(documentPage);
 
-        List<DocumentPage> result = service.loadCompletedPages(job);
+        var result = service.loadCompletedPages(job);
 
         assertThat(result).hasSize(1);
     }
@@ -225,17 +225,18 @@ class IngestionJobServiceTest {
     @Test
     void loadCompletedPages_filtersOutPagesWithJsonError() {
         IngestionJob job = new IngestionJob();
-        IngestionJobPage page = pageWith(IngestionJobPageStatus.COMPLETED, "invalid-json");
+        IngestionJobPage page = pageWith(1, IngestionJobPageStatus.COMPLETED, "invalid-json");
         when(ingestionJobPageRepository.findByJobOrderByPageIndexAsc(job)).thenReturn(List.of(page));
         when(ingestionJobMapper.toDocumentPage(page)).thenReturn(null);
 
-        List<DocumentPage> result = service.loadCompletedPages(job);
+        var result = service.loadCompletedPages(job);
 
         assertThat(result).isEmpty();
     }
 
-    private IngestionJobPage pageWith(IngestionJobPageStatus status, String chunksJson) {
+    private IngestionJobPage pageWith(int pageIndex, IngestionJobPageStatus status, String chunksJson) {
         IngestionJobPage page = new IngestionJobPage();
+        page.setPageIndex(pageIndex);
         page.setStatus(status);
         page.setChunksJson(chunksJson);
         return page;

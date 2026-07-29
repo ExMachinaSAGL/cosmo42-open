@@ -10,6 +10,7 @@ import ch.exmachina.cosmo42.repositories.KBDocumentRepository;
 import ch.exmachina.cosmo42.services.kb.FileConverter;
 import ch.exmachina.cosmo42.services.kb.KBDocumentChunker;
 import ch.exmachina.cosmo42.services.kb.schema.Chunk;
+import ch.exmachina.cosmo42.services.kb.schema.ChunkType;
 import ch.exmachina.cosmo42.services.kb.schema.DocumentPage;
 import ch.exmachina.cosmo42.testsupport.EmbeddingMocks;
 import org.junit.jupiter.api.AfterEach;
@@ -31,6 +32,7 @@ import java.nio.file.Path;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.function.BiConsumer;
 
@@ -160,7 +162,7 @@ class IngestionPipelineAsyncE2ETest extends AbstractWebIntegrationTest {
             onPageComplete.accept(1, pageOf(textChunk("page 2 body")));
             return null;
         }).when(kbDocumentChunker).processPages(any(), any(), any());
-        when(kbDocumentChunker.mergePages(any())).thenAnswer(inv -> inv.getArgument(0));
+        when(kbDocumentChunker.mergePages(any())).thenAnswer(inv -> ((List<Map.Entry>)inv.getArgument(0)).stream().map(Map.Entry::getValue).toList());
     }
 
     private static DocumentPage pageOf(Chunk... chunks) {
@@ -171,7 +173,7 @@ class IngestionPipelineAsyncE2ETest extends AbstractWebIntegrationTest {
 
     private static Chunk textChunk(String content) {
         Chunk c = new Chunk();
-        c.setType("text");
+        c.setType(ChunkType.text);
         c.setContent(content);
         c.setContinuesOnNextPage(false);
         return c;
