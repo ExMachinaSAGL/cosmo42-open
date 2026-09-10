@@ -1,5 +1,38 @@
 package ch.exmachina.cosmo42.services;
 
+import static java.util.Map.entry;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.contains;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+
+import java.io.IOException;
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.function.BiConsumer;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
+
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.ai.embedding.Embedding;
+import org.springframework.ai.embedding.EmbeddingModel;
+import org.springframework.ai.embedding.EmbeddingRequest;
+import org.springframework.ai.embedding.EmbeddingResponse;
+import org.springframework.ai.openai.OpenAiEmbeddingOptions;
+
 import ch.exmachina.cosmo42.config.IngestionProperties;
 import ch.exmachina.cosmo42.entities.IngestionJob;
 import ch.exmachina.cosmo42.entities.IngestionJobStatus;
@@ -13,31 +46,6 @@ import ch.exmachina.cosmo42.services.kb.KBDocumentChunker;
 import ch.exmachina.cosmo42.services.kb.schema.Chunk;
 import ch.exmachina.cosmo42.services.kb.schema.ChunkType;
 import ch.exmachina.cosmo42.services.kb.schema.DocumentPage;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.ArgumentCaptor;
-import org.mockito.Mock;
-import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.ai.embedding.Embedding;
-import org.springframework.ai.embedding.EmbeddingModel;
-import org.springframework.ai.embedding.EmbeddingRequest;
-import org.springframework.ai.embedding.EmbeddingResponse;
-import org.springframework.ai.openai.OpenAiEmbeddingOptions;
-
-import java.io.IOException;
-import java.util.LinkedHashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
-import java.util.function.BiConsumer;
-import java.util.stream.Collectors;
-import java.util.stream.IntStream;
-
-import static java.util.Map.entry;
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.ArgumentMatchers.*;
-import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 class KBDocumentIngestionProcessorTest {
@@ -46,6 +54,8 @@ class KBDocumentIngestionProcessorTest {
     IngestionJobService ingestionJobService;
     @Mock
     KBDocumentChunker kbDocumentChunker;
+    @Mock
+    KBDocumentChunkMerger kbChunkMerger;
     @Mock
     FileConverter fileConverter;
     @Mock
@@ -68,7 +78,7 @@ class KBDocumentIngestionProcessorTest {
         IngestionProperties ingestionProperties = new IngestionProperties();
         ingestionProperties.setMaxPageAttempts(MAX_ATTEMPTS);
         processor = new KBDocumentIngestionProcessor(
-                ingestionJobService, kbDocumentChunker, fileConverter, fileService,
+                ingestionJobService, kbDocumentChunker, kbChunkMerger, fileConverter, fileService,
                 kbDocumentRepository, kbDocumentChunkRepository,
                 embeddingModel, embeddingModelOptions, ingestionProperties);
     }
@@ -107,7 +117,7 @@ class KBDocumentIngestionProcessorTest {
         when(ingestionJobService.loadCompletedPages(any())).thenReturn(List.of(
                 entry(1, new DocumentPage(List.of(new Chunk(ChunkType.TEXT, "a", null, false)))),
                 entry(2, new DocumentPage(List.of(new Chunk(ChunkType.TEXT, "b", null, false))))));
-        when(kbDocumentChunker.mergePages(any())).thenAnswer(inv -> ((List<Map.Entry>)inv.getArgument(0)).stream().map(Map.Entry::getValue).toList());
+        when(kbChunkMerger.mergePages(any())).thenCallRealMethod();
         when(kbDocumentRepository.findByUuid(anyString())).thenReturn(Optional.of(kbDoc("stored-uuid")));
         when(embeddingModel.call(any(EmbeddingRequest.class))).thenReturn(embedResponse(2));
 
@@ -229,7 +239,7 @@ class KBDocumentIngestionProcessorTest {
         when(ingestionJobService.countExhaustedFailures(any(), eq(MAX_ATTEMPTS))).thenReturn(0L);
         when(ingestionJobService.loadCompletedPages(any())).thenReturn(List.of(
                 entry(1, new DocumentPage(List.of(new Chunk(ChunkType.TABLE, "| a |", "tbl-summary", false))))));
-        when(kbDocumentChunker.mergePages(any())).thenAnswer(inv -> ((List<Map.Entry>)inv.getArgument(0)).stream().map(Map.Entry::getValue).toList());
+        when(kbChunkMerger.mergePages(any())).thenCallRealMethod();
         when(kbDocumentRepository.findByUuid("kb-uuid")).thenReturn(Optional.of(kbDoc("kb-uuid")));
         when(embeddingModel.call(any(EmbeddingRequest.class))).thenReturn(embedResponse(1));
 
@@ -237,7 +247,7 @@ class KBDocumentIngestionProcessorTest {
 
         ArgumentCaptor<EmbeddingRequest> captor = ArgumentCaptor.forClass(EmbeddingRequest.class);
         verify(embeddingModel).call(captor.capture());
-        assertThat(captor.getValue().getInstructions()).containsExactly("tbl-summary");
+        assertThat(captor.getValue().getInstructions()).containsExactly("tbl-summary | a |");
     }
 
     private IngestionJob newJob(String uuid, String name) {

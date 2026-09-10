@@ -3,12 +3,25 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { User, Bot } from 'lucide-react';
 import toast from 'react-hot-toast';
 import ReactMarkdown from 'react-markdown';
-import remarkGfm from 'remark-gfm';
+import rehypeRaw from 'rehype-raw'
+import rehypeSanitize from 'rehype-sanitize'
+import { defaultSchema } from 'hast-util-sanitize'
 import { fetchChatHistory, sendChatMessage } from '../api/client';
 import './Chat.css';
 import { ChatInput } from './ChatInput';
+import { Citation} from './Citation';
 
-type EventType = 'UUID' | 'TITLE' | 'STATUS' | 'CHUNK' | 'COMPLETED' | 'ERROR';
+
+// Allow any data-* attribute on <sup> for rehypeSanitize
+const schema = {
+  ...defaultSchema,
+  attributes: {
+    ...defaultSchema.attributes,
+    sup: ['data*']
+  },
+}
+
+type EventType = 'UUID' | 'TITLE' | 'STATUS' | 'CHUNK' | 'CITATIONS' | 'COMPLETED' | 'ERROR';
 
 export interface ChatMessageItem {
   id?: string | number;
@@ -16,11 +29,20 @@ export interface ChatMessageItem {
   role: 'user' | 'assistant';
   content?: string;
   status?: string;
+  citations?: CitationEntry[];
+}
+
+export interface CitationEntry {
+  id: number;
+  originalIndex: number;
+  fileName: string;
+  uuid: string;
+  sourcePages: number[];
 }
 
 interface StreamEvent {
   type: EventType;
-  data?: string;
+  data?: string | CitationEntry[];
 }
 
 export function Chat() {
@@ -193,38 +215,40 @@ export function Chat() {
   const handleStreamEvent = useCallback((event: StreamEvent) => {
     switch (event.type) {
       case 'UUID':
-        if (event.data) {
+        if (typeof(event.data) === 'string') {
           setCurrentChatUUID(event.data);
         }
         break;
 
       case 'TITLE':
-        if (event.data) {
+        if (typeof(event.data) === 'string') {
           setChatTitle(event.data);
         }
         break;
 
       case 'STATUS':
         setMessages(prev => {
-          if(!event.data) {
-            return prev;
+          if (typeof(event.data) === 'string') {
+            const lastMessage = prev[prev.length - 1];
+            // If we haven't created the AI message yet, create it with the status
+            if (lastMessage?.role !== 'assistant') {
+              const data = event.data;
+              setTimeout(() => addStatusToQueue(data), 0);
+              return [...prev, { role: 'assistant', content: '' }];
+            }
+            addStatusToQueue(event.data);
           }
-          const lastMessage = prev[prev.length - 1];
-          // If we haven't created the AI message yet, create it with the status
-          if (lastMessage?.role !== 'assistant') {
-            setTimeout(() => addStatusToQueue(event.data!), 0);
-            return [...prev, { role: 'assistant', content: '' }];
-          } else {
-            addStatusToQueue(event.data!);
-            return prev;
-          }
+          return prev;
         });
         break;
 
-      case 'CHUNK':
+      case 'CHUNK':  
         clearStatusQueue();
         setMessages(prev => {
-          const lastMessage = prev[prev.length - 1];
+          if (typeof(event.data) !== 'string') {
+            return prev;
+          }
+          const lastMessage = prev.at(-1);
           if (lastMessage?.role === 'assistant') {
             const updatedMessage = {
               ...lastMessage,
@@ -240,6 +264,23 @@ export function Chat() {
             return [...prev, newMessage];
           }
         });
+        break;
+
+      case 'CITATIONS':
+        clearStatusQueue();
+        if (typeof(event.data) !== 'string') {
+          setMessages(prev => {
+            const lastMessage = prev.at(-1);
+            if (lastMessage) {
+              const updatedMessage: ChatMessageItem = {
+                ...lastMessage,
+                citations: event.data as CitationEntry[]
+              }
+              return [...prev.slice(0, -1), updatedMessage];
+            }
+            return prev
+          });
+        }
         break;
 
       case 'COMPLETED':
@@ -340,6 +381,8 @@ export function Chat() {
     }
   };
 
+
+
   return (
     <div className="chat-container">
 
@@ -371,8 +414,10 @@ export function Chat() {
                   {msg.content && (
                     <div className="chat-message-content">
                       {msg.role === 'assistant' ? (
-                        <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                          {msg.content}
+                        <ReactMarkdown 
+                          rehypePlugins={[rehypeRaw, [rehypeSanitize, schema]]}
+                          components={{ sup: Citation }}>
+                          {msg.content.replace(/__CITE_(\d+)__/g, (_, id) => citation(Number(id), msg.citations))}
                         </ReactMarkdown>
                       ) : (
                         <p className="chat-message-text">{msg.content}</p>
@@ -396,4 +441,15 @@ export function Chat() {
 
     </div>
   );
+}
+
+function citation(id: number, citations?: CitationEntry[]) {
+  const citation = citations?.find(citation => citation.originalIndex===id);
+  if (citation) {
+    return `<sup data-filename="${citation.fileName}" 
+                 data-url="/api/v1/kb/documents/${citation.uuid}/download"
+                 data-pages="${citation.sourcePages}">${citation.id}</sup>`;
+    
+  }
+  return ``;
 }

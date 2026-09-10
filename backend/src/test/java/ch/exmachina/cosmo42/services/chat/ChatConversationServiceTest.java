@@ -1,15 +1,21 @@
 package ch.exmachina.cosmo42.services.chat;
 
-import ch.exmachina.cosmo42.entities.ChatConversation;
-import ch.exmachina.cosmo42.entities.KBDocument;
-import ch.exmachina.cosmo42.exceptions.ChatConversationNotFoundException;
-import ch.exmachina.cosmo42.exceptions.InvalidChatTitleException;
-import ch.exmachina.cosmo42.repositories.ChatConversationRepository;
-import ch.exmachina.cosmo42.repositories.KBDocumentRepository;
-import ch.exmachina.cosmo42.services.kb.MarkdownLinkProcessor;
-import ch.exmachina.cosmo42.testsupport.FakeClock;
-import ch.exmachina.cosmo42.testsupport.Fixtures;
-import jakarta.persistence.EntityManager;
+import static ch.exmachina.cosmo42.services.chat.ChatAttribute.CITATIONS;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+
+import java.time.LocalDateTime;
+import java.util.List;
+import java.util.Optional;
+
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -21,14 +27,15 @@ import org.springframework.ai.chat.messages.AssistantMessage;
 import org.springframework.ai.chat.messages.Message;
 import org.springframework.dao.DataIntegrityViolationException;
 
-import java.time.LocalDateTime;
-import java.util.List;
-import java.util.Optional;
-
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.ArgumentMatchers.*;
-import static org.mockito.Mockito.*;
+import ch.exmachina.cosmo42.dto.CitationEntryDTO;
+import ch.exmachina.cosmo42.entities.ChatConversation;
+import ch.exmachina.cosmo42.entities.KBDocument;
+import ch.exmachina.cosmo42.exceptions.ChatConversationNotFoundException;
+import ch.exmachina.cosmo42.exceptions.InvalidChatTitleException;
+import ch.exmachina.cosmo42.repositories.ChatConversationRepository;
+import ch.exmachina.cosmo42.testsupport.FakeClock;
+import ch.exmachina.cosmo42.testsupport.Fixtures;
+import jakarta.persistence.EntityManager;
 
 class ChatConversationServiceTest {
 
@@ -36,8 +43,6 @@ class ChatConversationServiceTest {
     ChatMemory chatMemory;
     EntityManager entityManager;
     ChatConversationService service;
-    KBDocumentRepository kbDocumentRepository;
-    MarkdownLinkProcessor markdownLinkProcessor;
 
     static final LocalDateTime NOW = Fixtures.FIXED_NOW;
 
@@ -45,11 +50,9 @@ class ChatConversationServiceTest {
     void setUp() {
         repository = mock(ChatConversationRepository.class);
         chatMemory = mock(ChatMemory.class);
-        kbDocumentRepository = mock(KBDocumentRepository.class);
-        markdownLinkProcessor = new MarkdownLinkProcessor();
         entityManager = mock(EntityManager.class);
         service = new ChatConversationService(
-                repository, chatMemory, new TitleSanitizer(), FakeClock.fixedAt(NOW), kbDocumentRepository, markdownLinkProcessor, entityManager);
+                repository, chatMemory, new TitleSanitizer(), FakeClock.fixedAt(NOW), entityManager);
     }
 
     @Nested
@@ -178,47 +181,32 @@ class ChatConversationServiceTest {
         }
 
         @Test
-        void getReplacesRefFileTokensInAssistantMessages() {
-            String refUuid = "f9da77ff-9838-4c5f-898f-0e3e1232f255";
-            ChatConversation c = new ChatConversation();
-            c.setUuid("u-1");
-            when(repository.findByUuid("u-1")).thenReturn(Optional.of(c));
-            var msgs = List.<Message>of(
-                    new org.springframework.ai.chat.messages.UserMessage("hi"),
-                    new AssistantMessage("answer REF_FILE_" + refUuid + " test")
-            );
-            when(chatMemory.get("u-1")).thenReturn(msgs);
+        void getIncludesCitationsStoredWithMessage() {
+        	String refUuid = "f9da77ff-9838-4c5f-898f-0e3e1232f255";
             KBDocument kbDoc = new KBDocument();
             kbDoc.setUuid(refUuid);
             kbDoc.setFileName("test.pdf");
-            when(kbDocumentRepository.findAll()).thenReturn(List.of(kbDoc));
+            ChatConversation c = new ChatConversation();
+            c.setUuid("u-1");
+            when(repository.findByUuid("u-1")).thenReturn(Optional.of(c));
+            var assistant = new AssistantMessage("answer __CIT_2__ test");
+            var citation = CitationEntryDTO.builder()
+            		.id(1).originalIndex(2).uuid(refUuid).fileName(kbDoc.getFileName()).sourcePages(new int[] {1, 2}).build();
+            assistant.getMetadata().put(CITATIONS.name(), List.of(citation));
+			var msgs = List.<Message>of(
+                    new org.springframework.ai.chat.messages.UserMessage("hi"),
+                    assistant
+            );
+            when(chatMemory.get("u-1")).thenReturn(msgs);
 
             var result = service.get("u-1");
 
             assertThat(result.conversation()).isSameAs(c);
             assertThat(result.messages().get(0).getText()).isEqualTo("hi");
-            assertThat(result.messages().get(1).getText())
-                    .contains("(/api/v1/kb/documents/" + refUuid + "/download)")
-                    .doesNotContain("REF_FILE_");
-        }
-
-        @Test
-        void getStripsUnknownRefFileTokens() {
-            String refUuid = "f9da77ff-9838-4c5f-898f-0e3e1232f255";
-            ChatConversation c = new ChatConversation();
-            c.setUuid("u-1");
-            when(repository.findByUuid("u-1")).thenReturn(Optional.of(c));
-            var msgs = List.<Message>of(
-                    new AssistantMessage("answer REF_FILE_" + refUuid + " test")
-            );
-            when(chatMemory.get("u-1")).thenReturn(msgs);
-            when(kbDocumentRepository.findAll()).thenReturn(List.of());
-
-            var result = service.get("u-1");
-
-            assertThat(result.messages().get(0).getText())
-                    .isEqualTo("answer  test")
-                    .doesNotContain("REF_FILE_");
+            assertThat(result.messages().get(1)).satisfies(message -> { 
+            	assertThat(message.getText()).isEqualTo(assistant.getText());
+            	assertThat(message.getMetadata().get(CITATIONS.name())).isEqualTo(message.getMetadata().get(CITATIONS.name()));
+            });
         }
 
         @Test

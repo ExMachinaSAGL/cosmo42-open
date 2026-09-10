@@ -1,18 +1,19 @@
 package ch.exmachina.cosmo42.integration;
 
-import ch.exmachina.cosmo42.AbstractWebIntegrationTest;
-import ch.exmachina.cosmo42.entities.IngestionJob;
-import ch.exmachina.cosmo42.entities.IngestionJobStatus;
-import ch.exmachina.cosmo42.repositories.IngestionJobPageRepository;
-import ch.exmachina.cosmo42.repositories.IngestionJobRepository;
-import ch.exmachina.cosmo42.repositories.KBDocumentChunkRepository;
-import ch.exmachina.cosmo42.repositories.KBDocumentRepository;
-import ch.exmachina.cosmo42.services.kb.FileConverter;
-import ch.exmachina.cosmo42.services.kb.KBDocumentChunker;
-import ch.exmachina.cosmo42.services.kb.schema.Chunk;
-import ch.exmachina.cosmo42.services.kb.schema.ChunkType;
-import ch.exmachina.cosmo42.services.kb.schema.DocumentPage;
-import ch.exmachina.cosmo42.testsupport.EmbeddingMocks;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.awaitility.Awaitility.await;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.when;
+
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.time.Duration;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Optional;
+import java.util.function.BiConsumer;
+
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -27,20 +28,19 @@ import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.web.reactive.function.BodyInserters;
 
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.time.Duration;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
-import java.util.function.BiConsumer;
-
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.awaitility.Awaitility.await;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.doAnswer;
-import static org.mockito.Mockito.when;
+import ch.exmachina.cosmo42.AbstractWebIntegrationTest;
+import ch.exmachina.cosmo42.entities.IngestionJob;
+import ch.exmachina.cosmo42.entities.IngestionJobStatus;
+import ch.exmachina.cosmo42.repositories.IngestionJobPageRepository;
+import ch.exmachina.cosmo42.repositories.IngestionJobRepository;
+import ch.exmachina.cosmo42.repositories.KBDocumentChunkRepository;
+import ch.exmachina.cosmo42.repositories.KBDocumentRepository;
+import ch.exmachina.cosmo42.services.kb.FileConverter;
+import ch.exmachina.cosmo42.services.kb.KBDocumentChunker;
+import ch.exmachina.cosmo42.services.kb.schema.Chunk;
+import ch.exmachina.cosmo42.services.kb.schema.ChunkType;
+import ch.exmachina.cosmo42.services.kb.schema.DocumentPage;
+import ch.exmachina.cosmo42.testsupport.EmbeddingMocks;
 
 class IngestionPipelineAsyncE2ETest extends AbstractWebIntegrationTest {
 
@@ -115,7 +115,7 @@ class IngestionPipelineAsyncE2ETest extends AbstractWebIntegrationTest {
         byte[] pdfBytes = "%PDF-1.4\nfake".getBytes();
         when(fileConverter.convertSupportedFileToPdfFromBytes(any(), any())).thenReturn(pdfBytes);
         when(fileConverter.convertPdfToImages(any())).thenReturn(List.of(new byte[]{1}));
-        doAnswer(inv -> {
+        doAnswer(_ -> {
             throw new RuntimeException("chunker boom");
         })
                 .when(kbDocumentChunker).processPages(any(), any(), any());
@@ -162,7 +162,6 @@ class IngestionPipelineAsyncE2ETest extends AbstractWebIntegrationTest {
             onPageComplete.accept(1, pageOf(textChunk("page 2 body")));
             return null;
         }).when(kbDocumentChunker).processPages(any(), any(), any());
-        when(kbDocumentChunker.mergePages(any())).thenAnswer(inv -> ((List<Map.Entry>)inv.getArgument(0)).stream().map(Map.Entry::getValue).toList());
     }
 
     private static DocumentPage pageOf(Chunk... chunks) {

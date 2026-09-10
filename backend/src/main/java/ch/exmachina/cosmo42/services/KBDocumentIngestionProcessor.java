@@ -1,5 +1,20 @@
 package ch.exmachina.cosmo42.services;
 
+import static ch.exmachina.cosmo42.services.kb.schema.ChunkType.TABLE;
+
+import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Set;
+
+import org.springframework.ai.embedding.EmbeddingModel;
+import org.springframework.ai.embedding.EmbeddingRequest;
+import org.springframework.ai.embedding.EmbeddingResponse;
+import org.springframework.ai.openai.OpenAiEmbeddingOptions;
+import org.springframework.scheduling.annotation.Async;
+import org.springframework.stereotype.Service;
+
+import ch.exmachina.cosmo42.config.IngestionProperties;
 import ch.exmachina.cosmo42.entities.IngestionJob;
 import ch.exmachina.cosmo42.entities.KBDocument;
 import ch.exmachina.cosmo42.entities.KBDocumentChunk;
@@ -8,23 +23,10 @@ import ch.exmachina.cosmo42.repositories.KBDocumentRepository;
 import ch.exmachina.cosmo42.services.fs.FileService;
 import ch.exmachina.cosmo42.services.kb.FileConverter;
 import ch.exmachina.cosmo42.services.kb.KBDocumentChunker;
-import ch.exmachina.cosmo42.config.IngestionProperties;
-import ch.exmachina.cosmo42.services.kb.schema.Chunk;
-import ch.exmachina.cosmo42.services.kb.schema.DocumentPage;
-import ch.exmachina.cosmo42.services.kb.schema.ChunkType;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.ai.embedding.EmbeddingModel;
-import org.springframework.ai.embedding.EmbeddingRequest;
-import org.springframework.ai.embedding.EmbeddingResponse;
-import org.springframework.ai.openai.OpenAiEmbeddingOptions;
-import org.springframework.scheduling.annotation.Async;
-import org.springframework.stereotype.Service;
-
-import java.time.LocalDateTime;
-import java.util.*;
 
 @Service
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
@@ -34,6 +36,7 @@ public class KBDocumentIngestionProcessor {
 
     IngestionJobService ingestionJobService;
     KBDocumentChunker kbDocumentChunker;
+    KBDocumentChunkMerger chunkMerger;
     FileConverter fileConverter;
     FileService fileService;
     KBDocumentRepository kbDocumentRepository;
@@ -128,33 +131,22 @@ public class KBDocumentIngestionProcessor {
 
     private void embedAndStore(IngestionJob job) {
         KBDocument kbDocument = kbDocumentRepository.findByUuid(job.getKbDocumentUuid()).orElseThrow();
-        List<DocumentPage> mergedPages = kbDocumentChunker.mergePages(ingestionJobService.loadCompletedPages(job));
+        var mergedPages = chunkMerger.mergePages(ingestionJobService.loadCompletedPages(job));
         kbDocumentChunkRepository.deleteByKbDocument_Uuid(kbDocument.getUuid());
         embedAndSaveChunks(kbDocument, mergedPages);
         ingestionJobService.clearCompletedPagesChunksJson(job);
     }
-
-    private void embedAndSaveChunks(KBDocument kbDocument, List<DocumentPage> pages) {
-        List<KBDocumentChunk> chunks = new ArrayList<>();
+	
+    private void embedAndSaveChunks(KBDocument kbDocument, List<KBDocumentChunk> chunks) {
         List<String> toEmbed = new ArrayList<>();
 
-        for (var page : pages) {
-            for (Chunk chunk : page.getChunks()) {
-                KBDocumentChunk kbChunk = new KBDocumentChunk();
-                kbChunk.setUuid(UUID.randomUUID().toString());
-                kbChunk.setKbDocument(kbDocument);
-                kbChunk.setType(chunk.getType());
-                kbChunk.setContent(chunk.getContent());
-                kbChunk.setSummary(chunk.getSummary());
+        for (KBDocumentChunk kbChunk : chunks) {
+            kbChunk.setKbDocument(kbDocument);
 
-                boolean isTable = kbChunk.getType() == ChunkType.TABLE;
-                if(isTable) {
-                    chunks.add(kbChunk);
-                    toEmbed.add(kbChunk.getSummary());
-                } else if(kbChunk.getContent() != null) {
-                    chunks.add(kbChunk);
-                    toEmbed.add(kbChunk.getContent());
-                }
+            if(kbChunk.getType() == TABLE) {
+                toEmbed.add(joinTexts(kbChunk.getSummary(), kbChunk.getContent()));
+            } else if(kbChunk.getContent() != null) {
+                toEmbed.add(kbChunk.getContent());
             }
         }
 
@@ -172,6 +164,12 @@ public class KBDocumentIngestionProcessor {
         kbDocumentChunkRepository.saveAll(chunks);
         log.info("Saved {} chunks for document {}.", chunks.size(), kbDocument.getUuid());
     }
+    
+	static String joinTexts(String left, String right) {
+        if (left == null) return right;
+        if (right == null) return left;
+        return left + " " + right;
+	}
 	
     private IngestionJob refresh(String jobUuid) {
         return ingestionJobService.findByUuid(jobUuid).orElseThrow();

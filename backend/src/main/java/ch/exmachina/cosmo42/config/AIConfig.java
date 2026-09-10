@@ -8,6 +8,11 @@ import org.springframework.ai.openai.OpenAiEmbeddingOptions;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.transaction.PlatformTransactionManager;
+
+import ch.exmachina.cosmo42.ai.chat.memory.JdbcChatMemoryWithMetadataRepository;
+import tools.jackson.databind.ObjectMapper;
 
 @Configuration
 public class AIConfig {
@@ -59,9 +64,14 @@ public class AIConfig {
     }
 
     @Bean
-    public ChatMemory chatMemory(JdbcChatMemoryRepository jdbcRepository) {
+    public ChatMemory chatMemory(JdbcTemplate jdbcTemplate,
+            PlatformTransactionManager txManager,
+            JdbcChatMemoryRepository jdbcRepository,
+            ObjectMapper json) {
+
+        var memoryRepository = new JdbcChatMemoryWithMetadataRepository(jdbcTemplate, txManager, jdbcRepository, json);
         return MessageWindowChatMemory.builder()
-                .chatMemoryRepository(jdbcRepository)
+                .chatMemoryRepository(memoryRepository)
                 .maxMessages(chatMemoryMaxMessages)
                 .build();
     }

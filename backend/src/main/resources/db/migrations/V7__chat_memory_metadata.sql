@@ -1,0 +1,11 @@
+DROP INDEX SPRING_AI_CHAT_MEMORY_CONVERSATION_ID_SEQUENCE_ID_IDX ON SPRING_AI_CHAT_MEMORY;
+ALTER TABLE SPRING_AI_CHAT_MEMORY ADD CONSTRAINT PRIMARY KEY(conversation_id, sequence_id);
+
+CREATE TABLE CHAT_MEMORY_METADATA (
+    conversation_id VARCHAR(36) NOT NULL,
+    sequence_id BIGINT NOT NULL,
+    `key` VARCHAR(256) NOT NULL, 
+    `value` TEXT NOT NULL,
+    PRIMARY KEY(conversation_id, sequence_id,`key`),
+    FOREIGN KEY (conversation_id, sequence_id) REFERENCES SPRING_AI_CHAT_MEMORY(conversation_id, sequence_id) ON DELETE CASCADE
+);

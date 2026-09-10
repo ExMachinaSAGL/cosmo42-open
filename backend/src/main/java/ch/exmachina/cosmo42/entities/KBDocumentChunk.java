@@ -21,6 +21,12 @@ public class KBDocumentChunk extends BaseEntity {
     @ManyToOne(optional = false, fetch = FetchType.LAZY)
     @JoinColumn(name = "fk_kb_document_id")
     KBDocument kbDocument;
+    
+    @Column(nullable = false)
+    int startPage;
+    
+    @Column(nullable = false)
+    int endPage;
 
     @Column(name = "type", nullable = false)
     @Enumerated(EnumType.STRING)

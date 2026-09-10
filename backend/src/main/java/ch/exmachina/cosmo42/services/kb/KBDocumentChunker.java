@@ -1,11 +1,19 @@
 package ch.exmachina.cosmo42.services.kb;
 
-import ch.exmachina.cosmo42.services.kb.schema.Chunk;
-import ch.exmachina.cosmo42.services.kb.schema.DocumentPage;
-import jakarta.annotation.PreDestroy;
-import lombok.AccessLevel;
-import lombok.experimental.FieldDefaults;
-import lombok.extern.slf4j.Slf4j;
+import static org.springframework.ai.chat.client.AdvisorParams.ENABLE_NATIVE_STRUCTURED_OUTPUT;
+
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Set;
+import java.util.concurrent.CompletionService;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorCompletionService;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
+import java.util.function.BiConsumer;
+import java.util.stream.IntStream;
 
 import org.apache.commons.math3.util.Pair;
 import org.springframework.ai.chat.client.ChatClient;
@@ -17,15 +25,11 @@ import org.springframework.core.io.ByteArrayResource;
 import org.springframework.stereotype.Service;
 import org.springframework.util.MimeTypeUtils;
 
-import java.util.*;
-import java.util.concurrent.*;
-import java.util.function.BiConsumer;
-import java.util.stream.IntStream;
-
-import static java.util.Comparator.comparing;
-import static java.util.Objects.nonNull;
-import static java.util.stream.Collectors.toList;
-import static org.springframework.ai.chat.client.AdvisorParams.ENABLE_NATIVE_STRUCTURED_OUTPUT;
+import ch.exmachina.cosmo42.services.kb.schema.DocumentPage;
+import jakarta.annotation.PreDestroy;
+import lombok.AccessLevel;
+import lombok.experimental.FieldDefaults;
+import lombok.extern.slf4j.Slf4j;
 
 @Service
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
@@ -146,67 +150,4 @@ public class KBDocumentChunker {
     	return page;
     }
 
-	public List<DocumentPage> mergePages(List<Map.Entry<Integer, DocumentPage>> orderedPages) {
-		orderedPages = orderedPages.stream()
-				.filter(this::valid)
-				.sorted(comparing(Map.Entry::getKey))
-				.toList();
-
-		List<DocumentPage> merged = new ArrayList<>();
-
-		for (int i = 0; i < orderedPages.size(); i++) {
-			var page = orderedPages.get(i);
-			var source = page.getValue();
-			List<Chunk> chunks = source.getChunks();
-			if (chunks.isEmpty()) {
-				merged.add(page.getValue());
-				continue;
-			}
-			List<Chunk> outChunks = chunks.stream().limit(chunks.size() - 1).collect(toList());
-			var lastChunk = chunks.getLast();
-			if (lastChunk.getContinuesOnNextPage()) {
-				lastChunk = joinContinuingChunks(lastChunk, i, orderedPages);
-			}
-			outChunks.add(lastChunk);
-			merged.add(new DocumentPage(outChunks));
-		}
-		return merged;
-	}
-	
-	private boolean valid(Map.Entry<Integer, DocumentPage> page) {
-		return nonNull(page) && nonNull(page.getValue()) && nonNull(page.getValue().getChunks());
-	}
-
-	private Chunk joinContinuingChunks(Chunk start, final int from, List<Map.Entry<Integer, DocumentPage>> orderedPages) {
-		for (var i = from; start.getContinuesOnNextPage() && i < orderedPages.size() - 1;) {
-			var page = orderedPages.get(i);
-			var nextPage = orderedPages.get(++i);
-			if (nextPage.getKey() == page.getKey() + 1) {
-				var chunks = nextPage.getValue().getChunks();
-				var continuationChunk = chunks.stream()
-						.filter(chunk -> Objects.equals(start.getType(), chunk.getType()))
-						.findFirst();
-				if (continuationChunk.isPresent()) {
-					var continuation = continuationChunk.get();
-					start.setContent(joinTexts(start.getContent(), continuation.getContent()));
-					start.setSummary(joinTexts(start.getSummary(), continuation.getSummary()));
-					start.setContinuesOnNextPage(continuation.getContinuesOnNextPage());
-					nextPage.getValue().setChunks(chunks.stream().filter(c -> c != continuation).toList());
-				} else {
-					// The model may have hallucinated
-					start.setContinuesOnNextPage(false);
-					return start;
-				}
-			} else {
-				break;
-			}
-		}
-		return start;
-	}
-
-	private String joinTexts(String left, String right) {
-        if (left == null) return right;
-        if (right == null) return left;
-        return left + " " + right;
-	}
 }

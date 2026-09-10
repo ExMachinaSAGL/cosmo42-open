@@ -43,7 +43,7 @@ class IngestionJobMapperTest {
 
             String json = mapper.toChunksJson(page);
 
-            assertThat(json).contains("\"type\":\"text\"");
+            assertThat(json).contains("\"type\":\"TEXT\"");
             assertThat(json).contains("\"content\":\"Hello world\"");
         }
 
@@ -54,7 +54,7 @@ class IngestionJobMapperTest {
 
             String json = mapper.toChunksJson(page);
 
-            assertThat(json).contains("\"type\":\"table\"");
+            assertThat(json).contains("\"type\":\"TABLE\"");
             assertThat(json).contains("\"content\":\"| A | B |\"");
             assertThat(json).contains("\"summary\":\"Sales summary\"");
         }
@@ -69,8 +69,8 @@ class IngestionJobMapperTest {
 
             assertThat(json).contains("First paragraph");
             assertThat(json).contains("| X |");
-            assertThat(json).contains("\"type\":\"text\"");
-            assertThat(json).contains("\"type\":\"table\"");
+            assertThat(json).contains("\"type\":\"TEXT\"");
+            assertThat(json).contains("\"type\":\"TABLE\"");
         }
 
         @Test
@@ -108,7 +108,7 @@ class IngestionJobMapperTest {
         @Test
         void deserializesValidPageJson() {
             String json = """
-                    {"chunks":[{"type":"text","content":"Hello","continuesOnNextPage":false}]}""";
+                    {"chunks":[{"type":"TEXT","content":"Hello","continuesOnNextPage":false}]}""";
             IngestionJobPage entity = new IngestionJobPage();
             entity.setChunksJson(json);
 
@@ -122,7 +122,7 @@ class IngestionJobMapperTest {
         @Test
         void deserializesPageWithTableChunk() {
             String json = """
-                    {"chunks":[{"type":"table","content":"| A |","summary":"Data","continuesOnNextPage":false}]}""";
+                    {"chunks":[{"type":"TABLE","content":"| A |","summary":"Data","continuesOnNextPage":false}]}""";
             IngestionJobPage entity = new IngestionJobPage();
             entity.setChunksJson(json);
 

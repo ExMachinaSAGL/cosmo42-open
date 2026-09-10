@@ -1,12 +1,13 @@
 package ch.exmachina.cosmo42.services.chat.tools;
 
-import ch.exmachina.cosmo42.entities.KBDocumentChunk;
-import ch.exmachina.cosmo42.entities.converters.VectorAttributeConverter;
-import ch.exmachina.cosmo42.repositories.KBDocumentChunkRepository;
-import lombok.AccessLevel;
-import lombok.RequiredArgsConstructor;
-import lombok.experimental.FieldDefaults;
+import static ch.exmachina.cosmo42.services.chat.ChatAttribute.CITATIONS;
+import static java.util.stream.IntStream.range;
+import static java.util.stream.IntStream.rangeClosed;
+
+import java.util.List;
+
 import org.springframework.ai.chat.model.ToolContext;
+import org.springframework.ai.embedding.Embedding;
 import org.springframework.ai.embedding.EmbeddingModel;
 import org.springframework.ai.embedding.EmbeddingRequest;
 import org.springframework.ai.embedding.EmbeddingResponse;
@@ -16,7 +17,15 @@ import org.springframework.ai.tool.annotation.ToolParam;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.List;
+import com.fasterxml.jackson.annotation.JsonIgnore;
+
+import ch.exmachina.cosmo42.entities.converters.VectorAttributeConverter;
+import ch.exmachina.cosmo42.repositories.KBDocumentChunkRepository;
+import ch.exmachina.cosmo42.services.kb.CitationCollector;
+import lombok.AccessLevel;
+import lombok.Builder;
+import lombok.RequiredArgsConstructor;
+import lombok.experimental.FieldDefaults;
 
 @Service
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
@@ -46,21 +55,35 @@ public class KBDocumentSimilaritySearchTool extends BaseTool {
 
         EmbeddingResponse embeddingResponse = embeddingModel.call(
                 new EmbeddingRequest(List.of(query), embeddingModelOptions));
-        float[] queryVector = embeddingResponse.getResults().getFirst().getOutput();
+        List<Embedding> results = embeddingResponse.getResults();
+        if (results.isEmpty()) {
+            return new KBSimilaritySearchResponse(List.of());
+        }
+        float[] queryVector = results.getFirst().getOutput();
         byte[] bytesVector = vectorAttributeConverter.convertToDatabaseColumn(queryVector);
 
-        List<KBDocumentChunk> chunks = kbDocumentChunkRepository.findMostSimilarByCosine(
+        var chunks = kbDocumentChunkRepository.findMostSimilarByCosine(
                 bytesVector,
                 0.5,
                 10
         );
-        List<ChunkDTO> chunkDTOs = chunks.stream()
-                .map(c -> new ChunkDTO(c.getKbDocument().getFileName(), c.getKbDocument().getUuid(), c.getContent()))
-                .toList();
+        var chunkDTOs = range(0, chunks.size()).mapToObj(i -> {
+            var c = chunks.get(i);
+            var sourcePages = rangeClosed(c.getStartPage() + 1, c.getEndPage() + 1).toArray();
+            return new ChunkDTO(i + 1, c.getKbDocument().getFileName(), c.getKbDocument().getUuid(), c.getContent(),
+                    sourcePages);
+        }).toList();
+
+        if (context.getContext().get(CITATIONS.name()) instanceof CitationCollector citationCollector) {
+            citationCollector.collectChunks(chunkDTOs);
+        }
+
         return new KBSimilaritySearchResponse(chunkDTOs);
     }
     public record KBSimilaritySearchResponse(List<ChunkDTO> chunks) {}
 
-    public record ChunkDTO(String fileName, String uuid, String content) {}
+    @Builder
+    public record ChunkDTO(int id, @JsonIgnore String fileName, @JsonIgnore String uuid, String content,
+            @JsonIgnore int[] sourcePages) {}
 
 }

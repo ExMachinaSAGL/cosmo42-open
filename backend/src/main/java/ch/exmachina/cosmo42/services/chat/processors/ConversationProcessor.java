@@ -1,30 +1,26 @@
 package ch.exmachina.cosmo42.services.chat.processors;
 
-import ch.exmachina.cosmo42.dto.ChatEventType;
-import ch.exmachina.cosmo42.dto.ChatResponseDTO;
-import ch.exmachina.cosmo42.entities.KBDocument;
-import ch.exmachina.cosmo42.repositories.KBDocumentRepository;
-import ch.exmachina.cosmo42.services.chat.ChatAttribute;
-import ch.exmachina.cosmo42.services.chat.ChatContext;
-import ch.exmachina.cosmo42.services.chat.tools.KBDocumentSimilaritySearchTool;
-import ch.exmachina.cosmo42.services.kb.MarkdownLinkProcessor;
-import lombok.AccessLevel;
-import lombok.RequiredArgsConstructor;
-import lombok.experimental.FieldDefaults;
+import java.util.HashMap;
+import java.util.Map;
+
 import org.springframework.ai.chat.client.ChatClient;
-import org.springframework.ai.chat.client.advisor.MessageChatMemoryAdvisor;
-import org.springframework.ai.chat.client.advisor.api.Advisor;
 import org.springframework.ai.chat.memory.ChatMemory;
 import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.ai.chat.model.ChatResponse;
 import org.springframework.ai.openai.OpenAiChatOptions;
 import org.springframework.http.codec.ServerSentEvent;
 import org.springframework.stereotype.Service;
-import reactor.core.publisher.Flux;
 
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import ch.exmachina.cosmo42.dto.ChatEventType;
+import ch.exmachina.cosmo42.dto.ChatResponseDTO;
+import ch.exmachina.cosmo42.services.chat.ChatAttribute;
+import ch.exmachina.cosmo42.services.chat.ChatContext;
+import ch.exmachina.cosmo42.services.chat.tools.KBDocumentSimilaritySearchTool;
+import ch.exmachina.cosmo42.services.kb.CitationCollector;
+import lombok.AccessLevel;
+import lombok.RequiredArgsConstructor;
+import lombok.experimental.FieldDefaults;
+import reactor.core.publisher.Flux;
 
 @Service
 @RequiredArgsConstructor
@@ -35,8 +31,6 @@ public class ConversationProcessor implements ChatProcessor {
     OpenAiChatOptions.Builder chatModelOptionsBuilder;
     ChatMemory chatMemory;
     KBDocumentSimilaritySearchTool kbDocumentSimilaritySearchTool;
-    KBDocumentRepository kbDocumentRepository;
-    MarkdownLinkProcessor markdownLinkProcessor;
 
     private static final String system_instruction = """
                 You are cosmo42, an expert in retrieving information from a private knowledge base.
@@ -50,8 +44,8 @@ public class ConversationProcessor implements ChatProcessor {
 
                 POST-SEARCH RESPONSE RULES:
                 - FACT-BASED ONLY: Build your response EXCLUSIVELY on the documents retrieved by the tool.\s
-                - NO INFORMATION FOUND: If, and ONLY IF, you have called the tool and it has returned nothing useful to answer, state: "I have not found specific information in the documents at my disposal regarding this request." At this point, you may draw upon your prior knowledge to answer the user.
-                - TRANSPARENCY: Always specify which files your information comes from using the REF_FILE_{UUID} convention (for example, REF_FILE_e58ed763-928c-4155-bee9-fdbaaadc15f3). CRUCIAL: NEVER INVENT A UUID; solely and exclusively use the file UUIDs indicated in the context provided to you.
+                - NO INFORMATION FOUND: If, and ONLY IF, you have called the tool and it has returned nothing useful to answer, state: "I have not found specific information in the documents at my disposal regarding this request.". At this point, you may draw upon your prior knowledge to answer the user.
+                - TRANSPARENCY: Always specify which chunk your information comes from using the __CITE_{CHUNK_ID}__ convention (for example: __CITE_1__, __CITE_3__). CRUCIAL: NEVER INVENT A CHUNK_ID; solely and exclusively use the ID of the chunks indicated in the context provided to you.
                 - TONE AND STYLE: Maintain a professional, reassuring, and clear tone. Use bullet points to describe complex procedures or data.
             """;
 
@@ -63,20 +57,18 @@ public class ConversationProcessor implements ChatProcessor {
                 .defaultTools(kbDocumentSimilaritySearchTool)
                 .build();
 
+        var citationCollector = new CitationCollector();
+
         // MessageChatMemoryAdvisor.adviseStream() persists the user message (in before)
         // and the aggregated assistant response (in after, via ChatClientMessageAggregator).
         // No explicit chatMemory.add() needed at the end of the stream.
-        MessageChatMemoryAdvisor chatMemoryAdvisor = MessageChatMemoryAdvisor.builder(chatMemory)
-                .order(Advisor.DEFAULT_CHAT_MEMORY_PRECEDENCE_ORDER) // so the memory advisor wraps the tool-call loop, and the {@code ToolCallingAdvisor} manages its own intermediate conversation history 
-                .build();
-
-        List<KBDocument> allKbDocuments = kbDocumentRepository.findAll();
+        var chatMemoryAdvisor = new AnnotatedMessageChatMemoryAdvisor(chatMemory, citationCollector);
 
         return chatClient.prompt()
                 .user(context.getRequest().message())
                 .advisors(chatMemoryAdvisor)
                 .advisors(a -> a.param(ChatMemory.CONVERSATION_ID, context.getChatUuid()))
-                .toolContext(buildToolContext(context))
+                .toolContext(buildToolContext(context, citationCollector))
                 .stream()
                 .chatResponse()
                 .bufferUntil(response -> response.getResult() != null &&
@@ -92,7 +84,7 @@ public class ConversationProcessor implements ChatProcessor {
                         text += raw;
                     }
 
-                    text = markdownLinkProcessor.replaceFileReferenceLinks(text, allKbDocuments);
+                    citationCollector.collectCitations(text);
 
                     return ServerSentEvent.<ChatResponseDTO>builder()
                             .data(ChatResponseDTO.builder()
@@ -100,12 +92,22 @@ public class ConversationProcessor implements ChatProcessor {
                                     .data(text)
                                     .build())
                             .build();
+                    
+                }).doOnComplete(() -> {
+                    
+                    context.getEventSink().tryEmitNext(ServerSentEvent.<ChatResponseDTO>builder()
+                        .data(ChatResponseDTO.builder()
+                            .type(ChatEventType.CITATIONS)
+                            .data(citationCollector.assemble())
+                            .build()
+                        ).build());
                 });
     }
 
-    private Map<String, Object> buildToolContext(ChatContext context) {
+    private Map<String, Object> buildToolContext(ChatContext context, CitationCollector citationCollector) {
         Map<String, Object> toolContext = new HashMap<>();
         toolContext.put(ChatAttribute.SINK.name(), context.getEventSink());
+        toolContext.put(ChatAttribute.CITATIONS.name(), citationCollector);
         return toolContext;
     }
 }

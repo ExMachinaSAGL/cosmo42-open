@@ -1,17 +1,16 @@
 package ch.exmachina.cosmo42.testsupport;
 
+import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.UUID;
+
 import ch.exmachina.cosmo42.entities.ChatConversation;
 import ch.exmachina.cosmo42.entities.KBDocument;
 import ch.exmachina.cosmo42.entities.KBDocumentChunk;
 import ch.exmachina.cosmo42.services.kb.schema.Chunk;
 import ch.exmachina.cosmo42.services.kb.schema.ChunkType;
 import ch.exmachina.cosmo42.services.kb.schema.DocumentPage;
-import ch.exmachina.cosmo42.services.kb.schema.ChunkType;
-
-import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.UUID;
 
 public final class Fixtures {
 
@@ -48,13 +47,16 @@ public final class Fixtures {
     public static KBDocumentChunk chunk(KBDocument doc,
                                         ChunkType type,
                                         String content,
+                                        int[] sourcePages,
                                         float[] embedding) {
         KBDocumentChunk c = new KBDocumentChunk();
         c.setUuid(UUID.randomUUID().toString());
         c.setKbDocument(doc);
         c.setType(type);
         c.setContent(content);
-        c.setEmbedding(embedding);
+		c.setStartPage(sourcePages[0]);
+		c.setEndPage(sourcePages[sourcePages.length - 1]);
+		c.setEmbedding(embedding);
         return c;
     }
 

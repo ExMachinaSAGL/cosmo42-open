@@ -1,16 +1,11 @@
 package ch.exmachina.cosmo42.services.chat;
 
-import ch.exmachina.cosmo42.entities.ChatConversation;
-import ch.exmachina.cosmo42.entities.KBDocument;
-import ch.exmachina.cosmo42.exceptions.ChatConversationNotFoundException;
-import ch.exmachina.cosmo42.exceptions.InvalidChatTitleException;
-import ch.exmachina.cosmo42.repositories.ChatConversationRepository;
-import ch.exmachina.cosmo42.repositories.KBDocumentRepository;
-import ch.exmachina.cosmo42.services.kb.MarkdownLinkProcessor;
-import jakarta.persistence.EntityManager;
-import lombok.extern.slf4j.Slf4j;
+import java.time.Clock;
+import java.time.LocalDateTime;
+import java.util.List;
+import java.util.Optional;
+
 import org.springframework.ai.chat.memory.ChatMemory;
-import org.springframework.ai.chat.messages.AssistantMessage;
 import org.springframework.ai.chat.messages.Message;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;
@@ -18,10 +13,12 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.Clock;
-import java.time.LocalDateTime;
-import java.util.List;
-import java.util.Optional;
+import ch.exmachina.cosmo42.entities.ChatConversation;
+import ch.exmachina.cosmo42.exceptions.ChatConversationNotFoundException;
+import ch.exmachina.cosmo42.exceptions.InvalidChatTitleException;
+import ch.exmachina.cosmo42.repositories.ChatConversationRepository;
+import jakarta.persistence.EntityManager;
+import lombok.extern.slf4j.Slf4j;
 
 @Service
 @Slf4j
@@ -31,8 +28,6 @@ public class ChatConversationService {
     private final ChatMemory chatMemory;
     private final TitleSanitizer titleSanitizer;
     private final Clock clock;
-    private final KBDocumentRepository kbDocumentRepository;
-    private final MarkdownLinkProcessor markdownLinkProcessor;
     private final EntityManager entityManager;
 
     public ChatConversationService(
@@ -40,15 +35,11 @@ public class ChatConversationService {
             ChatMemory chatMemory,
             TitleSanitizer titleSanitizer,
             Clock clock,
-            KBDocumentRepository kbDocumentRepository,
-            MarkdownLinkProcessor markdownLinkProcessor,
             EntityManager entityManager) {
         this.repository = repository;
         this.chatMemory = chatMemory;
         this.titleSanitizer = titleSanitizer;
         this.clock = clock;
-        this.kbDocumentRepository = kbDocumentRepository;
-        this.markdownLinkProcessor = markdownLinkProcessor;
         this.entityManager = entityManager;
     }
 
@@ -109,16 +100,6 @@ public class ChatConversationService {
         ChatConversation c = repository.findByUuid(uuid)
                 .orElseThrow(() -> new ChatConversationNotFoundException(uuid));
         List<Message> messages = chatMemory.get(uuid);
-        List<KBDocument> allKbDocuments = kbDocumentRepository.findAll();
-
-        messages = messages.stream().map(msg -> {
-            if (msg instanceof AssistantMessage) {
-                String newContent = markdownLinkProcessor.replaceFileReferenceLinks(msg.getText(), allKbDocuments);
-                return new AssistantMessage(newContent);
-            } else {
-                return msg;
-            }
-        }).toList();
         return new ChatConversationWithMessages(c, messages);
     }
 

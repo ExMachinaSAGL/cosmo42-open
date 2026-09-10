@@ -7,6 +7,7 @@ import ch.exmachina.cosmo42.testsupport.TestDbCleaner;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.ai.chat.messages.AssistantMessage;
+import org.springframework.ai.chat.metadata.ChatGenerationMetadata;
 import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.ai.chat.model.ChatResponse;
 import org.springframework.ai.chat.model.Generation;
@@ -59,7 +60,7 @@ class ChatStreamSseSequenceTest extends AbstractIntegrationTest {
                 List.of(new Generation(new AssistantMessage("Deploy Q")))));
         when(chatModel.stream(any(Prompt.class))).thenReturn(Flux.just(
                 new ChatResponse(List.of(new Generation(new AssistantMessage("part1 ")))),
-                new ChatResponse(List.of(new Generation(new AssistantMessage("part2"))))
+                new ChatResponse(List.of(new Generation(new AssistantMessage("part2"), ChatGenerationMetadata.builder().finishReason("EOS").build())))
         ));
 
         List<ChatEventType> types = collectEventTypes("{\"uuid\":null,\"message\":\"deploy?\"}");
@@ -91,6 +92,7 @@ class ChatStreamSseSequenceTest extends AbstractIntegrationTest {
         assertThat(types).first().isEqualTo(ChatEventType.STATUS);
         assertThat(types).last().isEqualTo(ChatEventType.COMPLETED);
         assertThat(types).contains(ChatEventType.CHUNK);
+        assertThat(types).contains(ChatEventType.CITATIONS);
     }
 
     @Test

@@ -1,18 +1,10 @@
 package ch.exmachina.cosmo42.services.kb;
 
-import ch.exmachina.cosmo42.services.kb.schema.ChunkType;
-import ch.exmachina.cosmo42.services.kb.schema.DocumentPage;
-import ch.exmachina.cosmo42.testsupport.ChatModelMocks;
-import ch.exmachina.cosmo42.testsupport.Fixtures;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
-import org.springframework.ai.chat.messages.AssistantMessage;
-import org.springframework.ai.chat.model.ChatModel;
-import org.springframework.ai.chat.model.ChatResponse;
-import org.springframework.ai.chat.model.Generation;
-import org.springframework.ai.chat.prompt.Prompt;
-import org.springframework.ai.openai.OpenAiChatOptions;
-import reactor.core.publisher.Flux;
+import static java.util.Collections.synchronizedMap;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 import java.util.HashMap;
 import java.util.LinkedHashSet;
@@ -22,12 +14,19 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
-import static java.util.Collections.synchronizedMap;
-import static java.util.Map.entry;
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.springframework.ai.chat.messages.AssistantMessage;
+import org.springframework.ai.chat.model.ChatModel;
+import org.springframework.ai.chat.model.ChatResponse;
+import org.springframework.ai.chat.model.Generation;
+import org.springframework.ai.chat.prompt.Prompt;
+import org.springframework.ai.openai.OpenAiChatOptions;
+
+import ch.exmachina.cosmo42.services.kb.schema.ChunkType;
+import ch.exmachina.cosmo42.services.kb.schema.DocumentPage;
+import ch.exmachina.cosmo42.testsupport.ChatModelMocks;
+import reactor.core.publisher.Flux;
 
 class KBDocumentChunkerTest {
 
@@ -137,7 +136,7 @@ class KBDocumentChunkerTest {
     @Test
     void processPages_withTableChunk_passesTableThrough() {
         String tableJson = """
-                {"chunks":[{"type":"table","content":"| A | B |","summary":"Sales data","continuesOnNextPage":false}]}""";
+                {"chunks":[{"type":"TABLE","content":"| A | B |","summary":"Sales data","continuesOnNextPage":false}]}""";
         stubStreamResponse(tableJson);
         ConcurrentMap<Integer, DocumentPage> results = new ConcurrentHashMap<>();
 
@@ -163,23 +162,11 @@ class KBDocumentChunkerTest {
         assertThat(page).isNull();
     }
 
-    @Test
-    void mergePages_delegatesCorrectly() {
-        DocumentPage page1 = Fixtures.page(Fixtures.textChunk("hello"));
-        DocumentPage page2 = Fixtures.page(Fixtures.textChunk("world"));
-
-        var result = chunker.mergePages(List.of(entry(1, page1), entry(2, page2)));
-
-        assertThat(result).hasSize(2);
-        assertThat(result.get(0).getChunks().getFirst().getContent()).isEqualTo("hello");
-        assertThat(result.get(1).getChunks().getFirst().getContent()).isEqualTo("world");
-    }
-
     private void stubStreamResponse(String json) {
     	ChatModelMocks.replyingWith(chatModel, json);
     }
 
     private static String pageJson(String content) {
-        return "{\"chunks\":[{\"type\":\"text\",\"content\":\"" + content + "\",\"continuesOnNextPage\":false}]}";
+        return "{\"chunks\":[{\"type\":\"TEXT\",\"content\":\"" + content + "\",\"continuesOnNextPage\":false}]}";
     }
 }

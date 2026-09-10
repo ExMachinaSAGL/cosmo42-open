@@ -20,7 +20,6 @@ public abstract class BaseTool {
         return s;
     }
 
-    @SuppressWarnings("unchecked")
     protected void emitStatus(ToolContext context, String message) {
         emitEvent(context, ChatEventType.STATUS, message);
     }

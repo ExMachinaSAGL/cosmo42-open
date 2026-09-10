@@ -1,12 +1,18 @@
 package ch.exmachina.cosmo42.integration;
 
-import ch.exmachina.cosmo42.AbstractIntegrationTest;
-import ch.exmachina.cosmo42.repositories.ChatConversationRepository;
-import ch.exmachina.cosmo42.testsupport.ChatModelMocks;
-import ch.exmachina.cosmo42.testsupport.TestDbCleaner;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.awaitility.Awaitility.await;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.when;
+
+import java.time.Duration;
+import java.util.List;
+import java.util.concurrent.TimeUnit;
+
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.ai.chat.messages.AssistantMessage;
+import org.springframework.ai.chat.metadata.ChatGenerationMetadata;
 import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.ai.chat.model.ChatResponse;
 import org.springframework.ai.chat.model.Generation;
@@ -20,14 +26,11 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.reactive.server.WebTestClient;
 
-import java.time.Duration;
-import java.util.List;
-import java.util.concurrent.TimeUnit;
-
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.awaitility.Awaitility.await;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.when;
+import ch.exmachina.cosmo42.AbstractIntegrationTest;
+import ch.exmachina.cosmo42.repositories.ChatConversationRepository;
+import ch.exmachina.cosmo42.testsupport.ChatModelMocks;
+import ch.exmachina.cosmo42.testsupport.TestDbCleaner;
+import reactor.core.publisher.Flux;
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 class ChatStreamE2ETest extends AbstractIntegrationTest {
@@ -58,12 +61,12 @@ class ChatStreamE2ETest extends AbstractIntegrationTest {
 
     @Test
     void newChatStreamsTitleAndPersistsRow() {
-        when(chatModel.call(any(Prompt.class))).thenReturn(new ChatResponse(
-                List.of(new Generation(new AssistantMessage("Deploy Question")))));
-        when(chatModel.stream(any(Prompt.class))).thenReturn(
-                reactor.core.publisher.Flux.just(new ChatResponse(
-                        List.of(new Generation(new AssistantMessage("Some answer.")))
-                )));
+        when(chatModel.call(any(Prompt.class)))
+                .thenReturn(new ChatResponse(List.of(new Generation(new AssistantMessage("Deploy Question"),
+                        ChatGenerationMetadata.builder().finishReason("EOS").build()))));
+        when(chatModel.stream(any(Prompt.class)))
+                .thenReturn(Flux.just(new ChatResponse(List.of(new Generation(new AssistantMessage("Some answer."),
+                        ChatGenerationMetadata.builder().finishReason("EOS").build())))));
 
         client.post().uri("/api/v1/chat/stream")
                 .contentType(MediaType.APPLICATION_JSON)
@@ -87,8 +90,7 @@ class ChatStreamE2ETest extends AbstractIntegrationTest {
         when(chatModel.call(any(Prompt.class))).thenThrow(new RuntimeException("upstream"));
         when(chatModel.stream(any(Prompt.class))).thenReturn(
                 reactor.core.publisher.Flux.just(new ChatResponse(
-                        List.of(new Generation(new AssistantMessage("answer")))
-                )));
+                        List.of(new Generation(new AssistantMessage("answer"))))));
 
         client.post().uri("/api/v1/chat/stream")
                 .contentType(MediaType.APPLICATION_JSON)

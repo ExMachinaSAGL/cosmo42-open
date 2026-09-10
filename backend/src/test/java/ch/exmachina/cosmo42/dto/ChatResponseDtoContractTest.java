@@ -150,6 +150,7 @@ class ChatResponseDtoContractTest {
                             ChatEventType.TITLE,
                             ChatEventType.STATUS,
                             ChatEventType.CHUNK,
+                            ChatEventType.CITATIONS,
                             ChatEventType.COMPLETED,
                             ChatEventType.ERROR);
         }

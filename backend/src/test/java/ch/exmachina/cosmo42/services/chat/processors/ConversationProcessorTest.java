@@ -1,65 +1,92 @@
 package ch.exmachina.cosmo42.services.chat.processors;
 
-import ch.exmachina.cosmo42.dto.ChatEventType;
-import ch.exmachina.cosmo42.dto.ChatRequestDTO;
-import ch.exmachina.cosmo42.dto.ChatResponseDTO;
-import ch.exmachina.cosmo42.entities.KBDocument;
-import ch.exmachina.cosmo42.repositories.KBDocumentRepository;
-import ch.exmachina.cosmo42.services.chat.ChatContext;
-import ch.exmachina.cosmo42.services.chat.tools.KBDocumentSimilaritySearchTool;
-import ch.exmachina.cosmo42.services.kb.MarkdownLinkProcessor;
-import ch.exmachina.cosmo42.testsupport.ChatModelMocks;
-import ch.exmachina.cosmo42.testsupport.Fixtures;
+import static ch.exmachina.cosmo42.services.chat.ChatAttribute.CITATIONS;
+import static ch.exmachina.cosmo42.testsupport.ChatModelMocks.stubDefaultOptions;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.argThat;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.doCallRealMethod;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
+import org.mockito.Mock;
+import org.mockito.Mockito;
+import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.ai.chat.memory.ChatMemory;
 import org.springframework.ai.chat.messages.AssistantMessage;
 import org.springframework.ai.chat.messages.Message;
+import org.springframework.ai.chat.metadata.ChatGenerationMetadata;
 import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.ai.chat.model.ChatResponse;
 import org.springframework.ai.chat.model.Generation;
 import org.springframework.ai.chat.prompt.Prompt;
+import org.springframework.ai.embedding.Embedding;
+import org.springframework.ai.embedding.EmbeddingModel;
+import org.springframework.ai.embedding.EmbeddingResponse;
 import org.springframework.ai.openai.OpenAiChatOptions;
+import org.springframework.ai.openai.OpenAiEmbeddingOptions;
 import org.springframework.http.codec.ServerSentEvent;
+
+import ch.exmachina.cosmo42.dto.ChatEventType;
+import ch.exmachina.cosmo42.dto.ChatRequestDTO;
+import ch.exmachina.cosmo42.dto.ChatResponseDTO;
+import ch.exmachina.cosmo42.dto.CitationEntryDTO;
+import ch.exmachina.cosmo42.entities.KBDocument;
+import ch.exmachina.cosmo42.entities.KBDocumentChunk;
+import ch.exmachina.cosmo42.entities.converters.VectorAttributeConverter;
+import ch.exmachina.cosmo42.repositories.KBDocumentChunkRepository;
+import ch.exmachina.cosmo42.services.chat.ChatAttribute;
+import ch.exmachina.cosmo42.services.chat.ChatContext;
+import ch.exmachina.cosmo42.services.chat.tools.KBDocumentSimilaritySearchTool;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Sinks;
 import reactor.test.StepVerifier;
 
-import java.util.List;
-import java.util.Objects;
-
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.ArgumentMatchers.*;
-import static org.mockito.Mockito.*;
-
+@ExtendWith(MockitoExtension.class)
 class ConversationProcessorTest {
 
-    ChatModel chatModel;
+    @Mock
+    ChatModel chatModel;    
+    @Mock
     ChatMemory chatMemory;
-    KBDocumentSimilaritySearchTool tool;
-    ConversationProcessor processor;
-    KBDocumentRepository kbDocumentRepository;
-    MarkdownLinkProcessor markdownLinkProcessor;
+    @Mock
+    EmbeddingModel embeddingModel;
+    @Mock
+    OpenAiEmbeddingOptions embeddingModelOptions;
+    @Mock
+    VectorAttributeConverter vectorAttributeConverter;
+    @Mock
+    KBDocumentChunkRepository kbDocumentChunkRepository;
 
+    ConversationProcessor processor;
+
+    KBDocumentSimilaritySearchTool tool;
+    
     @BeforeEach
     void setUp() {
-        chatModel = ChatModelMocks.replyingWith("dummy");
-        chatMemory = mock(ChatMemory.class);
-        tool = mock(KBDocumentSimilaritySearchTool.class);
-        kbDocumentRepository = mock(KBDocumentRepository.class);
+        stubDefaultOptions(chatModel);
+        tool = new KBDocumentSimilaritySearchTool(embeddingModel, embeddingModelOptions, vectorAttributeConverter,
+                kbDocumentChunkRepository);
         when(chatMemory.get(any())).thenReturn(List.of());
-        when(kbDocumentRepository.findAll()).thenReturn(List.of());
-        markdownLinkProcessor = new MarkdownLinkProcessor();
         processor = new ConversationProcessor(
                 chatModel,
                 OpenAiChatOptions.builder().model("test-model").temperature(0.2),
                 chatMemory,
-                tool,
-                kbDocumentRepository,
-                markdownLinkProcessor
-        );
+                tool);
     }
 
     @Nested
@@ -77,7 +104,7 @@ class ConversationProcessorTest {
             String systemText = cap.getValue().getSystemMessage().getText();
             assertThat(systemText).contains("You are cosmo42");
             assertThat(systemText).contains("private knowledge base");
-            assertThat(systemText).contains("REF_FILE_");
+            assertThat(systemText).contains("__CITE_");
             assertThat(systemText).contains("SEARCH FLOW (RAG)");
         }
 
@@ -143,38 +170,58 @@ class ConversationProcessorTest {
         }
 
         @Test
-        void referenceTokensInLlmOutputAreRewrittenToMarkdownLinks() {
-            String uuid = "1d52d4f1-1c5b-4be8-8b1c-0123456789ab";
-            KBDocument doc = Fixtures.document(uuid, "report.pdf");
-            when(kbDocumentRepository.findAll()).thenReturn(List.of(doc));
-            when(chatModel.stream(any(Prompt.class))).thenReturn(Flux.just(
-                    response("see REF_FILE_" + uuid + "\n")));
-            ChatContext ctx = newContext("u-1", "where is it?");
+        void citationCollectionAndMemorization() {
+            var store = mockMemory(chatMemory);
 
-            StepVerifier.create(processor.process(ctx))
+            var chunk = new KBDocumentChunk();
+            chunk.setKbDocument(new KBDocument());
+            chunk.getKbDocument().setUuid("uuid");
+            chunk.getKbDocument().setFileName("test.pdf");
+            chunk.setStartPage(0);
+            chunk.setEndPage(2);
+
+            var citation = CitationEntryDTO.builder()
+                    .id(1).originalIndex(1).fileName("test.pdf").uuid("uuid").sourcePages(new int[] { 1, 2, 3 })
+                    .build();
+
+            var searchToolCall = search("test", chunk);
+            when(chatModel.stream(any(Prompt.class)))
+                    .thenReturn(Flux.just(searchToolCall))
+                    .thenReturn(Flux.just(response("see __CITE_1__\n")));
+
+            ChatContext ctx = newContext("u-1", "where is it?\n");
+
+            StepVerifier.create(Flux.merge(ctx.getEventSink().asFlux(), processor.process(ctx)))
+                    .assertNext(sse -> {
+                        assertThat(sse.data()).isNotNull();
+                        assertThat(sse.data().getType()).isEqualTo(ChatEventType.STATUS);
+                        assertThat(sse.data().getData()).isEqualTo("Searching Knowledge Base...");
+                    })
                     .assertNext(sse -> {
                         assertThat(sse.data()).isNotNull();
                         assertThat(sse.data().getType()).isEqualTo(ChatEventType.CHUNK);
-                        assertThat((String) sse.data().getData())
-                                .contains("(/api/v1/kb/documents/" + uuid + "/download)")
-                                .doesNotContain("REF_FILE_");
+                        assertThat((String) sse.data().getData()).contains("__CITE_1__");
+                    })
+                    .assertNext(sse -> {
+                        assertThat(sse.data()).isNotNull();
+                        assertThat(sse.data().getType()).isEqualTo(ChatEventType.CITATIONS);
+                        assertThat((List) sse.data().getData())
+                                .usingRecursiveFieldByFieldElementComparator()
+                                .containsExactly(citation);
+
+                        ctx.getEventSink().tryEmitComplete();
                     })
                     .verifyComplete();
-        }
 
-        @Test
-        void unknownReferenceTokensAreStrippedFromOutput() {
-            when(kbDocumentRepository.findAll()).thenReturn(List.of());
-            String fakeUuid = "ffffffff-ffff-ffff-ffff-ffffffffffff";
-            when(chatModel.stream(any(Prompt.class))).thenReturn(Flux.just(
-                    response("text REF_FILE_" + fakeUuid + " more\n")));
-            ChatContext ctx = newContext("u-1", "hi");
-
-            StepVerifier.create(processor.process(ctx))
-                    .assertNext(sse -> assertThat((String) Objects.requireNonNull(sse.data()).getData())
-                            .doesNotContain("REF_FILE_")
-                            .doesNotContain(fakeUuid))
-                    .verifyComplete();
+            assertThat(store).hasSize(1)
+                    .allSatisfy((_, conversation) -> {
+                        assertThat(conversation).hasSize(2)
+                                .element(1).satisfies(message -> {
+                                    assertThat((List) message.getMetadata().get(ChatAttribute.CITATIONS.name()))
+                                            .usingRecursiveFieldByFieldElementComparator()
+                                            .containsExactly(citation);
+                                });
+                    });
         }
     }
 
@@ -206,8 +253,47 @@ class ConversationProcessorTest {
         }
     }
 
-    private static ChatResponse response(String text) {
-        return new ChatResponse(List.of(new Generation(new AssistantMessage(text))));
+    private static ChatResponse response(String text, CitationEntryDTO... citations) {
+        var assistantMessage = new AssistantMessage(text);
+        if (citations != null && citations.length > 0) {
+            assistantMessage.getMetadata().put(CITATIONS.name(), List.of(citations));
+        }
+        return ChatResponse.builder()
+                .generations(List.of(new Generation(
+                        assistantMessage,
+                        ChatGenerationMetadata.builder().finishReason("EOS").build())))
+                .build();
+    }
+
+    private ChatResponse search(String query, KBDocumentChunk... chunks) {
+        var toolCall = new AssistantMessage.ToolCall(
+                "id",
+                "function",
+                "search",
+                "{\"query\": \"test\"}");
+
+        when(embeddingModel.call(any())).thenReturn(new EmbeddingResponse(List.of(new Embedding(null, null))));
+
+        when(kbDocumentChunkRepository.findMostSimilarByCosine(any(), any(), anyInt())).thenReturn(List.of(chunks));
+
+        var assistantMessage = AssistantMessage.builder().toolCalls(List.of(toolCall)).build();
+        return ChatResponse.builder()
+                .generations((List.of(new Generation(assistantMessage))))
+                .build();
+    }
+
+    private static Map<String, List<Message>> mockMemory(ChatMemory chatMemory) {
+        var memory = new HashMap<String, List<Message>>();
+        doAnswer(i -> {
+            memory.computeIfAbsent(i.getArgument(0), _ -> new ArrayList<Message>())
+                    .addAll(i.getArgument(1));
+            return null;
+        }).when(chatMemory).add(any(), Mockito.<List<Message>>any());
+
+        doCallRealMethod().when(chatMemory).add(any(), Mockito.<Message>any());
+
+        when(chatMemory.get(any())).thenAnswer(i -> memory.getOrDefault(i.getArgument(0), List.<Message>of()));
+        return memory;
     }
 
     private static ChatContext newContext(String uuid, String message) {

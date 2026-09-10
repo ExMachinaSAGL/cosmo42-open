@@ -59,7 +59,7 @@ class ChatConversationMapperTest {
     void chatMessageDtoDoesNotExposeUnavailableTimestamp() {
         assertThat(Arrays.stream(ch.exmachina.cosmo42.dto.ChatMessageDTO.class.getRecordComponents())
                 .map(java.lang.reflect.RecordComponent::getName))
-                .containsExactly("role", "content");
+                .containsExactly("role", "content", "citations");
     }
 
     @Test
