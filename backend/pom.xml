@@ -32,7 +32,7 @@
         <pdfbox.version>3.0.8</pdfbox.version>
         <spotless.version>3.9.0</spotless.version>
         <jacoco.version>0.8.15</jacoco.version>
-        <tika.version>3.3.2</tika.version>
+        <tika.version>4.1.0</tika.version>
         <springdoc-openapi-starter-webmvc-ui.version>3.0.3</springdoc-openapi-starter-webmvc-ui.version>
     </properties>
     <dependencyManagement>
