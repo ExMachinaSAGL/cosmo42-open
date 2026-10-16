@@ -30,7 +30,7 @@
         <java.version>25</java.version>
         <spring-ai.version>2.0.0</spring-ai.version>
         <pdfbox.version>3.0.8</pdfbox.version>
-        <spotless.version>3.9.0</spotless.version>
+        <spotless.version>3.10.4</spotless.version>
         <jacoco.version>0.8.15</jacoco.version>
         <tika.version>3.3.2</tika.version>
         <springdoc-openapi-starter-webmvc-ui.version>3.0.3</springdoc-openapi-starter-webmvc-ui.version>
